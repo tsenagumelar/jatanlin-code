@@ -30,6 +30,7 @@ Dependency, build output, runtime data, dan secret lokal tidak ikut disalin: `.g
 
 - [Rules](specs/rules.md)
 - [Arsitektur](specs/architecture.md)
-- [Web Apps](specs/web-apps.md)
-- [WB Agent](specs/wb-agent.md)
-- [Backend Services](specs/backend-services.md)
+- [Specs Index](specs/README.md)
+- [Web Apps](specs/web/general.md)
+- [WB Agent](specs/wb/general.md)
+- [Backend Services](specs/backend/general.md)

@@ -35,18 +35,27 @@
 - Frontend hanya melakukan query/mutation/subscription ke Hasura GraphQL, kecuali ada endpoint REST eksplisit yang sudah disepakati.
 - Backend Go bertanggung jawab mengambil data ANPR/AXLE/CCTV/dimension dari device/file/source eksternal dan menyimpannya ke PostgreSQL/MinIO.
 - WB agent bertanggung jawab komunikasi dengan WServer/WIM device dan insert weighing ke `transact_weighing`.
-- Session aktif berada di `transact_wim_session` dengan status `IN_PROGRESS`; ANPR/AXLE/CCTV/processing harus mengikuti session context.
+- Session aktif berada di `transact_wim_session` dengan status `IN_PROGRESS`; semua capture harus mengikuti session context.
+- `session_id` wajib menjadi correlation key utama untuk ANPR, weighing, AXLE, dimension, CCTV, dan vehicle actual saat session aktif.
+- Tidak boleh ada source capture yang menjadi blocker source lain; ANPR gagal tidak boleh menghentikan weighing, AXLE, dimension, atau CCTV.
+- Data parsial adalah kondisi valid dan harus bisa masuk ke proses verifikasi/adjustment.
+- Jika source tidak mendeteksi data, tetap insert placeholder row dengan minimal `id` dan `session_id`; field lainnya harus nullable dan boleh diisi saat verifikasi.
+- Field kosong pada placeholder harus `NULL`, bukan empty string; ini penting untuk field unik seperti `external_id`.
 - Insert data dari FTP/device harus idempotent dan tahan duplicate.
+- Insert placeholder harus idempotent per `session_id + source`.
+- Correlation berbasis waktu hanya boleh menjadi fallback atau compatibility layer, bukan primary key flow baru.
 
 ## Rules Code Umum
 
 - Pertahankan boundary area: web tidak mengakses FTP/MinIO secret/device langsung; backend tidak menyimpan UI state; agent tidak mengurus dashboard.
 - Tambahkan validasi konfigurasi saat startup untuk service yang membutuhkan koneksi eksternal.
-- Handler device/FTP harus toleran terhadap file belum lengkap, koneksi putus, timeout, dan duplicate message.
+- Handler device/FTP harus toleran terhadap file belum lengkap, koneksi putus, timeout, duplicate message, dan capture missing.
 - Query frontend yang menampilkan data operasional harus punya loading state, empty state, error handling, pagination, dan refresh behavior.
 - Perubahan schema database harus disertai migration dan update specs.
+- Kolom source capture tidak boleh dibuat `NOT NULL` kecuali benar-benar wajib untuk identitas row; untuk flow session, `session_id` adalah identitas relasi utama.
 - Fitur realtime harus menjelaskan source event, filter `site_id`, dan window waktu/session.
 - Semua external call harus punya timeout/cancellation.
+- Implementasi flow baru harus mengacu ke `specs/session-processing.md` sebelum mengubah code processing.
 
 ## Rules Testing dan Verifikasi
 
