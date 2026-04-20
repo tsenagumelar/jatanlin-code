@@ -1,0 +1,124 @@
+# Query: Get All Roles (dengan filter is_deleted = false)
+query GetRoles($limit: Int!, $offset: Int!, $where: master_role_bool_exp = {}) {
+  master_role(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+    limit: $limit
+    offset: $offset
+    order_by: { created_date: desc }
+  ) {
+    id
+    code
+    role_name
+    description
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+  }
+
+  master_role_aggregate(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+
+# Query: Get Role By ID
+query GetRoleById($id: uuid!) {
+  master_role_by_pk(id: $id) {
+    id
+    code
+    role_name
+    description
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Insert Role
+mutation InsertRole($object: master_role_insert_input!) {
+  insert_master_role_one(object: $object) {
+    id
+    code
+    role_name
+    description
+    is_active
+    created_by
+    created_date
+  }
+}
+
+# Mutation: Update Role
+mutation UpdateRole($id: uuid!, $set: master_role_set_input!) {
+  update_master_role_by_pk(pk_columns: { id: $id }, _set: $set) {
+    id
+    code
+    role_name
+    description
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Soft Delete Role (set is_deleted = true)
+mutation SoftDeleteRole($id: uuid!, $updated_by: uuid!) {
+  update_master_role_by_pk(
+    pk_columns: { id: $id }
+    _set: {
+      is_deleted: true
+      is_active: false
+      updated_by: $updated_by
+      updated_date: "now()"
+    }
+  ) {
+    id
+    code
+    role_name
+    is_deleted
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Restore Deleted Role (set is_deleted = false)
+mutation RestoreRole($id: uuid!, $updated_by: uuid!) {
+  update_master_role_by_pk(
+    pk_columns: { id: $id }
+    _set: { is_deleted: false, updated_by: $updated_by, updated_date: "now()" }
+  ) {
+    id
+    code
+    role_name
+    is_deleted
+    updated_by
+    updated_date
+  }
+}
+
+# Query: Check Code Availability
+query CheckRoleCodeExists($code: String!) {
+  master_role(where: { code: { _eq: $code }, is_deleted: { _eq: false } }) {
+    id
+    code
+  }
+}
+
+# Query: Check Role Name Availability
+query CheckRoleNameExists($role_name: String!) {
+  master_role(
+    where: { role_name: { _eq: $role_name }, is_deleted: { _eq: false } }
+  ) {
+    id
+    role_name
+  }
+}

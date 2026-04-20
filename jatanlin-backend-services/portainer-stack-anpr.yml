@@ -1,0 +1,81 @@
+version: "3.8"
+
+services:
+  jatanlin-service-anpr:
+    image: taufansena/jatanlin-service:latest
+    container_name: jatanlin-service-anpr
+    environment:
+      # Select which binary to run (api | anpr-watcher | axle-watcher)
+      SERVICE: "anpr-watcher"
+
+      # Site Identification
+      SITE_CODE: "MST-25-00001"
+      SITE_NAME: "Mampang"
+      SITE_LOCATION: "Central Office"
+      SITE_REGION: "Default"
+
+      # Central Database (optional sync)
+      CENTRAL_DATABASE_URL: ""
+      SYNC_ENABLED: "false"
+
+      # Database
+      DATABASE_URL: "${DATABASE_URL}"
+
+      # API
+      API_PORT: "4000"
+      JWT_SECRET: "${JWT_SECRET}"
+
+      # ANPR FTP
+      ANPR_FTP_HOST: "51.79.173.213:21"
+      ANPR_FTP_USER: "ftpuser"
+      ANPR_FTP_PASS: "${FTP_PASSWORD}"
+      ANPR_FTP_DIR: "/anpr/"
+      ANPR_FTP_INTERVAL_SEC: "5"
+
+      # AXLE FTP
+      AXLE_FTP_HOST: "51.79.173.213:21"
+      AXLE_FTP_USER: "ftpuser"
+      AXLE_FTP_PASS: "${FTP_PASSWORD}"
+      AXLE_FTP_DIR: "/axle/"
+      AXLE_FTP_INTERVAL_SEC: "5"
+
+      # ANPR MinIO
+      ANPR_MINIO_ENDPOINT: "s3minio.activa.id"
+      ANPR_MINIO_ACCESS_KEY: "admin"
+      ANPR_MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+      ANPR_MINIO_BUCKET: "anpr"
+      ANPR_MINIO_USE_SSL: "true"
+
+      # AXLE MinIO
+      AXLE_MINIO_ENDPOINT: "s3minio.activa.id"
+      AXLE_MINIO_ACCESS_KEY: "admin"
+      AXLE_MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+      AXLE_MINIO_BUCKET: "axle"
+      AXLE_MINIO_USE_SSL: "true"
+
+      # Attachment MinIO
+      ATTACHMENT_MINIO_ENDPOINT: "s3minio.activa.id"
+      ATTACHMENT_MINIO_ACCESS_KEY: "admin"
+      ATTACHMENT_MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+      ATTACHMENT_MINIO_BUCKET: "attachment"
+      ATTACHMENT_MINIO_USE_SSL: "true"
+
+      # Vehicle Dimension Detection
+      DIMENSION_ENABLED: "true"
+      DIMENSION_THRESHOLD: "0.5"
+      DIMENSION_MODEL_PATH: ""
+
+      # Camera Calibration
+      CAMERA_IMAGE_WIDTH: "1920"
+      CAMERA_IMAGE_HEIGHT: "1080"
+      CAMERA_FOCAL_LENGTH: "1000.0"
+      CAMERA_HEIGHT_METERS: "5.0"
+      CAMERA_TILT_ANGLE: "25.0"
+      CAMERA_REF_PIXEL_LENGTH: "960"
+      CAMERA_REF_REAL_LENGTH: "4.7"
+      CAMERA_REF_DISTANCE: "55.0"
+
+      # RTSP Streaming (if used)
+      RTSP_ENABLED: "true"
+      RTSP_URL: "rtsp://admin:admin@192.168.1.18:554/live.sdp"
+    restart: unless-stopped

@@ -1,0 +1,148 @@
+# Query: Get All Users (dengan filter is_deleted = false)
+query GetUsers($limit: Int!, $offset: Int!, $where: master_user_bool_exp = {}) {
+  master_user(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+    limit: $limit
+    offset: $offset
+    order_by: { created_date: desc }
+  ) {
+    id
+    code
+    username
+    full_name
+    badge_no
+    phone_number
+    email
+    role_id
+    profile_picture
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+    master_role {
+      id
+      code
+      role_name
+      description
+    }
+  }
+
+  master_user_aggregate(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+
+# Query: Get User By ID
+query GetUserById($id: uuid!) {
+  master_user_by_pk(id: $id) {
+    id
+    code
+    username
+    full_name
+    badge_no
+    phone_number
+    email
+    role_id
+    profile_picture
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+    master_role {
+      id
+      code
+      role_name
+      description
+    }
+  }
+}
+
+# Mutation: Insert User
+mutation InsertUser($object: master_user_insert_input!) {
+  insert_master_user_one(object: $object) {
+    id
+    code
+    username
+    full_name
+    badge_no
+    phone_number
+    email
+    role_id
+    profile_picture
+    is_active
+    created_by
+    created_date
+  }
+}
+
+# Mutation: Update User
+mutation UpdateUser($id: uuid!, $set: master_user_set_input!) {
+  update_master_user_by_pk(pk_columns: { id: $id }, _set: $set) {
+    id
+    code
+    username
+    full_name
+    badge_no
+    phone_number
+    email
+    role_id
+    profile_picture
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Soft Delete User (set is_deleted = true)
+mutation SoftDeleteUser($id: uuid!, $updated_by: uuid!) {
+  update_master_user_by_pk(
+    pk_columns: { id: $id }
+    _set: {
+      is_deleted: true
+      is_active: false
+      updated_by: $updated_by
+      updated_date: "now()"
+    }
+  ) {
+    id
+    code
+    username
+    is_deleted
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Restore Deleted User (set is_deleted = false)
+mutation RestoreUser($id: uuid!, $updated_by: uuid!) {
+  update_master_user_by_pk(
+    pk_columns: { id: $id }
+    _set: { is_deleted: false, updated_by: $updated_by, updated_date: "now()" }
+  ) {
+    id
+    code
+    username
+    is_deleted
+    updated_by
+    updated_date
+  }
+}
+
+# Query: Check Username Availability
+query CheckUsernameExists($username: String!) {
+  master_user(
+    where: { username: { _eq: $username }, is_deleted: { _eq: false } }
+  ) {
+    id
+    username
+  }
+}

@@ -1,0 +1,24 @@
+# Subscription: Listen for New CCTV Transact records
+subscription SubscribeLatestCctv($site_id: uuid, $created_after: timestamptz) {
+  transact_cctv(
+    where: {
+      is_deleted: { _eq: false }
+      site_id: { _eq: $site_id }
+      created_date: { _gte: $created_after }
+    }
+    order_by: { created_date: desc }
+    limit: 1
+  ) {
+    id
+    filename
+    filepath
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+    site_id
+    session_id
+  }
+}

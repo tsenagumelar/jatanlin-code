@@ -1,0 +1,179 @@
+# Query: Get All ANPR Captures (dengan filter is_deleted = false)
+query GetAnprCaptures(
+  $limit: Int!
+  $offset: Int!
+  $where: transact_anpr_capture_bool_exp = {}
+) {
+  transact_anpr_capture(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+    limit: $limit
+    offset: $offset
+    order_by: { captured_at: desc }
+  ) {
+    id
+    external_id
+    plate_no
+    confidence
+    captured_at
+    location_code
+    camera_id
+    minio_bucket
+    minio_date_folder
+    minio_xml_object
+    minio_full_image_object
+    minio_plate_image_object
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+  }
+
+  transact_anpr_capture_aggregate(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+
+# Query: Get ANPR Capture By ID
+query GetAnprCaptureById($id: uuid!) {
+  transact_anpr_capture_by_pk(id: $id) {
+    id
+    external_id
+    plate_no
+    confidence
+    captured_at
+    location_code
+    camera_id
+    minio_bucket
+    minio_date_folder
+    minio_xml_object
+    minio_full_image_object
+    minio_plate_image_object
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+  }
+}
+
+# Query: Get ANPR Captures By Plate Number
+query GetAnprCapturesByPlate($plate_no: String!, $limit: Int = 10) {
+  transact_anpr_capture(
+    where: { plate_no: { _ilike: $plate_no }, is_deleted: { _eq: false } }
+    limit: $limit
+    order_by: { captured_at: desc }
+  ) {
+    id
+    external_id
+    plate_no
+    confidence
+    captured_at
+    location_code
+    camera_id
+    minio_full_image_object
+    minio_plate_image_object
+  }
+}
+
+# Query: Get ANPR Captures By Date Range
+query GetAnprCapturesByDateRange(
+  $start_date: timestamptz!
+  $end_date: timestamptz!
+) {
+  transact_anpr_capture(
+    where: {
+      captured_at: { _gte: $start_date, _lte: $end_date }
+      is_deleted: { _eq: false }
+    }
+    order_by: { captured_at: desc }
+  ) {
+    id
+    external_id
+    plate_no
+    confidence
+    captured_at
+    location_code
+    camera_id
+  }
+}
+
+# Mutation: Insert ANPR Capture
+mutation InsertAnprCapture($object: transact_anpr_capture_insert_input!) {
+  insert_transact_anpr_capture_one(object: $object) {
+    id
+    external_id
+    plate_no
+    confidence
+    captured_at
+    location_code
+    camera_id
+    created_date
+  }
+}
+
+# Mutation: Update ANPR Capture
+mutation UpdateAnprCapture($id: uuid!, $set: transact_anpr_capture_set_input!) {
+  update_transact_anpr_capture_by_pk(pk_columns: { id: $id }, _set: $set) {
+    id
+    external_id
+    plate_no
+    confidence
+    captured_at
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Soft Delete ANPR Capture
+mutation SoftDeleteAnprCapture($id: uuid!, $updated_by: uuid!) {
+  update_transact_anpr_capture_by_pk(
+    pk_columns: { id: $id }
+    _set: {
+      is_deleted: true
+      is_active: false
+      updated_by: $updated_by
+      updated_date: "now()"
+    }
+  ) {
+    id
+    external_id
+    plate_no
+    is_deleted
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Subscription: Listen for New ANPR Captures
+subscription SubscribeLatestAnprCapture($site_id: uuid, $created_after: timestamptz) {
+  transact_anpr_capture(
+    where: {
+      is_deleted: { _eq: false }
+      site_id: { _eq: $site_id }
+      created_date: { _gte: $created_after }
+    }
+    order_by: { created_date: desc }
+    limit: 1
+  ) {
+    id
+    external_id
+    plate_no
+    confidence
+    captured_at
+    location_code
+    camera_id
+    minio_bucket
+    minio_date_folder
+    minio_full_image_object
+    minio_plate_image_object
+    site_id
+  }
+}

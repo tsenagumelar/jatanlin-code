@@ -1,0 +1,35 @@
+query Login($usernameOrEmail: String!, $password: String!) {
+  master_user(
+    where: {
+      _and: [
+        {
+          _or: [
+            { username: { _eq: $usernameOrEmail } }
+            { email: { _eq: $usernameOrEmail } }
+          ]
+        }
+        { password_hash: { _eq: $password } }
+        { is_active: { _eq: true } }
+        { is_deleted: { _eq: false } }
+      ]
+    }
+  ) {
+    id
+    code
+    badge_no
+    username
+    email
+    full_name
+    master_role {
+      id
+      code
+      role_name
+      description
+    }
+    is_active
+    is_deleted
+    created_by
+    created_date
+    profile_picture
+  }
+}

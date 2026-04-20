@@ -1,0 +1,182 @@
+# Query: Get All Dimensions (dengan filter is_deleted = false)
+query GetDimensions(
+  $limit: Int!
+  $offset: Int!
+  $where: transact_dimension_bool_exp = {}
+) {
+  transact_dimension(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+    limit: $limit
+    offset: $offset
+    order_by: { created_date: desc }
+  ) {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+    site_id
+  }
+
+  transact_dimension_aggregate(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+
+# Query: Get Dimension By ID
+query GetDimensionById($id: uuid!) {
+  transact_dimension_by_pk(id: $id) {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+    site_id
+  }
+}
+
+# Query: Get Dimensions By ANPR ID
+query GetDimensionsByAnprId($anpr_id: uuid!) {
+  transact_dimension(
+    where: { anpr_id: { _eq: $anpr_id }, is_deleted: { _eq: false } }
+    order_by: { created_date: desc }
+  ) {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    is_active
+    created_date
+    site_id
+  }
+}
+
+# Query: Get Dimensions By Site
+query GetDimensionsBySite($site_id: uuid!, $limit: Int = 10) {
+  transact_dimension(
+    where: { site_id: { _eq: $site_id }, is_deleted: { _eq: false } }
+    limit: $limit
+    order_by: { created_date: desc }
+  ) {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    created_date
+  }
+}
+
+# Mutation: Insert Dimension
+mutation InsertDimension($object: transact_dimension_insert_input!) {
+  insert_transact_dimension_one(object: $object) {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    created_date
+    site_id
+  }
+}
+
+# Mutation: Update Dimension
+mutation UpdateDimension($id: uuid!, $set: transact_dimension_set_input!) {
+  update_transact_dimension_by_pk(pk_columns: { id: $id }, _set: $set) {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Soft Delete Dimension
+mutation SoftDeleteDimension($id: uuid!, $updated_by: uuid!) {
+  update_transact_dimension_by_pk(
+    pk_columns: { id: $id }
+    _set: {
+      is_deleted: true
+      is_active: false
+      updated_by: $updated_by
+      updated_date: "now()"
+    }
+  ) {
+    id
+    anpr_id
+    is_deleted
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Subscription: Listen for New Dimensions
+subscription SubscribeLatestDimension($site_id: uuid, $created_after: timestamptz) {
+  transact_dimension(
+    where: {
+      is_deleted: { _eq: false }
+      site_id: { _eq: $site_id }
+      created_date: { _gte: $created_after }
+    }
+    order_by: { created_date: desc }
+    limit: 1
+  ) {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    is_active
+    created_date
+    site_id
+  }
+}
+
+# Subscription: Listen for Dimensions by ANPR ID
+subscription SubscribeDimensionsByAnpr($anpr_id: uuid!) {
+  transact_dimension(
+    where: {
+      is_deleted: { _eq: false }
+      anpr_id: { _eq: $anpr_id }
+    }
+    order_by: { created_date: desc }
+  ) {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    is_active
+    created_date
+    updated_date
+    site_id
+  }
+}
