@@ -10,14 +10,14 @@ export type GetAxleCapturesQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetAxleCapturesQuery = { transact_axle_capture: Array<{ id: any, external_id: string, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket: string, minio_date_folder: string, minio_xml_object: string, minio_image_object: string, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null }>, transact_axle_capture_aggregate: { aggregate?: { count: number } | null } };
+export type GetAxleCapturesQuery = { transact_axle_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_xml_object?: string | null, minio_image_object?: string | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null }>, transact_axle_capture_aggregate: { aggregate?: { count: number } | null } };
 
 export type GetAxleCaptureByIdQueryVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
 }>;
 
 
-export type GetAxleCaptureByIdQuery = { transact_axle_capture_by_pk?: { id: any, external_id: string, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket: string, minio_date_folder: string, minio_xml_object: string, minio_image_object: string, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null } | null };
+export type GetAxleCaptureByIdQuery = { transact_axle_capture_by_pk?: { id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_xml_object?: string | null, minio_image_object?: string | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null } | null };
 
 export type GetAxleCapturesByPlateQueryVariables = Types.Exact<{
   plate_no: Types.Scalars['String']['input'];
@@ -25,7 +25,7 @@ export type GetAxleCapturesByPlateQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetAxleCapturesByPlateQuery = { transact_axle_capture: Array<{ id: any, external_id: string, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_image_object: string }> };
+export type GetAxleCapturesByPlateQuery = { transact_axle_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_image_object?: string | null }> };
 
 export type GetAxleCapturesByDateRangeQueryVariables = Types.Exact<{
   start_date: Types.Scalars['timestamptz']['input'];
@@ -33,14 +33,14 @@ export type GetAxleCapturesByDateRangeQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetAxleCapturesByDateRangeQuery = { transact_axle_capture: Array<{ id: any, external_id: string, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, total_axles?: number | null, vehicle_category?: string | null }> };
+export type GetAxleCapturesByDateRangeQuery = { transact_axle_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, total_axles?: number | null, vehicle_category?: string | null }> };
 
 export type InsertAxleCaptureMutationVariables = Types.Exact<{
   object: Types.Transact_Axle_Capture_Insert_Input;
 }>;
 
 
-export type InsertAxleCaptureMutation = { insert_transact_axle_capture_one?: { id: any, external_id: string, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, total_axles?: number | null, vehicle_category?: string | null, created_date?: any | null } | null };
+export type InsertAxleCaptureMutation = { insert_transact_axle_capture_one?: { id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, total_axles?: number | null, vehicle_category?: string | null, created_date?: any | null, session_id?: any | null } | null };
 
 export type UpdateAxleCaptureMutationVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
@@ -48,7 +48,7 @@ export type UpdateAxleCaptureMutationVariables = Types.Exact<{
 }>;
 
 
-export type UpdateAxleCaptureMutation = { update_transact_axle_capture_by_pk?: { id: any, external_id: string, plate_no?: string | null, captured_at?: any | null, total_axles?: number | null, updated_by?: any | null, updated_date?: any | null } | null };
+export type UpdateAxleCaptureMutation = { update_transact_axle_capture_by_pk?: { id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, total_axles?: number | null, updated_by?: any | null, updated_date?: any | null } | null };
 
 export type SoftDeleteAxleCaptureMutationVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
@@ -56,15 +56,15 @@ export type SoftDeleteAxleCaptureMutationVariables = Types.Exact<{
 }>;
 
 
-export type SoftDeleteAxleCaptureMutation = { update_transact_axle_capture_by_pk?: { id: any, external_id: string, plate_no?: string | null, is_deleted?: boolean | null, is_active?: boolean | null, updated_by?: any | null, updated_date?: any | null } | null };
+export type SoftDeleteAxleCaptureMutation = { update_transact_axle_capture_by_pk?: { id: any, external_id?: string | null, plate_no?: string | null, is_deleted?: boolean | null, is_active?: boolean | null, updated_by?: any | null, updated_date?: any | null } | null };
 
 export type SubscribeLatestAxleCaptureSubscriptionVariables = Types.Exact<{
+  session_id: Types.Scalars['uuid']['input'];
   site_id?: Types.InputMaybe<Types.Scalars['uuid']['input']>;
-  created_after?: Types.InputMaybe<Types.Scalars['timestamptz']['input']>;
 }>;
 
 
-export type SubscribeLatestAxleCaptureSubscription = { transact_axle_capture: Array<{ id: any, external_id: string, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket: string, minio_date_folder: string, minio_image_object: string, site_id?: any | null, created_date?: any | null }> };
+export type SubscribeLatestAxleCaptureSubscription = { transact_axle_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_image_object?: string | null, site_id?: any | null, created_date?: any | null }> };
 
 
 export const GetAxleCapturesDocument = gql`
@@ -289,6 +289,7 @@ export const InsertAxleCaptureDocument = gql`
     total_axles
     vehicle_category
     created_date
+    session_id
   }
 }
     `;
@@ -393,9 +394,9 @@ export function useSoftDeleteAxleCaptureMutation(baseOptions?: Apollo.MutationHo
       }
 export type SoftDeleteAxleCaptureMutationHookResult = ReturnType<typeof useSoftDeleteAxleCaptureMutation>;
 export const SubscribeLatestAxleCaptureDocument = gql`
-    subscription SubscribeLatestAxleCapture($site_id: uuid, $created_after: timestamptz) {
+    subscription SubscribeLatestAxleCapture($session_id: uuid!, $site_id: uuid) {
   transact_axle_capture(
-    where: {is_deleted: {_eq: false}, site_id: {_eq: $site_id}, created_date: {_gte: $created_after}}
+    where: {is_deleted: {_eq: false}, session_id: {_eq: $session_id}, site_id: {_eq: $site_id}}
     order_by: {created_date: desc}
     limit: 1
   ) {
@@ -430,12 +431,12 @@ export const SubscribeLatestAxleCaptureDocument = gql`
  * @example
  * const { data, loading, error } = useSubscribeLatestAxleCaptureSubscription({
  *   variables: {
+ *      session_id: // value for 'session_id'
  *      site_id: // value for 'site_id'
- *      created_after: // value for 'created_after'
  *   },
  * });
  */
-export function useSubscribeLatestAxleCaptureSubscription(baseOptions?: Apollo.SubscriptionHookOptions<SubscribeLatestAxleCaptureSubscription, SubscribeLatestAxleCaptureSubscriptionVariables>) {
+export function useSubscribeLatestAxleCaptureSubscription(baseOptions: Apollo.SubscriptionHookOptions<SubscribeLatestAxleCaptureSubscription, SubscribeLatestAxleCaptureSubscriptionVariables>) {
         const options = {...defaultOptions, ...baseOptions}
         return Apollo.useSubscription<SubscribeLatestAxleCaptureSubscription, SubscribeLatestAxleCaptureSubscriptionVariables>(SubscribeLatestAxleCaptureDocument, options);
       }

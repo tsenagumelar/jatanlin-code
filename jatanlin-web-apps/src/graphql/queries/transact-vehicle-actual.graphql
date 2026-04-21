@@ -22,6 +22,7 @@ fragment VehicleActualDetails on transact_vehicle_actual {
   location_lng
   location_address
   transact_cctv_id
+  session_id
 
   # ANPR Data (object relation)
   transact_anpr_capture {

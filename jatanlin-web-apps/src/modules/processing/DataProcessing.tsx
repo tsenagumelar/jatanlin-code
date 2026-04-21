@@ -47,6 +47,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
   variant = "full",
 }) => {
   const STEP_WAIT_TIMEOUT_MS = 5_000;
+  const FINAL_WAIT_IDLE_TIMEOUT_MS = 60_000;
 
   const router = useRouter();
 
@@ -55,8 +56,9 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     steps,
     currentStepId,
     countdown,
-    sessionStartTime,
     sessionId,
+    sessionStartTime,
+    sessionStatus,
     isProcessing,
     vehicleActualId,
     anprData,
@@ -70,6 +72,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     setCurrentStepId,
     setCountdown,
     setSessionStartTime,
+    setSessionStatus,
     setIsProcessing,
     setVehicleActualId,
     setAnprData,
@@ -81,17 +84,23 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     setViolationResult,
     setPhase,
     resetProcessing,
+    restartProcessingSteps,
   } = useProcessing();
 
   // Local states
   const sessionStartTimeRef = useRef<string | null>(null);
   const [detailStepId, setDetailStepId] = useState<number | null>(null);
   const [timedOutSteps, setTimedOutSteps] = useState<number[]>([]);
+  const [finalWaitRemainingMs, setFinalWaitRemainingMs] = useState(
+    FINAL_WAIT_IDLE_TIMEOUT_MS,
+  );
   const insertingVehicleActualRef = useRef(false);
   const cctvWaitStartRef = useRef<number | null>(null);
   const cctvLinkedRef = useRef(false);
   const updatingCctvRef = useRef(false);
-  const [cctvInsertRetryTick, setCctvInsertRetryTick] = useState(0);
+  const finalWaitStartedAtRef = useRef<number | null>(null);
+  const finalWaitLastDataAtRef = useRef<number | null>(null);
+  const finalDataSignatureRef = useRef<string | null>(null);
 
   // Get site_id from env
   const siteId = process.env.NEXT_PUBLIC_SITE_ID || undefined;
@@ -117,28 +126,28 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
   const { data: anprSubscriptionData } =
     useSubscribeLatestAnprCaptureSubscription({
       variables: {
+        session_id: sessionId as string,
         site_id: siteId,
-        created_after: sessionStartTime,
       },
-      skip: !sessionStartTime || !shouldListenLiveData || !!anprData,
+      skip: !sessionId || !shouldListenLiveData || !!anprData,
     });
 
   const { data: weightSubscriptionData } =
     useSubscribeLatestWeighingSubscription({
       variables: {
+        session_id: sessionId as string,
         site_id: siteId,
-        created_after: sessionStartTime,
       },
-      skip: !sessionStartTime || !shouldListenLiveData || !!weightData,
+      skip: !sessionId || !shouldListenLiveData || !!weightData,
     });
 
   const { data: axleSubscriptionData } =
     useSubscribeLatestAxleCaptureSubscription({
       variables: {
+        session_id: sessionId as string,
         site_id: siteId,
-        created_after: sessionStartTime,
       },
-      skip: !sessionStartTime || !shouldListenLiveData || !!axleData,
+      skip: !sessionId || !shouldListenLiveData || !!axleData,
     });
 
   const {
@@ -147,28 +156,29 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     error: dimensionError,
   } = useSubscribeLatestDimensionSubscription({
     variables: {
+      session_id: sessionId as string,
       site_id: siteId,
-      created_after: sessionStartTime,
     },
-    skip: !sessionStartTime || !shouldListenLiveData || !!dimensionData,
+    skip: !sessionId || !shouldListenLiveData || !!dimensionData,
   });
 
   const { data: cctvSubscriptionData } = useSubscribeLatestCctvSubscription({
     variables: {
+      session_id: sessionId as string,
       site_id: siteId,
-      created_after: sessionStartTime,
     },
-    skip: !sessionStartTime || !shouldListenLiveData || !!cctvData,
+    skip: !sessionId || !shouldListenLiveData || !!cctvData,
   });
 
   // Debug subscriptions
   useEffect(() => {
     console.log(`=== Step ${currentStepId} Started ===`, {
+      sessionId,
       sessionStartTime,
       siteId,
       timestamp: new Date().toISOString(),
     });
-  }, [currentStepId, sessionStartTime, siteId]);
+  }, [currentStepId, sessionId, sessionStartTime, siteId]);
 
   useEffect(() => {
     if (!sessionStartTime) return;
@@ -181,7 +191,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       loading: dimensionLoading,
       error: dimensionError,
       hasData: !!dimensionSubscriptionData?.transact_dimension?.[0],
-      isSkipped: !sessionStartTime || !shouldListenLiveData || !!dimensionData,
+      isSkipped: !sessionId || !shouldListenLiveData || !!dimensionData,
       rawData: dimensionSubscriptionData?.transact_dimension,
     });
   }, [
@@ -190,6 +200,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     siteId,
     sessionStartTime,
     shouldListenLiveData,
+    sessionId,
     dimensionLoading,
     dimensionError,
   ]);
@@ -313,15 +324,16 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       console.log("✅ ANPR Data Received:", anpr);
       setAnprData({
         id: anpr.id,
-        plate_no: anpr.plate_no,
-        confidence: anpr.confidence || 0,
-        captured_at: anpr.captured_at,
-        minio_bucket: anpr.minio_bucket,
-        minio_full_image_object: anpr.minio_full_image_object,
-        site_id: anpr.site_id,
+        plate_no: anpr.plate_no ?? null,
+        confidence: anpr.confidence ?? null,
+        captured_at: anpr.captured_at ?? null,
+        minio_bucket: anpr.minio_bucket ?? null,
+        minio_full_image_object: anpr.minio_full_image_object ?? null,
+        site_id: anpr.site_id ?? null,
+        session_id: sessionId,
       });
     }
-  }, [anprSubscriptionData, anprData, setAnprData]);
+  }, [anprSubscriptionData, anprData, sessionId, setAnprData]);
 
   // Handle Weight Data (always listen in background after countdown)
   useEffect(() => {
@@ -330,11 +342,12 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       console.log("✅ Weight Data Received:", weight);
       setWeightData({
         id: weight.id,
-        total_weight: weight.total_weight || 0,
-        total_axle: weight.total_axle || 0,
+        total_weight: weight.total_weight ?? null,
+        total_axle: weight.total_axle ?? null,
+        session_id: sessionId,
       });
     }
-  }, [weightSubscriptionData, weightData, setWeightData]);
+  }, [weightSubscriptionData, weightData, sessionId, setWeightData]);
 
   // Handle Axle Data (always listen in background after countdown)
   useEffect(() => {
@@ -344,26 +357,28 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
       setAxleData({
         id: axle.id,
-        total_axles: axle.total_axles || 0,
-        total_wheels: axle.total_wheels || 0,
+        total_axles: axle.total_axles ?? null,
+        total_wheels: axle.total_wheels ?? null,
         length_mm: axle.length_mm ?? null,
-        length: axle.length_mm != null ? axle.length_mm / 1000 : 0,
-        vehicle_category: axle.vehicle_category || "Unknown",
-        minio_bucket: axle.minio_bucket,
-        minio_image_object: axle.minio_image_object,
+        length: axle.length_mm != null ? axle.length_mm / 1000 : null,
+        vehicle_category: axle.vehicle_category ?? null,
+        minio_bucket: axle.minio_bucket ?? null,
+        minio_image_object: axle.minio_image_object ?? null,
+        session_id: sessionId,
       });
 
-      const vehicleClass = findClosestVehicleClass(axle.total_axles || 0);
+      const axleCount = axle.total_axles ?? null;
+      const vehicleClass = axleCount != null ? findClosestVehicleClass(axleCount) : null;
       if (vehicleClass) {
         console.log(
-          "✅ Vehicle Class Found (Axle: " + axle.total_axles + "):",
+          "✅ Vehicle Class Found (Axle: " + axleCount + "):",
           vehicleClass,
         );
         setVehicleClassData(vehicleClass);
       } else {
         console.warn(
           "⚠️ No vehicle class found for axle count:",
-          axle.total_axles,
+          axleCount,
         );
       }
     }
@@ -371,6 +386,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     axleSubscriptionData,
     axleData,
     findClosestVehicleClass,
+    sessionId,
     setAxleData,
     setVehicleClassData,
   ]);
@@ -386,10 +402,10 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
         filepath: cctv.filepath,
         created_date: cctv.created_date,
         site_id: cctv.site_id,
-        session_id: cctv.session_id,
+        session_id: sessionId,
       });
     }
-  }, [cctvSubscriptionData, cctvData, setCctvData]);
+  }, [cctvSubscriptionData, cctvData, sessionId, setCctvData]);
 
   // Handle Dimension Data (always listen in background after countdown)
   useEffect(() => {
@@ -398,15 +414,18 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       console.log("✅ Dimension Data Received:", dimension);
       setDimensionData({
         id: dimension.id,
-        length: dimension.length || 0,
-        width: dimension.width || 0,
-        height: dimension.height || 0,
+        length: dimension.length ?? null,
+        width: dimension.width ?? null,
+        height: dimension.height ?? null,
+        anpr_id: dimension.anpr_id ?? null,
+        filepath: dimension.filepath ?? null,
+        session_id: sessionId,
       });
       if (!cctvWaitStartRef.current) {
         cctvWaitStartRef.current = Date.now();
       }
     }
-  }, [dimensionSubscriptionData, dimensionData, setDimensionData]);
+  }, [dimensionSubscriptionData, dimensionData, sessionId, setDimensionData]);
 
   // Step 2-5: wait max 10s for current step data, then continue
   const currentStepHasData = useMemo(() => {
@@ -439,107 +458,186 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     return () => clearTimeout(timeoutTimer);
   }, [currentStepId, currentStepHasData, moveToNextStep, STEP_WAIT_TIMEOUT_MS]);
 
-  // Insert vehicle actual after CCTV data is available or timeout
-  useEffect(() => {
-    if (!dimensionData || !weightData || !anprData || !axleData) return;
+  const finalDataPresence = useMemo(
+    () => ({
+      anpr: !!anprData,
+      weight: !!weightData,
+      axle: !!axleData,
+      dimension: !!dimensionData,
+      cctv: !!cctvData,
+    }),
+    [anprData, weightData, axleData, dimensionData, cctvData],
+  );
+
+  const isFinalDataComplete = Object.values(finalDataPresence).every(Boolean);
+  const missingFinalAreas = Object.entries(finalDataPresence)
+    .filter(([, hasData]) => !hasData)
+    .map(([area]) => area.toUpperCase());
+  const finalDataSignature = JSON.stringify(finalDataPresence);
+
+  const finalizeVehicleActual = useCallback(async () => {
+    if (!sessionId) return;
     if (vehicleActualId || insertingVehicleActualRef.current) return;
 
     const latestCctvId =
       cctvData?.id ?? cctvSubscriptionData?.transact_cctv?.[0]?.id ?? undefined;
 
-    if (!cctvWaitStartRef.current) {
-      cctvWaitStartRef.current = Date.now();
-    }
-
-    const elapsedMs = Date.now() - cctvWaitStartRef.current;
-    const shouldInsertWithoutCctv = elapsedMs >= 10_000;
-
-    if (!latestCctvId && !shouldInsertWithoutCctv) {
-      console.log(
-        "⏳ Waiting for CCTV data before inserting vehicle actual...",
-      );
-      const timer = setTimeout(() => {
-        setCctvInsertRetryTick((prev) => prev + 1);
-      }, 10_000 - elapsedMs);
-      return () => clearTimeout(timer);
-    }
-
     insertingVehicleActualRef.current = true;
     setIsProcessing(true);
 
-    (async () => {
-      try {
-        const result = await insertVehicleActual({
-          variables: {
-            object: {
-              anpr_id: anprData.id,
-              axle_id: axleData.id,
-              transact_dimension_id: dimensionData.id,
-              transact_weighing_id: weightData.id,
-              actual_width: dimensionData.width,
-              actual_length:
-                axleData?.length_mm != null
-                  ? axleData.length_mm / 1000
-                  : (axleData?.length ?? dimensionData.length),
-              actual_height: dimensionData.height,
-              actual_weight: weightData.total_weight,
-              actual_plat_no: anprData.plate_no,
-              actual_total_axle: weightData.total_axle,
-              site_id: siteId,
-              ...(latestCctvId ? { transact_cctv_id: latestCctvId } : {}),
-              is_active: true,
-              is_deleted: false,
-              created_by: "00000000-0000-0000-0000-000000000000",
-              created_date: new Date().toISOString(),
-            } as any,
-          },
-        });
+    try {
+      const object: Record<string, unknown> = {
+        session_id: sessionId,
+        site_id: siteId,
+        actual_width: dimensionData?.width ?? null,
+        actual_length:
+          axleData?.length_mm != null
+            ? axleData.length_mm / 1000
+            : (axleData?.length ?? dimensionData?.length ?? null),
+        actual_height: dimensionData?.height ?? null,
+        actual_weight: weightData?.total_weight ?? null,
+        actual_plat_no: anprData?.plate_no ?? null,
+        actual_total_axle: weightData?.total_axle ?? axleData?.total_axles ?? null,
+        is_active: true,
+        is_deleted: false,
+        created_by: "00000000-0000-0000-0000-000000000000",
+        created_date: new Date().toISOString(),
+      };
 
-        const id = result.data?.insert_transact_vehicle_actual_one?.id;
-        if (id) {
-          setVehicleActualId(id);
-          cctvLinkedRef.current = !!latestCctvId;
-          console.log("✅ Vehicle Actual Created with ID:", id);
-          if (sessionId) {
-            try {
-              const finishedAt = new Date().toISOString();
-              await updateTransactWimSession({
-                variables: {
-                  id: sessionId,
-                  set: {
-                    status: "COMPLETED",
-                    ended_at: finishedAt,
-                    updated_date: finishedAt,
-                  },
-                },
-              });
-            } catch (error) {
-              console.error("Error updating WIM session status:", error);
-            }
-          }
+      if (anprData?.id) object.anpr_id = anprData.id;
+      if (axleData?.id) object.axle_id = axleData.id;
+      if (dimensionData?.id) object.transact_dimension_id = dimensionData.id;
+      if (weightData?.id) object.transact_weighing_id = weightData.id;
+      if (latestCctvId) object.transact_cctv_id = latestCctvId;
+
+      const result = await insertVehicleActual({
+        variables: {
+          object: object as any,
+        },
+      });
+
+      const id = result.data?.insert_transact_vehicle_actual_one?.id;
+      if (id) {
+        setVehicleActualId(id);
+        cctvLinkedRef.current = !!latestCctvId;
+        console.log("✅ Vehicle Actual Created with ID:", id, {
+          isFinalDataComplete,
+          missingFinalAreas,
+        });
+        try {
+          const finishedAt = new Date().toISOString();
+          await updateTransactWimSession({
+            variables: {
+              id: sessionId,
+              set: {
+                status: "COMPLETED",
+                ended_at: finishedAt,
+                is_active: false,
+                updated_date: finishedAt,
+              },
+            },
+          });
+          setSessionStatus("COMPLETED");
+        } catch (error) {
+          console.error("Error updating WIM session status:", error);
         }
-      } catch (error) {
-        console.error("Error inserting vehicle actual:", error);
-      } finally {
-        setIsProcessing(false);
-        insertingVehicleActualRef.current = false;
       }
-    })();
+    } catch (error) {
+      console.error("Error inserting vehicle actual:", error);
+    } finally {
+      setIsProcessing(false);
+      insertingVehicleActualRef.current = false;
+    }
   }, [
-    dimensionData,
-    weightData,
-    anprData,
-    axleData,
+    sessionId,
+    vehicleActualId,
     cctvData,
     cctvSubscriptionData,
-    vehicleActualId,
-    insertVehicleActual,
-    siteId,
-    setVehicleActualId,
     setIsProcessing,
-    sessionId,
+    siteId,
+    dimensionData,
+    axleData,
+    weightData,
+    anprData,
+    insertVehicleActual,
+    setVehicleActualId,
+    isFinalDataComplete,
+    missingFinalAreas,
     updateTransactWimSession,
-    cctvInsertRetryTick,
+    setSessionStatus,
+  ]);
+
+  useEffect(() => {
+    if (currentStepId !== 6 || !sessionId || vehicleActualId) {
+      finalWaitStartedAtRef.current = null;
+      finalWaitLastDataAtRef.current = null;
+      finalDataSignatureRef.current = null;
+      setFinalWaitRemainingMs(FINAL_WAIT_IDLE_TIMEOUT_MS);
+      return;
+    }
+
+    const now = Date.now();
+    if (!finalWaitStartedAtRef.current) {
+      finalWaitStartedAtRef.current = now;
+      finalWaitLastDataAtRef.current = now;
+      finalDataSignatureRef.current = finalDataSignature;
+      setFinalWaitRemainingMs(FINAL_WAIT_IDLE_TIMEOUT_MS);
+      return;
+    }
+
+    if (
+      finalDataSignatureRef.current &&
+      finalDataSignatureRef.current !== finalDataSignature
+    ) {
+      finalDataSignatureRef.current = finalDataSignature;
+      finalWaitLastDataAtRef.current = now;
+      setFinalWaitRemainingMs(FINAL_WAIT_IDLE_TIMEOUT_MS);
+      console.log("📥 Final step received additional data, reset idle timer", {
+        finalDataPresence,
+      });
+    }
+  }, [
+    currentStepId,
+    sessionId,
+    vehicleActualId,
+    finalDataSignature,
+    finalDataPresence,
+    FINAL_WAIT_IDLE_TIMEOUT_MS,
+  ]);
+
+  useEffect(() => {
+    if (currentStepId !== 6 || !sessionId || vehicleActualId) return;
+    if (insertingVehicleActualRef.current) return;
+
+    if (isFinalDataComplete) {
+      void finalizeVehicleActual();
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const lastDataAt = finalWaitLastDataAtRef.current;
+      if (!lastDataAt) return;
+
+      const remainingMs = Math.max(
+        0,
+        FINAL_WAIT_IDLE_TIMEOUT_MS - (Date.now() - lastDataAt),
+      );
+      setFinalWaitRemainingMs(remainingMs);
+
+      if (remainingMs === 0) {
+        clearInterval(timer);
+        void finalizeVehicleActual();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [
+    currentStepId,
+    sessionId,
+    vehicleActualId,
+    isFinalDataComplete,
+    finalizeVehicleActual,
+    FINAL_WAIT_IDLE_TIMEOUT_MS,
   ]);
 
   // If vehicle actual already inserted without CCTV, update when CCTV arrives
@@ -577,12 +675,14 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
   // Analyze violation using checkOdolViolation utility (same as verify page)
   useEffect(() => {
-    if (
-      weightData &&
-      dimensionData &&
-      vehicleClassData &&
-      !contextViolationResult
-    ) {
+    const hasAnalysisData =
+      weightData?.total_weight != null &&
+      dimensionData?.width != null &&
+      dimensionData?.height != null &&
+      (axleData?.length != null || dimensionData?.length != null) &&
+      vehicleClassData;
+
+    if (hasAnalysisData && !contextViolationResult) {
       // Import checkOdolViolation from odol utility
       // IMPORTANT: weightData.total_weight is in KG, but class_3_weight limit is in TON
       // So we need to convert KG to TON for comparison
@@ -661,23 +761,50 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       : axleData?.length != null
         ? axleData.length
         : (dimensionData?.length ?? 0);
+  const formatNumber = (value: number | null | undefined, fallback = "-") =>
+    value != null ? value.toLocaleString("id-ID") : fallback;
+  const formatFixed = (
+    value: number | null | undefined,
+    digits = 2,
+    fallback = "-",
+  ) => (value != null ? value.toFixed(digits) : fallback);
   const isSummaryStep = currentStepId === 6;
   const effectiveDetailStepId =
     isSummaryStep && detailStepId === null ? 6 : detailStepId;
   const displaySteps = steps;
   const finalResultLabel = violationResult || "Menunggu Data Lengkap";
+  const finalWaitRemainingSeconds = Math.ceil(finalWaitRemainingMs / 1000);
 
   const handleResetToStep1 = useCallback(() => {
-    sessionStartTimeRef.current = null;
     insertingVehicleActualRef.current = false;
     cctvWaitStartRef.current = null;
     cctvLinkedRef.current = false;
     updatingCctvRef.current = false;
+    finalWaitStartedAtRef.current = null;
+    finalWaitLastDataAtRef.current = null;
+    finalDataSignatureRef.current = null;
+    setFinalWaitRemainingMs(FINAL_WAIT_IDLE_TIMEOUT_MS);
     setDetailStepId(null);
     setTimedOutSteps([]);
-    resetProcessing();
+
+    if (sessionStatus === "COMPLETED" || !sessionId) {
+      sessionStartTimeRef.current = null;
+      resetProcessing();
+      return;
+    }
+
+    sessionStartTimeRef.current = sessionStartTime;
+    restartProcessingSteps();
     setPhase("processing");
-  }, [resetProcessing, setPhase]);
+  }, [
+    resetProcessing,
+    restartProcessingSteps,
+    sessionId,
+    sessionStartTime,
+    sessionStatus,
+    setPhase,
+    FINAL_WAIT_IDLE_TIMEOUT_MS,
+  ]);
 
   const handleViewDetail = useCallback(() => {
     if (vehicleActualId) {
@@ -794,7 +921,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                       ) : (
                         <div className="space-y-8">
                           <p className="text-8xl font-black text-emerald-200 font-mono tracking-[0.2em]">
-                            {anprData.plate_no}
+                            {anprData.plate_no || "-"}
                           </p>
                         </div>
                       )}
@@ -809,7 +936,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                         </p>
                       ) : (
                         <p className="text-8xl font-black text-emerald-200">
-                          {weightData.total_weight.toLocaleString("id-ID")} KG
+                          {formatNumber(weightData.total_weight)} KG
                         </p>
                       )}
                     </div>
@@ -841,9 +968,9 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                         </p>
                       ) : (
                         <p className="text-8xl font-black text-emerald-200">
-                          P {dimensionLengthValue.toFixed(2)} • L{" "}
-                          {dimensionData.width.toFixed(2)} • T{" "}
-                          {dimensionData.height.toFixed(2)} m
+                          P {formatFixed(dimensionLengthValue)} • L{" "}
+                          {formatFixed(dimensionData.width)} • T{" "}
+                          {formatFixed(dimensionData.height)} m
                         </p>
                       )}
                     </div>
@@ -851,6 +978,11 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
                   {(currentStepId === 6 || effectiveDetailStepId === 6) && (
                     <div className="space-y-10">
+                      {!vehicleActualId && !isFinalDataComplete && (
+                        <p className="text-3xl text-blue-200">
+                          Menunggu data tambahan {finalWaitRemainingSeconds} detik
+                        </p>
+                      )}
                       <p
                         className={`text-8xl font-black ${
                           violationResult === "Normal"
@@ -1136,14 +1268,14 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                                   2 *
                                   Math.PI *
                                   40 *
-                                  (1 - anprData.confidence / 100)
+                                  (1 - (anprData.confidence ?? 0) / 100)
                                 }`}
                                 strokeLinecap="round"
                               />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                               <p className="text-2xl font-bold text-green-600">
-                                {anprData.confidence.toFixed(0)}%
+                                {formatFixed(anprData.confidence, 0, "0")}%
                               </p>
                             </div>
                           </div>
@@ -1189,24 +1321,26 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                             Waktu Deteksi
                           </p>
                           <p className="text-lg font-bold text-gray-900">
-                            {new Date(anprData.captured_at).toLocaleTimeString(
-                              "id-ID",
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                              },
-                            )}
+                            {anprData.captured_at
+                              ? new Date(
+                                  anprData.captured_at,
+                                ).toLocaleTimeString("id-ID", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                })
+                              : "-"}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {new Date(anprData.captured_at).toLocaleDateString(
-                              "id-ID",
-                              {
-                                day: "numeric",
-                                month: "long",
-                                year: "numeric",
-                              },
-                            )}
+                            {anprData.captured_at
+                              ? new Date(
+                                  anprData.captured_at,
+                                ).toLocaleDateString("id-ID", {
+                                  day: "numeric",
+                                  month: "long",
+                                  year: "numeric",
+                                })
+                              : "-"}
                           </p>
                         </div>
 
@@ -1253,7 +1387,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                         Total Berat Kendaraan
                       </p>
                       <p className="text-5xl font-bold text-blue-900 mb-1">
-                        {weightData.total_weight.toLocaleString("id-ID")}
+                        {formatNumber(weightData.total_weight)}
                       </p>
                       <p className="text-xl font-semibold text-blue-800">KG</p>
                     </div>
@@ -1422,7 +1556,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                             Panjang (L)
                           </p>
                           <p className="text-4xl font-black text-gray-900 font-mono">
-                            {dimensionLengthValue.toFixed(2)}
+                            {formatFixed(dimensionLengthValue)}
                           </p>
                           <p className="text-sm text-gray-600 font-semibold mt-1">
                             meter
@@ -1433,7 +1567,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                             Lebar (W)
                           </p>
                           <p className="text-4xl font-black text-gray-900 font-mono">
-                            {dimensionData.width.toFixed(2)}
+                            {formatFixed(dimensionData.width)}
                           </p>
                           <p className="text-sm text-gray-600 font-semibold mt-1">
                             meter
@@ -1444,7 +1578,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                             Tinggi (H)
                           </p>
                           <p className="text-4xl font-black text-gray-900 font-mono">
-                            {dimensionData.height.toFixed(2)}
+                            {formatFixed(dimensionData.height)}
                           </p>
                           <p className="text-sm text-gray-600 font-semibold mt-1">
                             meter
@@ -1456,8 +1590,8 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                     {/* Image and Details Grid */}
                     <div className="grid grid-cols-2 gap-4">
                       {/* Image */}
-                      {anprData.minio_bucket &&
-                        anprData.minio_full_image_object && (
+                      {anprData?.minio_bucket &&
+                        anprData?.minio_full_image_object && (
                           <div className="relative h-full rounded-lg overflow-hidden border border-gray-200 bg-gray-900 shadow-sm">
                             <Image
                               src={getMinioImageUrl(
@@ -1530,6 +1664,23 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                   Semua step selesai. Data yang belum tersedia akan tetap
                   dilanjutkan lewat listener background.
                 </p>
+                {!vehicleActualId && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <p className="text-sm font-semibold text-blue-900">
+                      Finalisasi menunggu data tambahan
+                    </p>
+                    <p className="mt-1 text-sm text-blue-700">
+                      Sistem akan menunggu sampai semua area lengkap. Jika tidak
+                      ada data baru selama {finalWaitRemainingSeconds} detik,
+                      data saat ini akan langsung diinsert dan session ditutup.
+                    </p>
+                    {!isFinalDataComplete && missingFinalAreas.length > 0 && (
+                      <p className="mt-2 text-xs text-blue-800">
+                        Area yang belum lengkap: {missingFinalAreas.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1557,7 +1708,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                       <p className="mt-2 text-sm text-gray-600">Berat Total</p>
                       <p className="text-2xl font-black text-gray-900">
                         {weightData
-                          ? `${weightData.total_weight.toLocaleString("id-ID")} KG`
+                          ? `${formatNumber(weightData.total_weight)} KG`
                           : "-"}
                       </p>
                       <p className="mt-2 text-xs text-gray-600">
@@ -1595,7 +1746,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                       <p className="mt-2 text-sm text-gray-600">P x L x T</p>
                       <p className="text-2xl font-black text-gray-900">
                         {dimensionData
-                          ? `${dimensionLengthValue.toFixed(2)} x ${dimensionData.width.toFixed(2)} x ${dimensionData.height.toFixed(2)} m`
+                          ? `${formatFixed(dimensionLengthValue)} x ${formatFixed(dimensionData.width)} x ${formatFixed(dimensionData.height)} m`
                           : "-"}
                       </p>
                       <p className="mt-2 text-xs text-gray-600">
@@ -1638,6 +1789,11 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                       <p className="mt-2 text-xs text-gray-600">
                         ID Transaksi: {vehicleActualId || "belum tersedia"}
                       </p>
+                      {!vehicleActualId && !isFinalDataComplete && (
+                        <p className="mt-1 text-xs text-gray-600">
+                          Menunggu timeout idle: {finalWaitRemainingSeconds} detik
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

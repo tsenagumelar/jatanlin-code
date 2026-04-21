@@ -17,6 +17,8 @@ type ViolationResult =
   | "Over Dimension"
   | "Over Dimension & Over Loading";
 
+type SessionStatus = "IDLE" | "IN_PROGRESS" | "COMPLETED";
+
 interface ProcessingContextType {
   // Step management
   steps: Step[];
@@ -24,6 +26,7 @@ interface ProcessingContextType {
   countdown: number;
   sessionStartTime: string | null;
   sessionId: string | null;
+  sessionStatus: SessionStatus;
   isProcessing: boolean;
   vehicleActualId: string | null;
   phase: "init" | "processing";
@@ -43,6 +46,7 @@ interface ProcessingContextType {
   setCountdown: (count: number) => void;
   setSessionStartTime: (time: string | null) => void;
   setSessionId: (id: string | null) => void;
+  setSessionStatus: (status: SessionStatus) => void;
   setIsProcessing: (processing: boolean) => void;
   setVehicleActualId: (id: string | null) => void;
   setPhase: (phase: "init" | "processing") => void;
@@ -56,6 +60,7 @@ interface ProcessingContextType {
 
   // Utility
   resetProcessing: () => void;
+  restartProcessingSteps: () => void;
 }
 
 const ProcessingContext = createContext<ProcessingContextType | undefined>(
@@ -80,6 +85,7 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
   const [countdown, setCountdown] = useState(5);
   const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("IDLE");
   const [isProcessing, setIsProcessing] = useState(false);
   const [vehicleActualId, setVehicleActualId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"init" | "processing">("init");
@@ -120,6 +126,9 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
         case 'UPDATE_SESSION_ID':
           setSessionId(payload);
           break;
+        case 'UPDATE_SESSION_STATUS':
+          setSessionStatus(payload);
+          break;
         case 'UPDATE_IS_PROCESSING':
           setIsProcessing(payload);
           break;
@@ -156,6 +165,7 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
           setCountdown(5);
           setSessionStartTime(null);
           setSessionId(null);
+          setSessionStatus("IDLE");
           setIsProcessing(false);
           setVehicleActualId(null);
           setPhase("init");
@@ -209,6 +219,11 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
   const broadcastSetSessionId = useCallback((id: string | null) => {
     setSessionId(id);
     broadcast('UPDATE_SESSION_ID', id);
+  }, [broadcast]);
+
+  const broadcastSetSessionStatus = useCallback((status: SessionStatus) => {
+    setSessionStatus(status);
+    broadcast('UPDATE_SESSION_STATUS', status);
   }, [broadcast]);
 
   const broadcastSetIsProcessing = useCallback((processing: boolean) => {
@@ -267,6 +282,7 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
     setCountdown(5);
     setSessionStartTime(null);
     setSessionId(null);
+    setSessionStatus("IDLE");
     setIsProcessing(false);
     setVehicleActualId(null);
     setPhase("init");
@@ -280,6 +296,34 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
     broadcast('RESET_PROCESSING', null);
   }, [broadcast]);
 
+  const restartProcessingSteps = useCallback(() => {
+    setSteps(initialSteps);
+    setCurrentStepId(1);
+    setCountdown(5);
+    setIsProcessing(false);
+    setVehicleActualId(null);
+    setAnprData(null);
+    setWeightData(null);
+    setAxleData(null);
+    setDimensionData(null);
+    setCctvData(null);
+    setVehicleClassData(null);
+    setViolationResult(null);
+
+    broadcast('UPDATE_STEPS', initialSteps);
+    broadcast('UPDATE_CURRENT_STEP', 1);
+    broadcast('UPDATE_COUNTDOWN', 5);
+    broadcast('UPDATE_IS_PROCESSING', false);
+    broadcast('UPDATE_VEHICLE_ACTUAL_ID', null);
+    broadcast('UPDATE_ANPR_DATA', null);
+    broadcast('UPDATE_WEIGHT_DATA', null);
+    broadcast('UPDATE_AXLE_DATA', null);
+    broadcast('UPDATE_DIMENSION_DATA', null);
+    broadcast('UPDATE_CCTV_DATA', null);
+    broadcast('UPDATE_VEHICLE_CLASS_DATA', null);
+    broadcast('UPDATE_VIOLATION_RESULT', null);
+  }, [broadcast]);
+
   const value: ProcessingContextType = {
     // State
     steps,
@@ -287,6 +331,7 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
     countdown,
     sessionStartTime,
     sessionId,
+    sessionStatus,
     isProcessing,
     vehicleActualId,
     phase,
@@ -304,6 +349,7 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
     setCountdown: broadcastSetCountdown,
     setSessionStartTime: broadcastSetSessionStartTime,
     setSessionId: broadcastSetSessionId,
+    setSessionStatus: broadcastSetSessionStatus,
     setIsProcessing: broadcastSetIsProcessing,
     setVehicleActualId: broadcastSetVehicleActualId,
     setPhase: broadcastSetPhase,
@@ -315,6 +361,7 @@ export const ProcessingProvider: React.FC<{ children: React.ReactNode }> = ({
     setVehicleClassData: broadcastSetVehicleClassData,
     setViolationResult: broadcastSetViolationResult,
     resetProcessing,
+    restartProcessingSteps,
   };
 
   return (

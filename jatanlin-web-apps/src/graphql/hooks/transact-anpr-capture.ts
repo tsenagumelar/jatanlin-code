@@ -10,14 +10,14 @@ export type GetAnprCapturesQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetAnprCapturesQuery = { transact_anpr_capture: Array<{ id: any, external_id: string, plate_no: string, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_bucket: string, minio_date_folder: string, minio_xml_object: string, minio_full_image_object: string, minio_plate_image_object: string, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null }>, transact_anpr_capture_aggregate: { aggregate?: { count: number } | null } };
+export type GetAnprCapturesQuery = { transact_anpr_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_xml_object?: string | null, minio_full_image_object?: string | null, minio_plate_image_object?: string | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null }>, transact_anpr_capture_aggregate: { aggregate?: { count: number } | null } };
 
 export type GetAnprCaptureByIdQueryVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
 }>;
 
 
-export type GetAnprCaptureByIdQuery = { transact_anpr_capture_by_pk?: { id: any, external_id: string, plate_no: string, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_bucket: string, minio_date_folder: string, minio_xml_object: string, minio_full_image_object: string, minio_plate_image_object: string, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null } | null };
+export type GetAnprCaptureByIdQuery = { transact_anpr_capture_by_pk?: { id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_xml_object?: string | null, minio_full_image_object?: string | null, minio_plate_image_object?: string | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null } | null };
 
 export type GetAnprCapturesByPlateQueryVariables = Types.Exact<{
   plate_no: Types.Scalars['String']['input'];
@@ -25,7 +25,7 @@ export type GetAnprCapturesByPlateQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetAnprCapturesByPlateQuery = { transact_anpr_capture: Array<{ id: any, external_id: string, plate_no: string, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_full_image_object: string, minio_plate_image_object: string }> };
+export type GetAnprCapturesByPlateQuery = { transact_anpr_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_full_image_object?: string | null, minio_plate_image_object?: string | null }> };
 
 export type GetAnprCapturesByDateRangeQueryVariables = Types.Exact<{
   start_date: Types.Scalars['timestamptz']['input'];
@@ -33,14 +33,14 @@ export type GetAnprCapturesByDateRangeQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetAnprCapturesByDateRangeQuery = { transact_anpr_capture: Array<{ id: any, external_id: string, plate_no: string, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null }> };
+export type GetAnprCapturesByDateRangeQuery = { transact_anpr_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null }> };
 
 export type InsertAnprCaptureMutationVariables = Types.Exact<{
   object: Types.Transact_Anpr_Capture_Insert_Input;
 }>;
 
 
-export type InsertAnprCaptureMutation = { insert_transact_anpr_capture_one?: { id: any, external_id: string, plate_no: string, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, created_date?: any | null } | null };
+export type InsertAnprCaptureMutation = { insert_transact_anpr_capture_one?: { id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, created_date?: any | null } | null };
 
 export type UpdateAnprCaptureMutationVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
@@ -48,7 +48,7 @@ export type UpdateAnprCaptureMutationVariables = Types.Exact<{
 }>;
 
 
-export type UpdateAnprCaptureMutation = { update_transact_anpr_capture_by_pk?: { id: any, external_id: string, plate_no: string, confidence?: any | null, captured_at?: any | null, updated_by?: any | null, updated_date?: any | null } | null };
+export type UpdateAnprCaptureMutation = { update_transact_anpr_capture_by_pk?: { id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, updated_by?: any | null, updated_date?: any | null } | null };
 
 export type SoftDeleteAnprCaptureMutationVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
@@ -56,15 +56,15 @@ export type SoftDeleteAnprCaptureMutationVariables = Types.Exact<{
 }>;
 
 
-export type SoftDeleteAnprCaptureMutation = { update_transact_anpr_capture_by_pk?: { id: any, external_id: string, plate_no: string, is_deleted?: boolean | null, is_active?: boolean | null, updated_by?: any | null, updated_date?: any | null } | null };
+export type SoftDeleteAnprCaptureMutation = { update_transact_anpr_capture_by_pk?: { id: any, external_id?: string | null, plate_no?: string | null, is_deleted?: boolean | null, is_active?: boolean | null, updated_by?: any | null, updated_date?: any | null } | null };
 
 export type SubscribeLatestAnprCaptureSubscriptionVariables = Types.Exact<{
+  session_id: Types.Scalars['uuid']['input'];
   site_id?: Types.InputMaybe<Types.Scalars['uuid']['input']>;
-  created_after?: Types.InputMaybe<Types.Scalars['timestamptz']['input']>;
 }>;
 
 
-export type SubscribeLatestAnprCaptureSubscription = { transact_anpr_capture: Array<{ id: any, external_id: string, plate_no: string, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_bucket: string, minio_date_folder: string, minio_full_image_object: string, minio_plate_image_object: string, site_id?: any | null }> };
+export type SubscribeLatestAnprCaptureSubscription = { transact_anpr_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_full_image_object?: string | null, minio_plate_image_object?: string | null, site_id?: any | null, session_id?: any | null }> };
 
 
 export const GetAnprCapturesDocument = gql`
@@ -389,9 +389,9 @@ export function useSoftDeleteAnprCaptureMutation(baseOptions?: Apollo.MutationHo
       }
 export type SoftDeleteAnprCaptureMutationHookResult = ReturnType<typeof useSoftDeleteAnprCaptureMutation>;
 export const SubscribeLatestAnprCaptureDocument = gql`
-    subscription SubscribeLatestAnprCapture($site_id: uuid, $created_after: timestamptz) {
+    subscription SubscribeLatestAnprCapture($session_id: uuid!, $site_id: uuid) {
   transact_anpr_capture(
-    where: {is_deleted: {_eq: false}, site_id: {_eq: $site_id}, created_date: {_gte: $created_after}}
+    where: {is_deleted: {_eq: false}, session_id: {_eq: $session_id}, site_id: {_eq: $site_id}}
     order_by: {created_date: desc}
     limit: 1
   ) {
@@ -407,6 +407,7 @@ export const SubscribeLatestAnprCaptureDocument = gql`
     minio_full_image_object
     minio_plate_image_object
     site_id
+    session_id
   }
 }
     `;
@@ -423,12 +424,12 @@ export const SubscribeLatestAnprCaptureDocument = gql`
  * @example
  * const { data, loading, error } = useSubscribeLatestAnprCaptureSubscription({
  *   variables: {
+ *      session_id: // value for 'session_id'
  *      site_id: // value for 'site_id'
- *      created_after: // value for 'created_after'
  *   },
  * });
  */
-export function useSubscribeLatestAnprCaptureSubscription(baseOptions?: Apollo.SubscriptionHookOptions<SubscribeLatestAnprCaptureSubscription, SubscribeLatestAnprCaptureSubscriptionVariables>) {
+export function useSubscribeLatestAnprCaptureSubscription(baseOptions: Apollo.SubscriptionHookOptions<SubscribeLatestAnprCaptureSubscription, SubscribeLatestAnprCaptureSubscriptionVariables>) {
         const options = {...defaultOptions, ...baseOptions}
         return Apollo.useSubscription<SubscribeLatestAnprCaptureSubscription, SubscribeLatestAnprCaptureSubscriptionVariables>(SubscribeLatestAnprCaptureDocument, options);
       }

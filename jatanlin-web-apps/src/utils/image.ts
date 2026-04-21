@@ -4,7 +4,10 @@
  * @param objectPath - Object path in MinIO
  * @returns Full URL to the image
  */
-export const getMinioImageUrl = (bucket: string, objectPath: string): string => {
+export const getMinioImageUrl = (
+  bucket: string | null | undefined,
+  objectPath: string | null | undefined,
+): string => {
   if (!bucket || !objectPath) return '';
 
   const MINIO_URL = process.env.NEXT_PUBLIC_MINIO_URL || '';

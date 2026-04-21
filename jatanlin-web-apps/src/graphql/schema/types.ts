@@ -5053,20 +5053,20 @@ export type Transact_Anpr_Capture = {
   confidence?: Maybe<Scalars['numeric']['output']>;
   created_by?: Maybe<Scalars['uuid']['output']>;
   created_date?: Maybe<Scalars['timestamptz']['output']>;
-  external_id: Scalars['String']['output'];
+  external_id?: Maybe<Scalars['String']['output']>;
   id: Scalars['uuid']['output'];
   is_active?: Maybe<Scalars['Boolean']['output']>;
   is_deleted?: Maybe<Scalars['Boolean']['output']>;
   location_code?: Maybe<Scalars['String']['output']>;
   /** An object relationship */
   master_site?: Maybe<Master_Site>;
-  minio_bucket: Scalars['String']['output'];
-  minio_date_folder: Scalars['String']['output'];
-  minio_full_image_object: Scalars['String']['output'];
-  minio_plate_image_object: Scalars['String']['output'];
-  minio_xml_object: Scalars['String']['output'];
-  plate_no: Scalars['String']['output'];
-  /** WIM session ID when this capture was processed */
+  minio_bucket?: Maybe<Scalars['String']['output']>;
+  minio_date_folder?: Maybe<Scalars['String']['output']>;
+  minio_full_image_object?: Maybe<Scalars['String']['output']>;
+  minio_plate_image_object?: Maybe<Scalars['String']['output']>;
+  minio_xml_object?: Maybe<Scalars['String']['output']>;
+  plate_no?: Maybe<Scalars['String']['output']>;
+  /** WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   /** Site where this capture occurred */
   site_id?: Maybe<Scalars['uuid']['output']>;
@@ -5276,7 +5276,7 @@ export type Transact_Anpr_Capture_Insert_Input = {
   minio_plate_image_object?: InputMaybe<Scalars['String']['input']>;
   minio_xml_object?: InputMaybe<Scalars['String']['input']>;
   plate_no?: InputMaybe<Scalars['String']['input']>;
-  /** WIM session ID when this capture was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   /** Site where this capture occurred */
   site_id?: InputMaybe<Scalars['uuid']['input']>;
@@ -5303,7 +5303,7 @@ export type Transact_Anpr_Capture_Max_Fields = {
   minio_plate_image_object?: Maybe<Scalars['String']['output']>;
   minio_xml_object?: Maybe<Scalars['String']['output']>;
   plate_no?: Maybe<Scalars['String']['output']>;
-  /** WIM session ID when this capture was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   /** Site where this capture occurred */
   site_id?: Maybe<Scalars['uuid']['output']>;
@@ -5327,7 +5327,7 @@ export type Transact_Anpr_Capture_Max_Order_By = {
   minio_plate_image_object?: InputMaybe<Order_By>;
   minio_xml_object?: InputMaybe<Order_By>;
   plate_no?: InputMaybe<Order_By>;
-  /** WIM session ID when this capture was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing */
   session_id?: InputMaybe<Order_By>;
   /** Site where this capture occurred */
   site_id?: InputMaybe<Order_By>;
@@ -5351,7 +5351,7 @@ export type Transact_Anpr_Capture_Min_Fields = {
   minio_plate_image_object?: Maybe<Scalars['String']['output']>;
   minio_xml_object?: Maybe<Scalars['String']['output']>;
   plate_no?: Maybe<Scalars['String']['output']>;
-  /** WIM session ID when this capture was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   /** Site where this capture occurred */
   site_id?: Maybe<Scalars['uuid']['output']>;
@@ -5375,7 +5375,7 @@ export type Transact_Anpr_Capture_Min_Order_By = {
   minio_plate_image_object?: InputMaybe<Order_By>;
   minio_xml_object?: InputMaybe<Order_By>;
   plate_no?: InputMaybe<Order_By>;
-  /** WIM session ID when this capture was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing */
   session_id?: InputMaybe<Order_By>;
   /** Site where this capture occurred */
   site_id?: InputMaybe<Order_By>;
@@ -5516,7 +5516,7 @@ export type Transact_Anpr_Capture_Set_Input = {
   minio_plate_image_object?: InputMaybe<Scalars['String']['input']>;
   minio_xml_object?: InputMaybe<Scalars['String']['input']>;
   plate_no?: InputMaybe<Scalars['String']['input']>;
-  /** WIM session ID when this capture was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   /** Site where this capture occurred */
   site_id?: InputMaybe<Scalars['uuid']['input']>;
@@ -5580,7 +5580,7 @@ export type Transact_Anpr_Capture_Stream_Cursor_Value_Input = {
   minio_plate_image_object?: InputMaybe<Scalars['String']['input']>;
   minio_xml_object?: InputMaybe<Scalars['String']['input']>;
   plate_no?: InputMaybe<Scalars['String']['input']>;
-  /** WIM session ID when this capture was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   /** Site where this capture occurred */
   site_id?: InputMaybe<Scalars['uuid']['input']>;
@@ -5687,19 +5687,19 @@ export type Transact_Axle_Capture = {
   captured_at?: Maybe<Scalars['timestamptz']['output']>;
   created_by?: Maybe<Scalars['uuid']['output']>;
   created_date?: Maybe<Scalars['timestamptz']['output']>;
-  external_id: Scalars['String']['output'];
+  external_id?: Maybe<Scalars['String']['output']>;
   id: Scalars['uuid']['output'];
   is_active?: Maybe<Scalars['Boolean']['output']>;
   is_deleted?: Maybe<Scalars['Boolean']['output']>;
   length_mm?: Maybe<Scalars['Int']['output']>;
   /** An object relationship */
   master_site?: Maybe<Master_Site>;
-  minio_bucket: Scalars['String']['output'];
-  minio_date_folder: Scalars['String']['output'];
-  minio_image_object: Scalars['String']['output'];
-  minio_xml_object: Scalars['String']['output'];
+  minio_bucket?: Maybe<Scalars['String']['output']>;
+  minio_date_folder?: Maybe<Scalars['String']['output']>;
+  minio_image_object?: Maybe<Scalars['String']['output']>;
+  minio_xml_object?: Maybe<Scalars['String']['output']>;
   plate_no?: Maybe<Scalars['String']['output']>;
-  /** WIM session ID when this measurement was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   /** Site where this measurement occurred */
   site_id?: Maybe<Scalars['uuid']['output']>;
@@ -5893,7 +5893,7 @@ export type Transact_Axle_Capture_Insert_Input = {
   minio_image_object?: InputMaybe<Scalars['String']['input']>;
   minio_xml_object?: InputMaybe<Scalars['String']['input']>;
   plate_no?: InputMaybe<Scalars['String']['input']>;
-  /** WIM session ID when this measurement was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   /** Site where this measurement occurred */
   site_id?: InputMaybe<Scalars['uuid']['input']>;
@@ -5921,7 +5921,7 @@ export type Transact_Axle_Capture_Max_Fields = {
   minio_image_object?: Maybe<Scalars['String']['output']>;
   minio_xml_object?: Maybe<Scalars['String']['output']>;
   plate_no?: Maybe<Scalars['String']['output']>;
-  /** WIM session ID when this measurement was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   /** Site where this measurement occurred */
   site_id?: Maybe<Scalars['uuid']['output']>;
@@ -5947,7 +5947,7 @@ export type Transact_Axle_Capture_Max_Order_By = {
   minio_image_object?: InputMaybe<Order_By>;
   minio_xml_object?: InputMaybe<Order_By>;
   plate_no?: InputMaybe<Order_By>;
-  /** WIM session ID when this measurement was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing */
   session_id?: InputMaybe<Order_By>;
   /** Site where this measurement occurred */
   site_id?: InputMaybe<Order_By>;
@@ -5973,7 +5973,7 @@ export type Transact_Axle_Capture_Min_Fields = {
   minio_image_object?: Maybe<Scalars['String']['output']>;
   minio_xml_object?: Maybe<Scalars['String']['output']>;
   plate_no?: Maybe<Scalars['String']['output']>;
-  /** WIM session ID when this measurement was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   /** Site where this measurement occurred */
   site_id?: Maybe<Scalars['uuid']['output']>;
@@ -5999,7 +5999,7 @@ export type Transact_Axle_Capture_Min_Order_By = {
   minio_image_object?: InputMaybe<Order_By>;
   minio_xml_object?: InputMaybe<Order_By>;
   plate_no?: InputMaybe<Order_By>;
-  /** WIM session ID when this measurement was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing */
   session_id?: InputMaybe<Order_By>;
   /** Site where this measurement occurred */
   site_id?: InputMaybe<Order_By>;
@@ -6147,7 +6147,7 @@ export type Transact_Axle_Capture_Set_Input = {
   minio_image_object?: InputMaybe<Scalars['String']['input']>;
   minio_xml_object?: InputMaybe<Scalars['String']['input']>;
   plate_no?: InputMaybe<Scalars['String']['input']>;
-  /** WIM session ID when this measurement was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   /** Site where this measurement occurred */
   site_id?: InputMaybe<Scalars['uuid']['input']>;
@@ -6225,7 +6225,7 @@ export type Transact_Axle_Capture_Stream_Cursor_Value_Input = {
   minio_image_object?: InputMaybe<Scalars['String']['input']>;
   minio_xml_object?: InputMaybe<Scalars['String']['input']>;
   plate_no?: InputMaybe<Scalars['String']['input']>;
-  /** WIM session ID when this measurement was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   /** Site where this measurement occurred */
   site_id?: InputMaybe<Scalars['uuid']['input']>;
@@ -6361,6 +6361,7 @@ export type Transact_Cctv = {
   is_deleted?: Maybe<Scalars['Boolean']['output']>;
   /** An object relationship */
   master_site?: Maybe<Master_Site>;
+  /** WIM session ID when this CCTV capture was processed */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   /** An array relationship */
@@ -6492,6 +6493,7 @@ export type Transact_Cctv_Insert_Input = {
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
   master_site?: InputMaybe<Master_Site_Obj_Rel_Insert_Input>;
+  /** WIM session ID when this CCTV capture was processed */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   transact_vehicle_actuals?: InputMaybe<Transact_Vehicle_Actual_Arr_Rel_Insert_Input>;
@@ -6507,6 +6509,7 @@ export type Transact_Cctv_Max_Fields = {
   filename?: Maybe<Scalars['String']['output']>;
   filepath?: Maybe<Scalars['String']['output']>;
   id?: Maybe<Scalars['uuid']['output']>;
+  /** WIM session ID when this CCTV capture was processed */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   updated_by?: Maybe<Scalars['uuid']['output']>;
@@ -6520,6 +6523,7 @@ export type Transact_Cctv_Max_Order_By = {
   filename?: InputMaybe<Order_By>;
   filepath?: InputMaybe<Order_By>;
   id?: InputMaybe<Order_By>;
+  /** WIM session ID when this CCTV capture was processed */
   session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   updated_by?: InputMaybe<Order_By>;
@@ -6533,6 +6537,7 @@ export type Transact_Cctv_Min_Fields = {
   filename?: Maybe<Scalars['String']['output']>;
   filepath?: Maybe<Scalars['String']['output']>;
   id?: Maybe<Scalars['uuid']['output']>;
+  /** WIM session ID when this CCTV capture was processed */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   updated_by?: Maybe<Scalars['uuid']['output']>;
@@ -6546,6 +6551,7 @@ export type Transact_Cctv_Min_Order_By = {
   filename?: InputMaybe<Order_By>;
   filepath?: InputMaybe<Order_By>;
   id?: InputMaybe<Order_By>;
+  /** WIM session ID when this CCTV capture was processed */
   session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   updated_by?: InputMaybe<Order_By>;
@@ -6648,6 +6654,7 @@ export type Transact_Cctv_Set_Input = {
   id?: InputMaybe<Scalars['uuid']['input']>;
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
+  /** WIM session ID when this CCTV capture was processed */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   updated_by?: InputMaybe<Scalars['uuid']['input']>;
@@ -6671,6 +6678,7 @@ export type Transact_Cctv_Stream_Cursor_Value_Input = {
   id?: InputMaybe<Scalars['uuid']['input']>;
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
+  /** WIM session ID when this CCTV capture was processed */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   updated_by?: InputMaybe<Scalars['uuid']['input']>;
@@ -6712,10 +6720,10 @@ export type Transact_Cctv_Updates = {
 
 /** columns and relationships of "transact_dimension" */
 export type Transact_Dimension = {
-  anpr_id: Scalars['uuid']['output'];
+  anpr_id?: Maybe<Scalars['uuid']['output']>;
   created_by?: Maybe<Scalars['uuid']['output']>;
   created_date?: Maybe<Scalars['timestamptz']['output']>;
-  filepath: Scalars['String']['output'];
+  filepath?: Maybe<Scalars['String']['output']>;
   height?: Maybe<Scalars['numeric']['output']>;
   id: Scalars['uuid']['output'];
   is_active?: Maybe<Scalars['Boolean']['output']>;
@@ -6723,11 +6731,11 @@ export type Transact_Dimension = {
   length?: Maybe<Scalars['numeric']['output']>;
   /** An object relationship */
   master_site?: Maybe<Master_Site>;
-  /** WIM session ID when this dimension was calculated */
+  /** WIM session ID. Placeholder row may contain only id + session_id when dimension is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   /** An object relationship */
-  transact_anpr_capture: Transact_Anpr_Capture;
+  transact_anpr_capture?: Maybe<Transact_Anpr_Capture>;
   /** An array relationship */
   transact_vehicle_actuals: Array<Transact_Vehicle_Actual>;
   /** An aggregate relationship */
@@ -6901,7 +6909,7 @@ export type Transact_Dimension_Insert_Input = {
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
   length?: InputMaybe<Scalars['numeric']['input']>;
   master_site?: InputMaybe<Master_Site_Obj_Rel_Insert_Input>;
-  /** WIM session ID when this dimension was calculated */
+  /** WIM session ID. Placeholder row may contain only id + session_id when dimension is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   transact_anpr_capture?: InputMaybe<Transact_Anpr_Capture_Obj_Rel_Insert_Input>;
@@ -6921,7 +6929,7 @@ export type Transact_Dimension_Max_Fields = {
   height?: Maybe<Scalars['numeric']['output']>;
   id?: Maybe<Scalars['uuid']['output']>;
   length?: Maybe<Scalars['numeric']['output']>;
-  /** WIM session ID when this dimension was calculated */
+  /** WIM session ID. Placeholder row may contain only id + session_id when dimension is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   updated_by?: Maybe<Scalars['uuid']['output']>;
@@ -6938,7 +6946,7 @@ export type Transact_Dimension_Max_Order_By = {
   height?: InputMaybe<Order_By>;
   id?: InputMaybe<Order_By>;
   length?: InputMaybe<Order_By>;
-  /** WIM session ID when this dimension was calculated */
+  /** WIM session ID. Placeholder row may contain only id + session_id when dimension is missing */
   session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   updated_by?: InputMaybe<Order_By>;
@@ -6955,7 +6963,7 @@ export type Transact_Dimension_Min_Fields = {
   height?: Maybe<Scalars['numeric']['output']>;
   id?: Maybe<Scalars['uuid']['output']>;
   length?: Maybe<Scalars['numeric']['output']>;
-  /** WIM session ID when this dimension was calculated */
+  /** WIM session ID. Placeholder row may contain only id + session_id when dimension is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   updated_by?: Maybe<Scalars['uuid']['output']>;
@@ -6972,7 +6980,7 @@ export type Transact_Dimension_Min_Order_By = {
   height?: InputMaybe<Order_By>;
   id?: InputMaybe<Order_By>;
   length?: InputMaybe<Order_By>;
-  /** WIM session ID when this dimension was calculated */
+  /** WIM session ID. Placeholder row may contain only id + session_id when dimension is missing */
   session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   updated_by?: InputMaybe<Order_By>;
@@ -7088,7 +7096,7 @@ export type Transact_Dimension_Set_Input = {
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
   length?: InputMaybe<Scalars['numeric']['input']>;
-  /** WIM session ID when this dimension was calculated */
+  /** WIM session ID. Placeholder row may contain only id + session_id when dimension is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   updated_by?: InputMaybe<Scalars['uuid']['input']>;
@@ -7157,7 +7165,7 @@ export type Transact_Dimension_Stream_Cursor_Value_Input = {
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
   length?: InputMaybe<Scalars['numeric']['input']>;
-  /** WIM session ID when this dimension was calculated */
+  /** WIM session ID. Placeholder row may contain only id + session_id when dimension is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   updated_by?: InputMaybe<Scalars['uuid']['input']>;
@@ -7270,7 +7278,7 @@ export type Transact_Vehicle_Actual = {
   actual_total_axle?: Maybe<Scalars['Int']['output']>;
   actual_weight?: Maybe<Scalars['numeric']['output']>;
   actual_width?: Maybe<Scalars['numeric']['output']>;
-  anpr_id: Scalars['uuid']['output'];
+  anpr_id?: Maybe<Scalars['uuid']['output']>;
   axle_id?: Maybe<Scalars['uuid']['output']>;
   created_by?: Maybe<Scalars['uuid']['output']>;
   created_date?: Maybe<Scalars['timestamptz']['output']>;
@@ -7282,9 +7290,11 @@ export type Transact_Vehicle_Actual = {
   location_lng?: Maybe<Scalars['numeric']['output']>;
   /** An object relationship */
   master_site?: Maybe<Master_Site>;
+  /** WIM session ID for grouping partial source data during verification */
+  session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   /** An object relationship */
-  transact_anpr_capture: Transact_Anpr_Capture;
+  transact_anpr_capture?: Maybe<Transact_Anpr_Capture>;
   /** An object relationship */
   transact_axle_capture?: Maybe<Transact_Axle_Capture>;
   /** An object relationship */
@@ -7300,6 +7310,8 @@ export type Transact_Vehicle_Actual = {
   /** An object relationship */
   transact_weighing?: Maybe<Transact_Weighing>;
   transact_weighing_id?: Maybe<Scalars['uuid']['output']>;
+  /** An object relationship */
+  transact_wim_session?: Maybe<Transact_Wim_Session>;
   updated_by?: Maybe<Scalars['uuid']['output']>;
   updated_date?: Maybe<Scalars['timestamptz']['output']>;
 };
@@ -7445,6 +7457,7 @@ export type Transact_Vehicle_Actual_Bool_Exp = {
   location_lat?: InputMaybe<Numeric_Comparison_Exp>;
   location_lng?: InputMaybe<Numeric_Comparison_Exp>;
   master_site?: InputMaybe<Master_Site_Bool_Exp>;
+  session_id?: InputMaybe<Uuid_Comparison_Exp>;
   site_id?: InputMaybe<Uuid_Comparison_Exp>;
   transact_anpr_capture?: InputMaybe<Transact_Anpr_Capture_Bool_Exp>;
   transact_axle_capture?: InputMaybe<Transact_Axle_Capture_Bool_Exp>;
@@ -7456,6 +7469,7 @@ export type Transact_Vehicle_Actual_Bool_Exp = {
   transact_vehicle_statuses_aggregate?: InputMaybe<Transact_Vehicle_Status_Aggregate_Bool_Exp>;
   transact_weighing?: InputMaybe<Transact_Weighing_Bool_Exp>;
   transact_weighing_id?: InputMaybe<Uuid_Comparison_Exp>;
+  transact_wim_session?: InputMaybe<Transact_Wim_Session_Bool_Exp>;
   updated_by?: InputMaybe<Uuid_Comparison_Exp>;
   updated_date?: InputMaybe<Timestamptz_Comparison_Exp>;
 };
@@ -7496,6 +7510,8 @@ export type Transact_Vehicle_Actual_Insert_Input = {
   location_lat?: InputMaybe<Scalars['numeric']['input']>;
   location_lng?: InputMaybe<Scalars['numeric']['input']>;
   master_site?: InputMaybe<Master_Site_Obj_Rel_Insert_Input>;
+  /** WIM session ID for grouping partial source data during verification */
+  session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   transact_anpr_capture?: InputMaybe<Transact_Anpr_Capture_Obj_Rel_Insert_Input>;
   transact_axle_capture?: InputMaybe<Transact_Axle_Capture_Obj_Rel_Insert_Input>;
@@ -7506,6 +7522,7 @@ export type Transact_Vehicle_Actual_Insert_Input = {
   transact_vehicle_statuses?: InputMaybe<Transact_Vehicle_Status_Arr_Rel_Insert_Input>;
   transact_weighing?: InputMaybe<Transact_Weighing_Obj_Rel_Insert_Input>;
   transact_weighing_id?: InputMaybe<Scalars['uuid']['input']>;
+  transact_wim_session?: InputMaybe<Transact_Wim_Session_Obj_Rel_Insert_Input>;
   updated_by?: InputMaybe<Scalars['uuid']['input']>;
   updated_date?: InputMaybe<Scalars['timestamptz']['input']>;
 };
@@ -7526,6 +7543,8 @@ export type Transact_Vehicle_Actual_Max_Fields = {
   location_address?: Maybe<Scalars['String']['output']>;
   location_lat?: Maybe<Scalars['numeric']['output']>;
   location_lng?: Maybe<Scalars['numeric']['output']>;
+  /** WIM session ID for grouping partial source data during verification */
+  session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   transact_cctv_id?: Maybe<Scalars['uuid']['output']>;
   transact_dimension_id?: Maybe<Scalars['uuid']['output']>;
@@ -7550,6 +7569,8 @@ export type Transact_Vehicle_Actual_Max_Order_By = {
   location_address?: InputMaybe<Order_By>;
   location_lat?: InputMaybe<Order_By>;
   location_lng?: InputMaybe<Order_By>;
+  /** WIM session ID for grouping partial source data during verification */
+  session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   transact_cctv_id?: InputMaybe<Order_By>;
   transact_dimension_id?: InputMaybe<Order_By>;
@@ -7574,6 +7595,8 @@ export type Transact_Vehicle_Actual_Min_Fields = {
   location_address?: Maybe<Scalars['String']['output']>;
   location_lat?: Maybe<Scalars['numeric']['output']>;
   location_lng?: Maybe<Scalars['numeric']['output']>;
+  /** WIM session ID for grouping partial source data during verification */
+  session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   transact_cctv_id?: Maybe<Scalars['uuid']['output']>;
   transact_dimension_id?: Maybe<Scalars['uuid']['output']>;
@@ -7598,6 +7621,8 @@ export type Transact_Vehicle_Actual_Min_Order_By = {
   location_address?: InputMaybe<Order_By>;
   location_lat?: InputMaybe<Order_By>;
   location_lng?: InputMaybe<Order_By>;
+  /** WIM session ID for grouping partial source data during verification */
+  session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   transact_cctv_id?: InputMaybe<Order_By>;
   transact_dimension_id?: InputMaybe<Order_By>;
@@ -7647,6 +7672,7 @@ export type Transact_Vehicle_Actual_Order_By = {
   location_lat?: InputMaybe<Order_By>;
   location_lng?: InputMaybe<Order_By>;
   master_site?: InputMaybe<Master_Site_Order_By>;
+  session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   transact_anpr_capture?: InputMaybe<Transact_Anpr_Capture_Order_By>;
   transact_axle_capture?: InputMaybe<Transact_Axle_Capture_Order_By>;
@@ -7657,6 +7683,7 @@ export type Transact_Vehicle_Actual_Order_By = {
   transact_vehicle_statuses_aggregate?: InputMaybe<Transact_Vehicle_Status_Aggregate_Order_By>;
   transact_weighing?: InputMaybe<Transact_Weighing_Order_By>;
   transact_weighing_id?: InputMaybe<Order_By>;
+  transact_wim_session?: InputMaybe<Transact_Wim_Session_Order_By>;
   updated_by?: InputMaybe<Order_By>;
   updated_date?: InputMaybe<Order_By>;
 };
@@ -7700,6 +7727,8 @@ export enum Transact_Vehicle_Actual_Select_Column {
   LocationLat = 'location_lat',
   /** column name */
   LocationLng = 'location_lng',
+  /** column name */
+  SessionId = 'session_id',
   /** column name */
   SiteId = 'site_id',
   /** column name */
@@ -7748,6 +7777,8 @@ export type Transact_Vehicle_Actual_Set_Input = {
   location_address?: InputMaybe<Scalars['String']['input']>;
   location_lat?: InputMaybe<Scalars['numeric']['input']>;
   location_lng?: InputMaybe<Scalars['numeric']['input']>;
+  /** WIM session ID for grouping partial source data during verification */
+  session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   transact_cctv_id?: InputMaybe<Scalars['uuid']['input']>;
   transact_dimension_id?: InputMaybe<Scalars['uuid']['input']>;
@@ -7848,6 +7879,8 @@ export type Transact_Vehicle_Actual_Stream_Cursor_Value_Input = {
   location_address?: InputMaybe<Scalars['String']['input']>;
   location_lat?: InputMaybe<Scalars['numeric']['input']>;
   location_lng?: InputMaybe<Scalars['numeric']['input']>;
+  /** WIM session ID for grouping partial source data during verification */
+  session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   transact_cctv_id?: InputMaybe<Scalars['uuid']['input']>;
   transact_dimension_id?: InputMaybe<Scalars['uuid']['input']>;
@@ -7912,6 +7945,8 @@ export enum Transact_Vehicle_Actual_Update_Column {
   LocationLat = 'location_lat',
   /** column name */
   LocationLng = 'location_lng',
+  /** column name */
+  SessionId = 'session_id',
   /** column name */
   SiteId = 'site_id',
   /** column name */
@@ -8364,7 +8399,7 @@ export type Transact_Weighing = {
   is_deleted?: Maybe<Scalars['Boolean']['output']>;
   /** An object relationship */
   master_site?: Maybe<Master_Site>;
-  /** WIM session ID when this weighing was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when weighing is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   total_axle?: Maybe<Scalars['Int']['output']>;
@@ -8558,7 +8593,7 @@ export type Transact_Weighing_Insert_Input = {
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
   master_site?: InputMaybe<Master_Site_Obj_Rel_Insert_Input>;
-  /** WIM session ID when this weighing was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when weighing is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   total_axle?: InputMaybe<Scalars['Int']['input']>;
@@ -8574,7 +8609,7 @@ export type Transact_Weighing_Max_Fields = {
   created_by?: Maybe<Scalars['uuid']['output']>;
   created_date?: Maybe<Scalars['timestamptz']['output']>;
   id?: Maybe<Scalars['uuid']['output']>;
-  /** WIM session ID when this weighing was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when weighing is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   total_axle?: Maybe<Scalars['Int']['output']>;
@@ -8588,7 +8623,7 @@ export type Transact_Weighing_Max_Order_By = {
   created_by?: InputMaybe<Order_By>;
   created_date?: InputMaybe<Order_By>;
   id?: InputMaybe<Order_By>;
-  /** WIM session ID when this weighing was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when weighing is missing */
   session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   total_axle?: InputMaybe<Order_By>;
@@ -8602,7 +8637,7 @@ export type Transact_Weighing_Min_Fields = {
   created_by?: Maybe<Scalars['uuid']['output']>;
   created_date?: Maybe<Scalars['timestamptz']['output']>;
   id?: Maybe<Scalars['uuid']['output']>;
-  /** WIM session ID when this weighing was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when weighing is missing */
   session_id?: Maybe<Scalars['uuid']['output']>;
   site_id?: Maybe<Scalars['uuid']['output']>;
   total_axle?: Maybe<Scalars['Int']['output']>;
@@ -8616,7 +8651,7 @@ export type Transact_Weighing_Min_Order_By = {
   created_by?: InputMaybe<Order_By>;
   created_date?: InputMaybe<Order_By>;
   id?: InputMaybe<Order_By>;
-  /** WIM session ID when this weighing was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when weighing is missing */
   session_id?: InputMaybe<Order_By>;
   site_id?: InputMaybe<Order_By>;
   total_axle?: InputMaybe<Order_By>;
@@ -8728,7 +8763,7 @@ export type Transact_Weighing_Set_Input = {
   id?: InputMaybe<Scalars['uuid']['input']>;
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
-  /** WIM session ID when this weighing was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when weighing is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   total_axle?: InputMaybe<Scalars['Int']['input']>;
@@ -8789,7 +8824,7 @@ export type Transact_Weighing_Stream_Cursor_Value_Input = {
   id?: InputMaybe<Scalars['uuid']['input']>;
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
-  /** WIM session ID when this weighing was processed */
+  /** WIM session ID. Placeholder row may contain only id + session_id when weighing is missing */
   session_id?: InputMaybe<Scalars['uuid']['input']>;
   site_id?: InputMaybe<Scalars['uuid']['input']>;
   total_axle?: InputMaybe<Scalars['Int']['input']>;
@@ -8940,6 +8975,10 @@ export type Transact_Wim_Session = {
   /** An aggregate relationship */
   transact_dimensions_aggregate: Transact_Dimension_Aggregate;
   /** An array relationship */
+  transact_vehicle_actuals: Array<Transact_Vehicle_Actual>;
+  /** An aggregate relationship */
+  transact_vehicle_actuals_aggregate: Transact_Vehicle_Actual_Aggregate;
+  /** An array relationship */
   transact_weighings: Array<Transact_Weighing>;
   /** An aggregate relationship */
   transact_weighings_aggregate: Transact_Weighing_Aggregate;
@@ -9025,6 +9064,26 @@ export type Transact_Wim_SessionTransact_Dimensions_AggregateArgs = {
   offset?: InputMaybe<Scalars['Int']['input']>;
   order_by?: InputMaybe<Array<Transact_Dimension_Order_By>>;
   where?: InputMaybe<Transact_Dimension_Bool_Exp>;
+};
+
+
+/** Transaction table for tracking WIM (Weigh In Motion) process sessions */
+export type Transact_Wim_SessionTransact_Vehicle_ActualsArgs = {
+  distinct_on?: InputMaybe<Array<Transact_Vehicle_Actual_Select_Column>>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+  order_by?: InputMaybe<Array<Transact_Vehicle_Actual_Order_By>>;
+  where?: InputMaybe<Transact_Vehicle_Actual_Bool_Exp>;
+};
+
+
+/** Transaction table for tracking WIM (Weigh In Motion) process sessions */
+export type Transact_Wim_SessionTransact_Vehicle_Actuals_AggregateArgs = {
+  distinct_on?: InputMaybe<Array<Transact_Vehicle_Actual_Select_Column>>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+  order_by?: InputMaybe<Array<Transact_Vehicle_Actual_Order_By>>;
+  where?: InputMaybe<Transact_Vehicle_Actual_Bool_Exp>;
 };
 
 
@@ -9172,6 +9231,8 @@ export type Transact_Wim_Session_Bool_Exp = {
   transact_cctvs_aggregate?: InputMaybe<Transact_Cctv_Aggregate_Bool_Exp>;
   transact_dimensions?: InputMaybe<Transact_Dimension_Bool_Exp>;
   transact_dimensions_aggregate?: InputMaybe<Transact_Dimension_Aggregate_Bool_Exp>;
+  transact_vehicle_actuals?: InputMaybe<Transact_Vehicle_Actual_Bool_Exp>;
+  transact_vehicle_actuals_aggregate?: InputMaybe<Transact_Vehicle_Actual_Aggregate_Bool_Exp>;
   transact_weighings?: InputMaybe<Transact_Weighing_Bool_Exp>;
   transact_weighings_aggregate?: InputMaybe<Transact_Weighing_Aggregate_Bool_Exp>;
   updated_by?: InputMaybe<Uuid_Comparison_Exp>;
@@ -9225,6 +9286,7 @@ export type Transact_Wim_Session_Insert_Input = {
   transact_axle_captures?: InputMaybe<Transact_Axle_Capture_Arr_Rel_Insert_Input>;
   transact_cctvs?: InputMaybe<Transact_Cctv_Arr_Rel_Insert_Input>;
   transact_dimensions?: InputMaybe<Transact_Dimension_Arr_Rel_Insert_Input>;
+  transact_vehicle_actuals?: InputMaybe<Transact_Vehicle_Actual_Arr_Rel_Insert_Input>;
   transact_weighings?: InputMaybe<Transact_Weighing_Arr_Rel_Insert_Input>;
   updated_by?: InputMaybe<Scalars['uuid']['input']>;
   updated_date?: InputMaybe<Scalars['timestamptz']['input']>;
@@ -9381,6 +9443,7 @@ export type Transact_Wim_Session_Order_By = {
   transact_axle_captures_aggregate?: InputMaybe<Transact_Axle_Capture_Aggregate_Order_By>;
   transact_cctvs_aggregate?: InputMaybe<Transact_Cctv_Aggregate_Order_By>;
   transact_dimensions_aggregate?: InputMaybe<Transact_Dimension_Aggregate_Order_By>;
+  transact_vehicle_actuals_aggregate?: InputMaybe<Transact_Vehicle_Actual_Aggregate_Order_By>;
   transact_weighings_aggregate?: InputMaybe<Transact_Weighing_Aggregate_Order_By>;
   updated_by?: InputMaybe<Order_By>;
   updated_date?: InputMaybe<Order_By>;

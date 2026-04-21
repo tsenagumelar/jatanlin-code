@@ -14,7 +14,8 @@ interface ProcessingModuleProps {
 export const ProcessingModule: React.FC<ProcessingModuleProps> = ({
   variant = "full",
 }) => {
-  const { phase, setPhase, setSessionStartTime, setSessionId } = useProcessing();
+  const { phase, setPhase, setSessionStartTime, setSessionId, setSessionStatus } =
+    useProcessing();
   const [insertTransactWimSession] = useInsertTransactWimSessionMutation();
   const siteId = process.env.NEXT_PUBLIC_SITE_ID || undefined;
 
@@ -56,6 +57,7 @@ export const ProcessingModule: React.FC<ProcessingModuleProps> = ({
       const id = result.data?.insert_transact_wim_session_one?.id;
       if (id) {
         setSessionId(id);
+        setSessionStatus("IN_PROGRESS");
       }
     } catch (error) {
       console.error("Error inserting WIM session:", error);

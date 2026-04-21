@@ -10,21 +10,21 @@ export type GetDimensionsQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetDimensionsQuery = { transact_dimension: Array<{ id: any, anpr_id: any, filepath: string, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id?: any | null }>, transact_dimension_aggregate: { aggregate?: { count: number } | null } };
+export type GetDimensionsQuery = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id?: any | null }>, transact_dimension_aggregate: { aggregate?: { count: number } | null } };
 
 export type GetDimensionByIdQueryVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
 }>;
 
 
-export type GetDimensionByIdQuery = { transact_dimension_by_pk?: { id: any, anpr_id: any, filepath: string, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id?: any | null } | null };
+export type GetDimensionByIdQuery = { transact_dimension_by_pk?: { id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id?: any | null, session_id?: any | null } | null };
 
 export type GetDimensionsByAnprIdQueryVariables = Types.Exact<{
   anpr_id: Types.Scalars['uuid']['input'];
 }>;
 
 
-export type GetDimensionsByAnprIdQuery = { transact_dimension: Array<{ id: any, anpr_id: any, filepath: string, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, site_id?: any | null }> };
+export type GetDimensionsByAnprIdQuery = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, site_id?: any | null }> };
 
 export type GetDimensionsBySiteQueryVariables = Types.Exact<{
   site_id: Types.Scalars['uuid']['input'];
@@ -32,14 +32,14 @@ export type GetDimensionsBySiteQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetDimensionsBySiteQuery = { transact_dimension: Array<{ id: any, anpr_id: any, filepath: string, length?: any | null, width?: any | null, height?: any | null, created_date?: any | null }> };
+export type GetDimensionsBySiteQuery = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, created_date?: any | null }> };
 
 export type InsertDimensionMutationVariables = Types.Exact<{
   object: Types.Transact_Dimension_Insert_Input;
 }>;
 
 
-export type InsertDimensionMutation = { insert_transact_dimension_one?: { id: any, anpr_id: any, filepath: string, length?: any | null, width?: any | null, height?: any | null, created_date?: any | null, site_id?: any | null } | null };
+export type InsertDimensionMutation = { insert_transact_dimension_one?: { id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, created_date?: any | null, site_id?: any | null } | null };
 
 export type UpdateDimensionMutationVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
@@ -47,7 +47,7 @@ export type UpdateDimensionMutationVariables = Types.Exact<{
 }>;
 
 
-export type UpdateDimensionMutation = { update_transact_dimension_by_pk?: { id: any, anpr_id: any, filepath: string, length?: any | null, width?: any | null, height?: any | null, updated_by?: any | null, updated_date?: any | null } | null };
+export type UpdateDimensionMutation = { update_transact_dimension_by_pk?: { id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, updated_by?: any | null, updated_date?: any | null } | null };
 
 export type SoftDeleteDimensionMutationVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
@@ -55,22 +55,22 @@ export type SoftDeleteDimensionMutationVariables = Types.Exact<{
 }>;
 
 
-export type SoftDeleteDimensionMutation = { update_transact_dimension_by_pk?: { id: any, anpr_id: any, is_deleted?: boolean | null, is_active?: boolean | null, updated_by?: any | null, updated_date?: any | null } | null };
+export type SoftDeleteDimensionMutation = { update_transact_dimension_by_pk?: { id: any, anpr_id?: any | null, is_deleted?: boolean | null, is_active?: boolean | null, updated_by?: any | null, updated_date?: any | null } | null };
 
 export type SubscribeLatestDimensionSubscriptionVariables = Types.Exact<{
+  session_id: Types.Scalars['uuid']['input'];
   site_id?: Types.InputMaybe<Types.Scalars['uuid']['input']>;
-  created_after?: Types.InputMaybe<Types.Scalars['timestamptz']['input']>;
 }>;
 
 
-export type SubscribeLatestDimensionSubscription = { transact_dimension: Array<{ id: any, anpr_id: any, filepath: string, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, site_id?: any | null }> };
+export type SubscribeLatestDimensionSubscription = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, site_id?: any | null }> };
 
 export type SubscribeDimensionsByAnprSubscriptionVariables = Types.Exact<{
   anpr_id: Types.Scalars['uuid']['input'];
 }>;
 
 
-export type SubscribeDimensionsByAnprSubscription = { transact_dimension: Array<{ id: any, anpr_id: any, filepath: string, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, updated_date?: any | null, site_id?: any | null }> };
+export type SubscribeDimensionsByAnprSubscription = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, updated_date?: any | null, site_id?: any | null }> };
 
 
 export const GetDimensionsDocument = gql`
@@ -149,6 +149,7 @@ export const GetDimensionByIdDocument = gql`
     updated_by
     updated_date
     site_id
+    session_id
   }
 }
     `;
@@ -384,9 +385,9 @@ export function useSoftDeleteDimensionMutation(baseOptions?: Apollo.MutationHook
       }
 export type SoftDeleteDimensionMutationHookResult = ReturnType<typeof useSoftDeleteDimensionMutation>;
 export const SubscribeLatestDimensionDocument = gql`
-    subscription SubscribeLatestDimension($site_id: uuid, $created_after: timestamptz) {
+    subscription SubscribeLatestDimension($session_id: uuid!, $site_id: uuid) {
   transact_dimension(
-    where: {is_deleted: {_eq: false}, site_id: {_eq: $site_id}, created_date: {_gte: $created_after}}
+    where: {is_deleted: {_eq: false}, session_id: {_eq: $session_id}, site_id: {_eq: $site_id}}
     order_by: {created_date: desc}
     limit: 1
   ) {
@@ -415,12 +416,12 @@ export const SubscribeLatestDimensionDocument = gql`
  * @example
  * const { data, loading, error } = useSubscribeLatestDimensionSubscription({
  *   variables: {
+ *      session_id: // value for 'session_id'
  *      site_id: // value for 'site_id'
- *      created_after: // value for 'created_after'
  *   },
  * });
  */
-export function useSubscribeLatestDimensionSubscription(baseOptions?: Apollo.SubscriptionHookOptions<SubscribeLatestDimensionSubscription, SubscribeLatestDimensionSubscriptionVariables>) {
+export function useSubscribeLatestDimensionSubscription(baseOptions: Apollo.SubscriptionHookOptions<SubscribeLatestDimensionSubscription, SubscribeLatestDimensionSubscriptionVariables>) {
         const options = {...defaultOptions, ...baseOptions}
         return Apollo.useSubscription<SubscribeLatestDimensionSubscription, SubscribeLatestDimensionSubscriptionVariables>(SubscribeLatestDimensionDocument, options);
       }

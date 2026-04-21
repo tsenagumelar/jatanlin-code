@@ -50,6 +50,7 @@ query GetDimensionById($id: uuid!) {
     updated_by
     updated_date
     site_id
+    session_id
   }
 }
 
@@ -137,12 +138,12 @@ mutation SoftDeleteDimension($id: uuid!, $updated_by: uuid!) {
 }
 
 # Subscription: Listen for New Dimensions
-subscription SubscribeLatestDimension($site_id: uuid, $created_after: timestamptz) {
+subscription SubscribeLatestDimension($session_id: uuid!, $site_id: uuid) {
   transact_dimension(
     where: {
       is_deleted: { _eq: false }
+      session_id: { _eq: $session_id }
       site_id: { _eq: $site_id }
-      created_date: { _gte: $created_after }
     }
     order_by: { created_date: desc }
     limit: 1

@@ -119,6 +119,7 @@ mutation InsertAxleCapture($object: transact_axle_capture_insert_input!) {
     total_axles
     vehicle_category
     created_date
+    session_id
   }
 }
 
@@ -157,15 +158,12 @@ mutation SoftDeleteAxleCapture($id: uuid!, $updated_by: uuid!) {
 }
 
 # Subscription: Listen for New Axle Captures
-subscription SubscribeLatestAxleCapture(
-  $site_id: uuid
-  $created_after: timestamptz
-) {
+subscription SubscribeLatestAxleCapture($session_id: uuid!, $site_id: uuid) {
   transact_axle_capture(
     where: {
       is_deleted: { _eq: false }
+      session_id: { _eq: $session_id }
       site_id: { _eq: $site_id }
-      created_date: { _gte: $created_after }
     }
     order_by: { created_date: desc }
     limit: 1

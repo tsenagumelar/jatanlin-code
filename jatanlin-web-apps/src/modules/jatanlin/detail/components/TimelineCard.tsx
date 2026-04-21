@@ -112,7 +112,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({ vehicle }) => {
       icon: <Ruler24Regular />,
       timestamp: vehicle.transact_dimension?.created_date,
       hasData: !!vehicle.transact_dimension,
-      imageUrl: vehicle.transact_dimension
+      imageUrl: vehicle.transact_dimension && vehicle.transact_anpr_capture
         ? getMinioImageUrl(
             vehicle.transact_anpr_capture.minio_bucket,
             vehicle.transact_anpr_capture.minio_full_image_object

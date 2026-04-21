@@ -153,12 +153,12 @@ mutation SoftDeleteAnprCapture($id: uuid!, $updated_by: uuid!) {
 }
 
 # Subscription: Listen for New ANPR Captures
-subscription SubscribeLatestAnprCapture($site_id: uuid, $created_after: timestamptz) {
+subscription SubscribeLatestAnprCapture($session_id: uuid!, $site_id: uuid) {
   transact_anpr_capture(
     where: {
       is_deleted: { _eq: false }
+      session_id: { _eq: $session_id }
       site_id: { _eq: $site_id }
-      created_date: { _gte: $created_after }
     }
     order_by: { created_date: desc }
     limit: 1
@@ -175,5 +175,6 @@ subscription SubscribeLatestAnprCapture($site_id: uuid, $created_after: timestam
     minio_full_image_object
     minio_plate_image_object
     site_id
+    session_id
   }
 }

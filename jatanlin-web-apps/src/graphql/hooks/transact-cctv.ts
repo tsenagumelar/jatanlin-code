@@ -4,8 +4,8 @@ import { gql } from '@apollo/client';
 import * as Apollo from '@apollo/client';
 const defaultOptions = {} as const;
 export type SubscribeLatestCctvSubscriptionVariables = Types.Exact<{
+  session_id: Types.Scalars['uuid']['input'];
   site_id?: Types.InputMaybe<Types.Scalars['uuid']['input']>;
-  created_after?: Types.InputMaybe<Types.Scalars['timestamptz']['input']>;
 }>;
 
 
@@ -13,9 +13,9 @@ export type SubscribeLatestCctvSubscription = { transact_cctv: Array<{ id: any, 
 
 
 export const SubscribeLatestCctvDocument = gql`
-    subscription SubscribeLatestCctv($site_id: uuid, $created_after: timestamptz) {
+    subscription SubscribeLatestCctv($session_id: uuid!, $site_id: uuid) {
   transact_cctv(
-    where: {is_deleted: {_eq: false}, site_id: {_eq: $site_id}, created_date: {_gte: $created_after}}
+    where: {is_deleted: {_eq: false}, session_id: {_eq: $session_id}, site_id: {_eq: $site_id}}
     order_by: {created_date: desc}
     limit: 1
   ) {
@@ -46,12 +46,12 @@ export const SubscribeLatestCctvDocument = gql`
  * @example
  * const { data, loading, error } = useSubscribeLatestCctvSubscription({
  *   variables: {
+ *      session_id: // value for 'session_id'
  *      site_id: // value for 'site_id'
- *      created_after: // value for 'created_after'
  *   },
  * });
  */
-export function useSubscribeLatestCctvSubscription(baseOptions?: Apollo.SubscriptionHookOptions<SubscribeLatestCctvSubscription, SubscribeLatestCctvSubscriptionVariables>) {
+export function useSubscribeLatestCctvSubscription(baseOptions: Apollo.SubscriptionHookOptions<SubscribeLatestCctvSubscription, SubscribeLatestCctvSubscriptionVariables>) {
         const options = {...defaultOptions, ...baseOptions}
         return Apollo.useSubscription<SubscribeLatestCctvSubscription, SubscribeLatestCctvSubscriptionVariables>(SubscribeLatestCctvDocument, options);
       }
