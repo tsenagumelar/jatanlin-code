@@ -7,11 +7,27 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 )
+
+type anprSessionRecord struct {
+	ID               uuid.UUID
+	ExternalID       sql.NullString
+	PlateNo          sql.NullString
+	Confidence       sql.NullFloat64
+	CapturedAt       sql.NullTime
+	LocationCode     sql.NullString
+	CameraID         sql.NullString
+	MinioBucket      sql.NullString
+	MinioDateFolder  sql.NullString
+	MinioXMLObject   sql.NullString
+	MinioFullObject  sql.NullString
+	MinioPlateObject sql.NullString
+}
 
 const (
 	anprStreamName  = "ANPR_INSERT"
@@ -71,6 +87,13 @@ func NewANPRInsertQueue(natsURL string, db *sql.DB, siteUUID string) (*ANPRInser
 	}
 	go q.consumeLoop()
 	return q, nil
+}
+
+func (q *ANPRInsertQueue) Close() {
+	if q == nil || q.nc == nil {
+		return
+	}
+	q.nc.Close()
 }
 
 func (q *ANPRInsertQueue) Enqueue(meta *ANPRMetadata, bucket string, sessionID *uuid.UUID, dateFolder, xmlObj, fullObj, plateObj string) error {
@@ -168,6 +191,17 @@ func (q *ANPRInsertQueue) handleMsg(msg *nats.Msg) error {
 	return nil
 }
 
+func nullableTrimmedString(value string) sql.NullString {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{
+		String: trimmed,
+		Valid:  true,
+	}
+}
+
 func insertANPRRecord(ctx context.Context, db *sql.DB, siteUUID string, meta *ANPRMetadata, bucket, dateFolder, xmlObj, fullObj, plateObj string) error {
 	var conf sql.NullFloat64
 	if meta.Confidence != "" {
@@ -199,17 +233,17 @@ func insertANPRRecord(ctx context.Context, db *sql.DB, siteUUID string, meta *AN
 		ctx,
 		query,
 		siteUUID,
-		meta.ID,
-		meta.Plate,
+		nullableTrimmedString(meta.ID),
+		nullableTrimmedString(meta.Plate),
 		conf,
 		capturedAt,
-		meta.Location,
-		meta.CameraID,
-		bucket,
-		dateFolder,
-		xmlObj,
-		fullObj,
-		plateObj,
+		nullableTrimmedString(meta.Location),
+		nullableTrimmedString(meta.CameraID),
+		nullableTrimmedString(bucket),
+		nullableTrimmedString(dateFolder),
+		nullableTrimmedString(xmlObj),
+		nullableTrimmedString(fullObj),
+		nullableTrimmedString(plateObj),
 	)
 	if err != nil {
 		return fmt.Errorf("exec insert: %w", err)
@@ -234,6 +268,74 @@ func insertANPRRecordWithSession(ctx context.Context, db *sql.DB, siteUUID strin
 		}
 	}
 
+	candidate := anprSessionRecord{
+		ExternalID:       nullableTrimmedString(meta.ID),
+		PlateNo:          nullableTrimmedString(meta.Plate),
+		Confidence:       conf,
+		CapturedAt:       capturedAt,
+		LocationCode:     nullableTrimmedString(meta.Location),
+		CameraID:         nullableTrimmedString(meta.CameraID),
+		MinioBucket:      nullableTrimmedString(bucket),
+		MinioDateFolder:  nullableTrimmedString(dateFolder),
+		MinioXMLObject:   nullableTrimmedString(xmlObj),
+		MinioFullObject:  nullableTrimmedString(fullObj),
+		MinioPlateObject: nullableTrimmedString(plateObj),
+	}
+
+	existing, err := getANPRRecordBySession(ctx, db, sessionID)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return insertANPRSessionRecord(ctx, db, siteUUID, sessionID, candidate)
+	}
+
+	merged := mergeANPRSessionRecord(*existing, candidate)
+	if !anprSessionRecordChanged(*existing, merged) {
+		return nil
+	}
+
+	if err := updateANPRSessionRecord(ctx, db, existing.ID, siteUUID, sessionID, merged); err != nil {
+		return err
+	}
+	return nil
+}
+
+func getANPRRecordBySession(ctx context.Context, db *sql.DB, sessionID uuid.UUID) (*anprSessionRecord, error) {
+	query := `
+	SELECT id, external_id, plate_no, confidence, captured_at, location_code, camera_id,
+	       minio_bucket, minio_date_folder, minio_xml_object, minio_full_image_object, minio_plate_image_object
+	FROM public.transact_anpr_capture
+	WHERE session_id = $1
+	ORDER BY created_date ASC
+	LIMIT 1
+	`
+
+	var rec anprSessionRecord
+	if err := db.QueryRowContext(ctx, query, sessionID).Scan(
+		&rec.ID,
+		&rec.ExternalID,
+		&rec.PlateNo,
+		&rec.Confidence,
+		&rec.CapturedAt,
+		&rec.LocationCode,
+		&rec.CameraID,
+		&rec.MinioBucket,
+		&rec.MinioDateFolder,
+		&rec.MinioXMLObject,
+		&rec.MinioFullObject,
+		&rec.MinioPlateObject,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("query anpr by session: %w", err)
+	}
+
+	return &rec, nil
+}
+
+func insertANPRSessionRecord(ctx context.Context, db *sql.DB, siteUUID string, sessionID uuid.UUID, record anprSessionRecord) error {
 	query := `
 	INSERT INTO public.transact_anpr_capture
 		(site_id, session_id, external_id, plate_no, confidence, captured_at,
@@ -241,28 +343,210 @@ func insertANPRRecordWithSession(ctx context.Context, db *sql.DB, siteUUID strin
 		 minio_bucket, minio_date_folder,
 		 minio_xml_object, minio_full_image_object, minio_plate_image_object)
 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-	ON CONFLICT (external_id) DO NOTHING
 	`
 
-	_, err := db.ExecContext(
+	if _, err := db.ExecContext(
 		ctx,
 		query,
 		siteUUID,
 		sessionID,
-		meta.ID,
-		meta.Plate,
-		conf,
-		capturedAt,
-		meta.Location,
-		meta.CameraID,
-		bucket,
-		dateFolder,
-		xmlObj,
-		fullObj,
-		plateObj,
-	)
-	if err != nil {
-		return fmt.Errorf("exec insert with session: %w", err)
+		record.ExternalID,
+		record.PlateNo,
+		record.Confidence,
+		record.CapturedAt,
+		record.LocationCode,
+		record.CameraID,
+		record.MinioBucket,
+		record.MinioDateFolder,
+		record.MinioXMLObject,
+		record.MinioFullObject,
+		record.MinioPlateObject,
+	); err != nil {
+		return fmt.Errorf("insert anpr session record: %w", err)
 	}
 	return nil
+}
+
+func updateANPRSessionRecord(ctx context.Context, db *sql.DB, recordID uuid.UUID, siteUUID string, sessionID uuid.UUID, record anprSessionRecord) error {
+	query := `
+	UPDATE public.transact_anpr_capture
+	SET site_id = $2,
+	    session_id = $3,
+	    external_id = $4,
+	    plate_no = $5,
+	    confidence = $6,
+	    captured_at = $7,
+	    location_code = $8,
+	    camera_id = $9,
+	    minio_bucket = $10,
+	    minio_date_folder = $11,
+	    minio_xml_object = $12,
+	    minio_full_image_object = $13,
+	    minio_plate_image_object = $14,
+	    updated_date = now()
+	WHERE id = $1
+	`
+
+	if _, err := db.ExecContext(
+		ctx,
+		query,
+		recordID,
+		siteUUID,
+		sessionID,
+		record.ExternalID,
+		record.PlateNo,
+		record.Confidence,
+		record.CapturedAt,
+		record.LocationCode,
+		record.CameraID,
+		record.MinioBucket,
+		record.MinioDateFolder,
+		record.MinioXMLObject,
+		record.MinioFullObject,
+		record.MinioPlateObject,
+	); err != nil {
+		return fmt.Errorf("update anpr session record: %w", err)
+	}
+	return nil
+}
+
+func mergeANPRSessionRecord(existing, candidate anprSessionRecord) anprSessionRecord {
+	if shouldReplaceANPR(existing, candidate) {
+		return mergeANPRPreferCandidate(existing, candidate)
+	}
+	return mergeANPRPreferExisting(existing, candidate)
+}
+
+func shouldReplaceANPR(existing, candidate anprSessionRecord) bool {
+	if isANPRPlaceholder(existing) {
+		return true
+	}
+	if candidate.Confidence.Valid && (!existing.Confidence.Valid || candidate.Confidence.Float64 > existing.Confidence.Float64) {
+		return true
+	}
+	if candidate.Confidence.Valid && existing.Confidence.Valid && candidate.Confidence.Float64 < existing.Confidence.Float64 {
+		return false
+	}
+	candidateScore := anprCompletenessScore(candidate)
+	existingScore := anprCompletenessScore(existing)
+	if candidateScore != existingScore {
+		return candidateScore > existingScore
+	}
+	if candidate.CapturedAt.Valid && existing.CapturedAt.Valid {
+		return candidate.CapturedAt.Time.After(existing.CapturedAt.Time)
+	}
+	return false
+}
+
+func mergeANPRPreferCandidate(existing, candidate anprSessionRecord) anprSessionRecord {
+	return anprSessionRecord{
+		ID:               existing.ID,
+		ExternalID:       pickPreferredString(candidate.ExternalID, existing.ExternalID),
+		PlateNo:          pickPreferredString(candidate.PlateNo, existing.PlateNo),
+		Confidence:       pickPreferredFloat(candidate.Confidence, existing.Confidence),
+		CapturedAt:       pickPreferredTime(candidate.CapturedAt, existing.CapturedAt),
+		LocationCode:     pickPreferredString(candidate.LocationCode, existing.LocationCode),
+		CameraID:         pickPreferredString(candidate.CameraID, existing.CameraID),
+		MinioBucket:      pickPreferredString(candidate.MinioBucket, existing.MinioBucket),
+		MinioDateFolder:  pickPreferredString(candidate.MinioDateFolder, existing.MinioDateFolder),
+		MinioXMLObject:   pickPreferredString(candidate.MinioXMLObject, existing.MinioXMLObject),
+		MinioFullObject:  pickPreferredString(candidate.MinioFullObject, existing.MinioFullObject),
+		MinioPlateObject: pickPreferredString(candidate.MinioPlateObject, existing.MinioPlateObject),
+	}
+}
+
+func mergeANPRPreferExisting(existing, candidate anprSessionRecord) anprSessionRecord {
+	return anprSessionRecord{
+		ID:               existing.ID,
+		ExternalID:       pickPreferredString(existing.ExternalID, candidate.ExternalID),
+		PlateNo:          pickPreferredString(existing.PlateNo, candidate.PlateNo),
+		Confidence:       pickPreferredFloat(existing.Confidence, candidate.Confidence),
+		CapturedAt:       pickPreferredTime(existing.CapturedAt, candidate.CapturedAt),
+		LocationCode:     pickPreferredString(existing.LocationCode, candidate.LocationCode),
+		CameraID:         pickPreferredString(existing.CameraID, candidate.CameraID),
+		MinioBucket:      pickPreferredString(existing.MinioBucket, candidate.MinioBucket),
+		MinioDateFolder:  pickPreferredString(existing.MinioDateFolder, candidate.MinioDateFolder),
+		MinioXMLObject:   pickPreferredString(existing.MinioXMLObject, candidate.MinioXMLObject),
+		MinioFullObject:  pickPreferredString(existing.MinioFullObject, candidate.MinioFullObject),
+		MinioPlateObject: pickPreferredString(existing.MinioPlateObject, candidate.MinioPlateObject),
+	}
+}
+
+func isANPRPlaceholder(record anprSessionRecord) bool {
+	return !record.ExternalID.Valid &&
+		!record.PlateNo.Valid &&
+		!record.Confidence.Valid &&
+		!record.CapturedAt.Valid &&
+		!record.LocationCode.Valid &&
+		!record.CameraID.Valid &&
+		!record.MinioXMLObject.Valid &&
+		!record.MinioFullObject.Valid &&
+		!record.MinioPlateObject.Valid
+}
+
+func anprCompletenessScore(record anprSessionRecord) int {
+	score := 0
+	if record.ExternalID.Valid {
+		score++
+	}
+	if record.PlateNo.Valid {
+		score++
+	}
+	if record.Confidence.Valid {
+		score++
+	}
+	if record.CapturedAt.Valid {
+		score++
+	}
+	if record.LocationCode.Valid {
+		score++
+	}
+	if record.CameraID.Valid {
+		score++
+	}
+	if record.MinioXMLObject.Valid {
+		score++
+	}
+	if record.MinioFullObject.Valid {
+		score++
+	}
+	if record.MinioPlateObject.Valid {
+		score++
+	}
+	return score
+}
+
+func anprSessionRecordChanged(existing, next anprSessionRecord) bool {
+	return existing.ExternalID != next.ExternalID ||
+		existing.PlateNo != next.PlateNo ||
+		existing.Confidence != next.Confidence ||
+		existing.CapturedAt != next.CapturedAt ||
+		existing.LocationCode != next.LocationCode ||
+		existing.CameraID != next.CameraID ||
+		existing.MinioBucket != next.MinioBucket ||
+		existing.MinioDateFolder != next.MinioDateFolder ||
+		existing.MinioXMLObject != next.MinioXMLObject ||
+		existing.MinioFullObject != next.MinioFullObject ||
+		existing.MinioPlateObject != next.MinioPlateObject
+}
+
+func pickPreferredString(primary, fallback sql.NullString) sql.NullString {
+	if primary.Valid {
+		return primary
+	}
+	return fallback
+}
+
+func pickPreferredFloat(primary, fallback sql.NullFloat64) sql.NullFloat64 {
+	if primary.Valid {
+		return primary
+	}
+	return fallback
+}
+
+func pickPreferredTime(primary, fallback sql.NullTime) sql.NullTime {
+	if primary.Valid {
+		return primary
+	}
+	return fallback
 }

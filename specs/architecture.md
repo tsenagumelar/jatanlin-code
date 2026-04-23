@@ -46,19 +46,35 @@ jatanlin-wb-agent
 1. Operator membuka halaman proses di frontend.
 2. Frontend membuat atau mengaktifkan row `transact_wim_session` dengan status `IN_PROGRESS`.
 3. Status `IN_PROGRESS` menjadi sinyal bahwa semua source boleh mulai capture secara independen.
-4. ANPR watcher memproses ANPR jika data/file tersedia dan menyimpan `session_id`.
-5. `jatanlin-wb-agent` melakukan capture weighing secara independen dan menyimpan `session_id` ke `transact_weighing`.
-6. AXLE watcher memproses data AXLE dalam session window dan menyimpan `session_id`.
-7. Dimension processor menghitung dimensi dari source yang tersedia dan menyimpan link ke session/data source.
-8. CCTV recorder menangkap rekaman session dan menyimpan `session_id`.
+4. ANPR watcher mulai listen FTP ANPR sejak session aktif sampai session selesai, lalu menyimpan `session_id`.
+5. `jatanlin-wb-agent` melakukan capture weighing secara independen selama session aktif dan menyimpan `session_id` ke `transact_weighing`.
+6. AXLE watcher mulai listen FTP AXLE secara independen selama session aktif dan menyimpan `session_id`.
+7. CCTV recorder menangkap rekaman session secara independen dan menyimpan `session_id`.
+8. Dimension processor menunggu data ANPR baru pada session yang sama, lalu menghitung dimensi dari image ANPR dan menyimpan link ke session/data source.
 9. Frontend membaca semua source melalui Hasura subscription/query dan menyusun verifikasi dari data yang tersedia.
 10. Operator dapat melakukan adjustment jika sebagian data missing, timeout, invalid, atau tidak cocok.
+
+## Mekanisme Data per Session
+
+Target arsitektur data untuk flow baru adalah:
+
+- Satu session mewakili satu proses kendaraan.
+- Untuk setiap session, tiap area source hanya memiliki satu row operasional:
+  - satu row ANPR
+  - satu row WB
+  - satu row AXLE
+  - satu row CCTV
+  - satu row DIMENSION
+- Row tersebut boleh lahir sebagai placeholder lebih dulu, lalu diperkaya melalui update saat data sensor masuk.
+- Retry, polling, replay FTP, klik `Mulai Ulang`, dan duplicate message device tidak boleh membuat row tambahan untuk source yang sama pada session yang sama.
+- Arsitektur ini sengaja memindahkan model dari `append many records lalu pilih salah satu` menjadi `own one record per source lalu update record itu`.
 
 ## Legacy Behavior yang Harus Dihindari
 
 - Flow lama menempatkan ANPR sebagai awal sequence dan dapat trigger WB/CCTV setelah ANPR valid.
 - Behavior tersebut riskan karena ANPR gagal akan membuat source lain tidak tercapture.
-- Implementasi baru tidak boleh menjadikan ANPR sebagai gate wajib untuk weighing, AXLE, dimension, atau CCTV.
+- Implementasi baru tidak boleh menjadikan ANPR sebagai gate wajib untuk weighing, AXLE, atau CCTV.
+- Dependency yang masih sah hanya dimension terhadap image/data ANPR dalam session yang sama.
 
 ## Data Storage
 
@@ -82,3 +98,4 @@ jatanlin-wb-agent
 - Frontend memakai Hasura admin secret dari `NEXT_PUBLIC_HASURA_SECRET`; ini tidak aman untuk production karena terekspos ke browser.
 - Beberapa fitur dashboard masih memakai mock atau transformasi client-side. Search production sebaiknya dilakukan server-side.
 - Session ID belum konsisten dipakai oleh WB/AXLE/Dimension pada implementasi saat ini, walaupun schema migration sudah menyiapkan kolom session di beberapa table.
+- Database saat ini masih berisiko duplicate row per `session_id` pada beberapa source karena constraint dan strategi upsert berbasis session belum konsisten.

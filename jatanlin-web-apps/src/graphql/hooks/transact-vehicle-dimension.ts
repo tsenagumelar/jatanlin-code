@@ -63,7 +63,7 @@ export type SubscribeLatestDimensionSubscriptionVariables = Types.Exact<{
 }>;
 
 
-export type SubscribeLatestDimensionSubscription = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, site_id?: any | null }> };
+export type SubscribeLatestDimensionSubscription = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, updated_date?: any | null, site_id?: any | null }> };
 
 export type SubscribeDimensionsByAnprSubscriptionVariables = Types.Exact<{
   anpr_id: Types.Scalars['uuid']['input'];
@@ -79,7 +79,7 @@ export const GetDimensionsDocument = gql`
     where: {_and: [{is_deleted: {_eq: false}}, $where]}
     limit: $limit
     offset: $offset
-    order_by: {created_date: desc}
+    order_by: [{updated_date: desc_nulls_last}, {created_date: desc}]
   ) {
     id
     anpr_id
@@ -194,6 +194,7 @@ export const GetDimensionsByAnprIdDocument = gql`
     height
     is_active
     created_date
+    updated_date
     site_id
   }
 }

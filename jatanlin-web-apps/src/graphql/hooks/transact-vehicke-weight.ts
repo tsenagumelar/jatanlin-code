@@ -64,7 +64,7 @@ export type SubscribeLatestWeighingSubscriptionVariables = Types.Exact<{
 }>;
 
 
-export type SubscribeLatestWeighingSubscription = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, is_active?: boolean | null, created_date?: any | null, site_id?: any | null }> };
+export type SubscribeLatestWeighingSubscription = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, is_active?: boolean | null, created_date?: any | null, updated_date?: any | null, site_id?: any | null }> };
 
 
 export const GetWeighingsDocument = gql`
@@ -73,7 +73,7 @@ export const GetWeighingsDocument = gql`
     where: {_and: [{is_deleted: {_eq: false}}, $where]}
     limit: $limit
     offset: $offset
-    order_by: {created_date: desc}
+    order_by: [{updated_date: desc_nulls_last}, {created_date: desc}]
   ) {
     id
     total_axle
@@ -377,6 +377,7 @@ export const SubscribeLatestWeighingDocument = gql`
     total_weight
     is_active
     created_date
+    updated_date
     site_id
   }
 }

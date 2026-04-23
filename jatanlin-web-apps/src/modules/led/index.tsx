@@ -393,8 +393,8 @@ export default function LedDisplay({
       case 6:
         if (!violationResult) {
           return {
-            title: "MENGANALISIS",
-            subtitle: "Mohon Tunggu...",
+            title: "DATA SEDANG DIPROSES",
+            subtitle: "Menunggu data tambahan dan analisis akhir",
             icon: (
               <div className={styles.spinnerWrapper}>
                 <Spinner
@@ -552,46 +552,6 @@ export default function LedDisplay({
           ))}
         </div>
 
-        {/* Additional Info Panel */}
-        {currentStepId === 6 && anprData && (
-          <div className={styles.infoPanel}>
-            <div className={styles.infoGrid}>
-              <div className={styles.infoCard}>
-                <p className={styles.infoLabel}>Plat Nomor</p>
-                <p className={styles.infoValue}>{anprData.plate_no}</p>
-              </div>
-
-              <div className={styles.infoCard}>
-                <p className={styles.infoLabel}>Jumlah Sumbu</p>
-                <p className={styles.infoValue}>
-                  {axleData?.total_axles || "-"} Sumbu
-                </p>
-              </div>
-            </div>
-
-            <div className={styles.infoGrid}>
-              <div className={`${styles.infoCard} ${styles.infoCardGreen}`}>
-                <p className={`${styles.infoLabel} ${styles.infoLabelGreen}`}>
-                  Total Berat
-                </p>
-                <p className={styles.infoValue}>
-                  {weightData?.total_weight.toLocaleString("id-ID") || "-"} kg
-                </p>
-              </div>
-
-              <div className={`${styles.infoCard} ${styles.infoCardBlue}`}>
-                <p className={`${styles.infoLabel} ${styles.infoLabelBlue}`}>
-                  P × L × T
-                </p>
-                <p className={styles.infoValue}>
-                  {dimensionData?.length.toFixed(2) || "-"} ×{" "}
-                  {dimensionData?.width.toFixed(2) || "-"} ×{" "}
-                  {dimensionData?.height.toFixed(2) || "-"} m
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

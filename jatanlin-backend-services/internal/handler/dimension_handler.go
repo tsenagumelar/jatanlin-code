@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	"wim-service/internal/vision"
 )
 
@@ -17,6 +18,7 @@ type DimensionHandler struct {
 	SiteUUID         string // Site UUID from master_site.id
 	DimensionService *vision.DimensionService
 	SaveResults      bool // Whether to save results to database
+	DummyEnabled     bool
 }
 
 // DimensionResult represents the result of dimension processing
@@ -39,6 +41,10 @@ func NewDimensionHandler(db *sql.DB, siteUUID, modelPath string, threshold float
 		DimensionService: dimensionService,
 		SaveResults:      true,
 	}, nil
+}
+
+func (dh *DimensionHandler) SetDummyEnabled(enabled bool) {
+	dh.DummyEnabled = enabled
 }
 
 // SetCalibration sets camera calibration parameters
@@ -118,6 +124,25 @@ func (dh *DimensionHandler) ProcessANPRImage(imagePath string, plateNumber strin
 	}
 
 	log.Printf("[DIMENSION_HANDLER] Successfully processed ANPR image. Found %d vehicle(s)", len(dimensions))
+
+	return result, nil
+}
+
+func (dh *DimensionHandler) ProcessANPRImageWithSession(imagePath string, plateNumber string, externalID string, sessionID *uuid.UUID) (*DimensionResult, error) {
+	if dh.DummyEnabled {
+		return dh.processDummyDimension(imagePath, plateNumber, externalID, sessionID)
+	}
+
+	result, err := dh.ProcessANPRImage(imagePath, plateNumber, externalID)
+	if err != nil {
+		return result, err
+	}
+
+	if sessionID != nil && *sessionID != uuid.Nil {
+		if err := dh.attachSessionToExistingDimension(*sessionID, externalID); err != nil {
+			log.Printf("[DIMENSION_HANDLER] Warning: failed to attach session_id to dimension: %v", err)
+		}
+	}
 
 	return result, nil
 }
@@ -234,6 +259,164 @@ func (dh *DimensionHandler) insertDimensionRecord(externalID string, imagePath s
 		anprID, dims.LengthMeters, dims.WidthMeters, dims.HeightMeters)
 
 	return nil
+}
+
+func (dh *DimensionHandler) processDummyDimension(imagePath string, plateNumber string, externalID string, sessionID *uuid.UUID) (*DimensionResult, error) {
+	result := &DimensionResult{
+		ImagePath:    imagePath,
+		ProcessedAt:  time.Now(),
+		VehicleCount: 1,
+		Success:      true,
+	}
+
+	dims := vision.VehicleDimensions{
+		ImagePath:      imagePath,
+		LengthMeters:   22.0,
+		WidthMeters:    3.6,
+		HeightMeters:   4.8,
+		DistanceMeters: 8.0,
+		Confidence:     0.99,
+		CenterX:        960,
+		CenterY:        540,
+		Timestamp:      time.Now(),
+	}
+	result.Dimensions = []vision.VehicleDimensions{dims}
+
+	if dh.SaveResults && dh.DB != nil {
+		if err := dh.upsertDimensionRecord(sessionID, externalID, imagePath, &dims); err != nil {
+			result.Success = false
+			result.ErrorMessage = err.Error()
+			return result, err
+		}
+	}
+
+	log.Printf("[DIMENSION_HANDLER] Dummy dimension generated for external_id=%s session_id=%v", externalID, sessionID)
+	return result, nil
+}
+
+func (dh *DimensionHandler) attachSessionToExistingDimension(sessionID uuid.UUID, externalID string) error {
+	const sqlText = `
+		UPDATE public.transact_dimension td
+		SET session_id = $1,
+		    updated_date = now()
+		WHERE td.id = (
+			SELECT td2.id
+			FROM public.transact_dimension td2
+			JOIN public.transact_anpr_capture ta ON ta.id = td2.anpr_id
+			WHERE ta.external_id = $2
+			  AND ta.site_id = $3
+			ORDER BY td2.created_date DESC
+			LIMIT 1
+		)
+	`
+
+	if _, err := dh.DB.Exec(sqlText, sessionID, externalID, dh.SiteUUID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (dh *DimensionHandler) upsertDimensionRecord(sessionID *uuid.UUID, externalID string, imagePath string, dims *vision.VehicleDimensions) error {
+	var (
+		anprID    any
+		sessionDB any
+	)
+	if sessionID != nil && *sessionID != uuid.Nil {
+		sessionDB = *sessionID
+	} else {
+		sessionDB = nil
+	}
+
+	if externalID != "" {
+		var found string
+		err := dh.DB.QueryRow(`
+			SELECT id
+			FROM public.transact_anpr_capture
+			WHERE external_id = $1 AND site_id = $2
+			ORDER BY created_date DESC
+			LIMIT 1
+		`, externalID, dh.SiteUUID).Scan(&found)
+		if err != nil && err != sql.ErrNoRows {
+			return fmt.Errorf("failed to get ANPR ID for external_id %s: %w", externalID, err)
+		}
+		if err == nil {
+			anprID = found
+		}
+	}
+
+	if sessionID != nil && *sessionID != uuid.Nil {
+		const selectSQL = `
+			SELECT id
+			FROM public.transact_dimension
+			WHERE session_id = $1
+			ORDER BY created_date ASC
+			LIMIT 1
+		`
+		var existingID string
+		err := dh.DB.QueryRow(selectSQL, *sessionID).Scan(&existingID)
+		if err != nil && err != sql.ErrNoRows {
+			return fmt.Errorf("query dimension by session: %w", err)
+		}
+
+		if err == nil {
+			const updateSQL = `
+				UPDATE public.transact_dimension
+				SET anpr_id = COALESCE($2, anpr_id),
+				    filepath = COALESCE(NULLIF($3, ''), filepath),
+				    length = COALESCE($4, length),
+				    width = COALESCE($5, width),
+				    height = COALESCE($6, height),
+				    site_id = $7,
+				    updated_date = now()
+				WHERE id = $1
+			`
+			_, execErr := dh.DB.Exec(updateSQL, existingID, anprID, imagePath, nullableFloat(dims, "length"), nullableFloat(dims, "width"), nullableFloat(dims, "height"), dh.SiteUUID)
+			return execErr
+		}
+	}
+
+	const insertSQL = `
+		INSERT INTO public.transact_dimension
+			(anpr_id, session_id, filepath, length, width, height, site_id, created_date, updated_date)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	now := time.Now()
+	_, err := dh.DB.Exec(
+		insertSQL,
+		anprID,
+		sessionDB,
+		nullableString(imagePath),
+		nullableFloat(dims, "length"),
+		nullableFloat(dims, "width"),
+		nullableFloat(dims, "height"),
+		dh.SiteUUID,
+		now,
+		now,
+	)
+	return err
+}
+
+func nullableFloat(dims *vision.VehicleDimensions, field string) any {
+	if dims == nil {
+		return nil
+	}
+	switch field {
+	case "length":
+		return dims.LengthMeters
+	case "width":
+		return dims.WidthMeters
+	case "height":
+		return dims.HeightMeters
+	default:
+		return nil
+	}
+}
+
+func nullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 // updateANPRWithDimensions updates ANPR record with dimension data (legacy - kept for backwards compatibility)

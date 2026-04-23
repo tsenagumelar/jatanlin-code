@@ -129,7 +129,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
         session_id: sessionId as string,
         site_id: siteId,
       },
-      skip: !sessionId || !shouldListenLiveData || !!anprData,
+      skip: !sessionId || !shouldListenLiveData,
     });
 
   const { data: weightSubscriptionData } =
@@ -138,7 +138,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
         session_id: sessionId as string,
         site_id: siteId,
       },
-      skip: !sessionId || !shouldListenLiveData || !!weightData,
+      skip: !sessionId || !shouldListenLiveData,
     });
 
   const { data: axleSubscriptionData } =
@@ -147,7 +147,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
         session_id: sessionId as string,
         site_id: siteId,
       },
-      skip: !sessionId || !shouldListenLiveData || !!axleData,
+      skip: !sessionId || !shouldListenLiveData,
     });
 
   const {
@@ -159,7 +159,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       session_id: sessionId as string,
       site_id: siteId,
     },
-    skip: !sessionId || !shouldListenLiveData || !!dimensionData,
+    skip: !sessionId || !shouldListenLiveData,
   });
 
   const { data: cctvSubscriptionData } = useSubscribeLatestCctvSubscription({
@@ -167,7 +167,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       session_id: sessionId as string,
       site_id: siteId,
     },
-    skip: !sessionId || !shouldListenLiveData || !!cctvData,
+    skip: !sessionId || !shouldListenLiveData,
   });
 
   // Debug subscriptions
@@ -191,7 +191,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       loading: dimensionLoading,
       error: dimensionError,
       hasData: !!dimensionSubscriptionData?.transact_dimension?.[0],
-      isSkipped: !sessionId || !shouldListenLiveData || !!dimensionData,
+      isSkipped: !sessionId || !shouldListenLiveData,
       rawData: dimensionSubscriptionData?.transact_dimension,
     });
   }, [
@@ -319,68 +319,102 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
   // Handle ANPR Data (always listen in background after countdown)
   useEffect(() => {
-    if (anprSubscriptionData?.transact_anpr_capture?.[0] && !anprData) {
-      const anpr = anprSubscriptionData.transact_anpr_capture[0];
-      console.log("✅ ANPR Data Received:", anpr);
-      setAnprData({
-        id: anpr.id,
-        plate_no: anpr.plate_no ?? null,
-        confidence: anpr.confidence ?? null,
-        captured_at: anpr.captured_at ?? null,
-        minio_bucket: anpr.minio_bucket ?? null,
-        minio_full_image_object: anpr.minio_full_image_object ?? null,
-        site_id: anpr.site_id ?? null,
-        session_id: sessionId,
-      });
-    }
+    const anpr = anprSubscriptionData?.transact_anpr_capture?.[0];
+    if (!anpr) return;
+
+    const nextAnprData = {
+      id: anpr.id,
+      plate_no: anpr.plate_no ?? null,
+      confidence: anpr.confidence ?? null,
+      captured_at: anpr.captured_at ?? null,
+      minio_bucket: anpr.minio_bucket ?? null,
+      minio_full_image_object: anpr.minio_full_image_object ?? null,
+      site_id: anpr.site_id ?? null,
+      session_id: sessionId,
+    };
+
+    const hasChanged =
+      !anprData ||
+      anprData.id !== nextAnprData.id ||
+      anprData.plate_no !== nextAnprData.plate_no ||
+      anprData.confidence !== nextAnprData.confidence ||
+      anprData.captured_at !== nextAnprData.captured_at ||
+      anprData.minio_bucket !== nextAnprData.minio_bucket ||
+      anprData.minio_full_image_object !== nextAnprData.minio_full_image_object;
+
+    if (!hasChanged) return;
+
+    console.log("✅ ANPR Data Received/Updated:", nextAnprData);
+    setAnprData(nextAnprData);
   }, [anprSubscriptionData, anprData, sessionId, setAnprData]);
 
   // Handle Weight Data (always listen in background after countdown)
   useEffect(() => {
-    if (weightSubscriptionData?.transact_weighing?.[0] && !weightData) {
-      const weight = weightSubscriptionData.transact_weighing[0];
-      console.log("✅ Weight Data Received:", weight);
-      setWeightData({
-        id: weight.id,
-        total_weight: weight.total_weight ?? null,
-        total_axle: weight.total_axle ?? null,
-        session_id: sessionId,
-      });
-    }
+    const weight = weightSubscriptionData?.transact_weighing?.[0];
+    if (!weight) return;
+
+    const nextWeightData = {
+      id: weight.id,
+      total_weight: weight.total_weight ?? null,
+      total_axle: weight.total_axle ?? null,
+      session_id: sessionId,
+    };
+
+    const hasChanged =
+      !weightData ||
+      weightData.id !== nextWeightData.id ||
+      weightData.total_weight !== nextWeightData.total_weight ||
+      weightData.total_axle !== nextWeightData.total_axle;
+
+    if (!hasChanged) return;
+
+    console.log("✅ Weight Data Received/Updated:", nextWeightData);
+    setWeightData(nextWeightData);
   }, [weightSubscriptionData, weightData, sessionId, setWeightData]);
 
   // Handle Axle Data (always listen in background after countdown)
   useEffect(() => {
-    if (axleSubscriptionData?.transact_axle_capture?.[0] && !axleData) {
-      const axle = axleSubscriptionData.transact_axle_capture[0];
-      console.log("✅ Axle Data Received:", axle);
+    const axle = axleSubscriptionData?.transact_axle_capture?.[0];
+    if (!axle) return;
 
-      setAxleData({
-        id: axle.id,
-        total_axles: axle.total_axles ?? null,
-        total_wheels: axle.total_wheels ?? null,
-        length_mm: axle.length_mm ?? null,
-        length: axle.length_mm != null ? axle.length_mm / 1000 : null,
-        vehicle_category: axle.vehicle_category ?? null,
-        minio_bucket: axle.minio_bucket ?? null,
-        minio_image_object: axle.minio_image_object ?? null,
-        session_id: sessionId,
-      });
+    const nextAxleData = {
+      id: axle.id,
+      total_axles: axle.total_axles ?? null,
+      total_wheels: axle.total_wheels ?? null,
+      length_mm: axle.length_mm ?? null,
+      length: axle.length_mm != null ? axle.length_mm / 1000 : null,
+      vehicle_category: axle.vehicle_category ?? null,
+      minio_bucket: axle.minio_bucket ?? null,
+      minio_image_object: axle.minio_image_object ?? null,
+      session_id: sessionId,
+    };
 
-      const axleCount = axle.total_axles ?? null;
-      const vehicleClass = axleCount != null ? findClosestVehicleClass(axleCount) : null;
-      if (vehicleClass) {
-        console.log(
-          "✅ Vehicle Class Found (Axle: " + axleCount + "):",
-          vehicleClass,
-        );
-        setVehicleClassData(vehicleClass);
-      } else {
-        console.warn(
-          "⚠️ No vehicle class found for axle count:",
-          axleCount,
-        );
-      }
+    const hasChanged =
+      !axleData ||
+      axleData.id !== nextAxleData.id ||
+      axleData.total_axles !== nextAxleData.total_axles ||
+      axleData.total_wheels !== nextAxleData.total_wheels ||
+      axleData.length_mm !== nextAxleData.length_mm ||
+      axleData.vehicle_category !== nextAxleData.vehicle_category ||
+      axleData.minio_bucket !== nextAxleData.minio_bucket ||
+      axleData.minio_image_object !== nextAxleData.minio_image_object;
+
+    if (!hasChanged) return;
+
+    console.log("✅ Axle Data Received/Updated:", nextAxleData);
+    setAxleData(nextAxleData);
+
+    const axleCount = axle.total_axles ?? null;
+    const vehicleClass =
+      axleCount != null ? findClosestVehicleClass(axleCount) : null;
+    if (vehicleClass) {
+      console.log(
+        "✅ Vehicle Class Found (Axle: " + axleCount + "):",
+        vehicleClass,
+      );
+      setVehicleClassData(vehicleClass);
+    } else {
+      console.warn("⚠️ No vehicle class found for axle count:", axleCount);
     }
   }, [
     axleSubscriptionData,
@@ -393,37 +427,61 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
   // Handle CCTV Data (always listen in background after countdown)
   useEffect(() => {
-    if (cctvSubscriptionData?.transact_cctv?.[0] && !cctvData) {
-      const cctv = cctvSubscriptionData.transact_cctv[0];
-      console.log("✅ CCTV Data Received:", cctv);
-      setCctvData({
-        id: cctv.id,
-        filename: cctv.filename,
-        filepath: cctv.filepath,
-        created_date: cctv.created_date,
-        site_id: cctv.site_id,
-        session_id: sessionId,
-      });
-    }
+    const cctv = cctvSubscriptionData?.transact_cctv?.[0];
+    if (!cctv) return;
+
+    const nextCctvData = {
+      id: cctv.id,
+      filename: cctv.filename,
+      filepath: cctv.filepath,
+      created_date: cctv.created_date,
+      site_id: cctv.site_id,
+      session_id: sessionId,
+    };
+
+    const hasChanged =
+      !cctvData ||
+      cctvData.id !== nextCctvData.id ||
+      cctvData.filename !== nextCctvData.filename ||
+      cctvData.filepath !== nextCctvData.filepath ||
+      cctvData.created_date !== nextCctvData.created_date;
+
+    if (!hasChanged) return;
+
+    console.log("✅ CCTV Data Received/Updated:", nextCctvData);
+    setCctvData(nextCctvData);
   }, [cctvSubscriptionData, cctvData, sessionId, setCctvData]);
 
   // Handle Dimension Data (always listen in background after countdown)
   useEffect(() => {
-    if (dimensionSubscriptionData?.transact_dimension?.[0] && !dimensionData) {
-      const dimension = dimensionSubscriptionData.transact_dimension[0];
-      console.log("✅ Dimension Data Received:", dimension);
-      setDimensionData({
-        id: dimension.id,
-        length: dimension.length ?? null,
-        width: dimension.width ?? null,
-        height: dimension.height ?? null,
-        anpr_id: dimension.anpr_id ?? null,
-        filepath: dimension.filepath ?? null,
-        session_id: sessionId,
-      });
-      if (!cctvWaitStartRef.current) {
-        cctvWaitStartRef.current = Date.now();
-      }
+    const dimension = dimensionSubscriptionData?.transact_dimension?.[0];
+    if (!dimension) return;
+
+    const nextDimensionData = {
+      id: dimension.id,
+      length: dimension.length ?? null,
+      width: dimension.width ?? null,
+      height: dimension.height ?? null,
+      anpr_id: dimension.anpr_id ?? null,
+      filepath: dimension.filepath ?? null,
+      session_id: sessionId,
+    };
+
+    const hasChanged =
+      !dimensionData ||
+      dimensionData.id !== nextDimensionData.id ||
+      dimensionData.length !== nextDimensionData.length ||
+      dimensionData.width !== nextDimensionData.width ||
+      dimensionData.height !== nextDimensionData.height ||
+      dimensionData.anpr_id !== nextDimensionData.anpr_id ||
+      dimensionData.filepath !== nextDimensionData.filepath;
+
+    if (!hasChanged) return;
+
+    console.log("✅ Dimension Data Received/Updated:", nextDimensionData);
+    setDimensionData(nextDimensionData);
+    if (!cctvWaitStartRef.current) {
+      cctvWaitStartRef.current = Date.now();
     }
   }, [dimensionSubscriptionData, dimensionData, sessionId, setDimensionData]);
 
@@ -772,7 +830,11 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
   const effectiveDetailStepId =
     isSummaryStep && detailStepId === null ? 6 : detailStepId;
   const displaySteps = steps;
-  const finalResultLabel = violationResult || "Menunggu Data Lengkap";
+  const finalResultLabel = violationResult
+    ? violationResult
+    : vehicleActualId
+      ? "Data selesai di proses"
+      : "Menunggu Data Lengkap";
   const finalWaitRemainingSeconds = Math.ceil(finalWaitRemainingMs / 1000);
 
   const handleResetToStep1 = useCallback(() => {
@@ -1779,9 +1841,9 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                           ) : (
                             <Warning24Filled className="w-6 h-6 text-red-600" />
                           )
-                        ) : (
+                        ) : !vehicleActualId ? (
                           <Spinner size="tiny" />
-                        )}
+                        ) : null}
                         <p className="text-xl font-black text-gray-900">
                           {finalResultLabel}
                         </p>

@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
+using WServerApi.Models;
 using WServerApi.Models.Domain;
 
 namespace WServerApi.Services;
@@ -14,13 +16,27 @@ public sealed class WeighingInsertService : IWeighingInsertService
 {
     private readonly ILogger<WeighingInsertService> _logger;
     private readonly string? _pgConnectionString;
+    private readonly string? _siteCode;
+    private readonly Guid _configuredSiteId;
 
-    public WeighingInsertService(ILogger<WeighingInsertService> logger, IConfiguration config)
+    public WeighingInsertService(ILogger<WeighingInsertService> logger, IConfiguration config, IOptions<WbOptions> wbOptions)
     {
         _logger = logger;
+        var options = wbOptions.Value;
         var rawConn = config.GetConnectionString("PostgresDatabase")
             ?? Environment.GetEnvironmentVariable("DATABASE_URL");
         _pgConnectionString = NormalizePostgresConnectionString(rawConn);
+        _siteCode = config["SITE_CODE"]
+            ?? Environment.GetEnvironmentVariable("SITE_CODE")
+            ?? config["WB_SITE_CODE"]
+            ?? Environment.GetEnvironmentVariable("WB_SITE_CODE")
+            ?? options.SiteCode;
+
+        var rawSiteId = config["WB_SITE_ID"]
+            ?? Environment.GetEnvironmentVariable("WB_SITE_ID")
+            ?? Environment.GetEnvironmentVariable("NEXT_PUBLIC_SITE_ID")
+            ?? options.SiteId;
+        _configuredSiteId = Guid.TryParse(rawSiteId, out var parsed) ? parsed : Guid.Empty;
     }
 
     public async Task<bool> TryInsertWeighingAsync(Vehicle vehicle, CancellationToken ct = default)
@@ -68,14 +84,41 @@ public sealed class WeighingInsertService : IWeighingInsertService
             cmd.Parameters.AddWithValue("total_axle", axleCount);
             cmd.Parameters.Add("axle_detail", NpgsqlDbType.Jsonb).Value = axleJson;
             cmd.Parameters.AddWithValue("total_weight", (decimal)vehicle.TotalWeight);
-            var defaultSiteId = new Guid("e1123daf-a4db-4ee1-88da-ba9bff382f45");
             var siteId = vehicle.SiteId.HasValue && vehicle.SiteId.Value != Guid.Empty
                 ? vehicle.SiteId.Value
-                : defaultSiteId;
+                : await ResolveDefaultSiteIdAsync(conn, dbCt);
             cmd.Parameters.AddWithValue("site_id", siteId);
-            cmd.Parameters.AddWithValue("session_id", DBNull.Value);
+            if (vehicle.SessionId.HasValue && vehicle.SessionId.Value != Guid.Empty)
+            {
+                cmd.Parameters.AddWithValue("session_id", vehicle.SessionId.Value);
+            }
+            else
+            {
+                cmd.Parameters.AddWithValue("session_id", DBNull.Value);
+            }
 
-            await cmd.ExecuteNonQueryAsync(dbCt);
+            if (vehicle.SessionId.HasValue && vehicle.SessionId.Value != Guid.Empty)
+            {
+                cmd.CommandText = @"
+                    UPDATE public.transact_weighing
+                    SET total_axle = @total_axle,
+                        axle_detail = @axle_detail,
+                        total_weight = @total_weight,
+                        site_id = @site_id,
+                        updated_date = now()
+                    WHERE session_id = @session_id;";
+
+                var affected = await cmd.ExecuteNonQueryAsync(dbCt);
+                if (affected == 0)
+                {
+                    cmd.CommandText = sql;
+                    await cmd.ExecuteNonQueryAsync(dbCt);
+                }
+            }
+            else
+            {
+                await cmd.ExecuteNonQueryAsync(dbCt);
+            }
             _logger.LogInformation("Vehicle RECID={RecId} saved to transact_weighing", vehicle.RecordId);
             Console.WriteLine($"[WEIGHING][insert] db insert ok recid={vehicle.RecordId}");
             return true;
@@ -136,5 +179,33 @@ public sealed class WeighingInsertService : IWeighingInsertService
             return parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : "";
         }
         return null;
+    }
+
+    private async Task<Guid> ResolveDefaultSiteIdAsync(NpgsqlConnection conn, CancellationToken ct)
+    {
+        if (_configuredSiteId != Guid.Empty)
+        {
+            return _configuredSiteId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_siteCode))
+        {
+            const string sqlByCode = @"
+                SELECT id
+                FROM public.master_site
+                WHERE code = @code
+                  AND COALESCE(is_deleted, false) = false
+                LIMIT 1;";
+
+            await using var cmd = new NpgsqlCommand(sqlByCode, conn);
+            cmd.Parameters.AddWithValue("code", _siteCode);
+            var result = await cmd.ExecuteScalarAsync(ct);
+            if (result is Guid id)
+            {
+                return id;
+            }
+        }
+
+        throw new InvalidOperationException("WB default site is not configured. Set SITE_CODE/WB_SITE_CODE or WB_SITE_ID.");
     }
 }

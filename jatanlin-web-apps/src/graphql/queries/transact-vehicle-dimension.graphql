@@ -8,7 +8,7 @@ query GetDimensions(
     where: { _and: [{ is_deleted: { _eq: false } }, $where] }
     limit: $limit
     offset: $offset
-    order_by: { created_date: desc }
+    order_by: [{ updated_date: desc_nulls_last }, { created_date: desc }]
   ) {
     id
     anpr_id
@@ -68,6 +68,7 @@ query GetDimensionsByAnprId($anpr_id: uuid!) {
     height
     is_active
     created_date
+    updated_date
     site_id
   }
 }

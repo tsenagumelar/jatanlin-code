@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jlaffaye/ftp"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -127,11 +128,11 @@ func (p *AxleProcessor) SetInsertQueue(natsURL string) error {
 	return nil
 }
 
-func (p *AxleProcessor) enqueueAxleInsert(meta *AxleMetadata, dateFolder, xmlObj, imgObj string) error {
+func (p *AxleProcessor) enqueueAxleInsert(meta *AxleMetadata, sessionID *uuid.UUID, dateFolder, xmlObj, imgObj string) error {
 	if p.InsertQueue == nil {
 		return fmt.Errorf("insert queue not initialized")
 	}
-	return p.InsertQueue.Enqueue(meta, p.Bucket, dateFolder, xmlObj, imgObj)
+	return p.InsertQueue.Enqueue(meta, p.Bucket, sessionID, dateFolder, xmlObj, imgObj)
 }
 
 // Dipanggil watcher tiap kali ada file di folder AXLE
@@ -163,19 +164,58 @@ func (p *AxleProcessor) HandleNewFileAXLE(ctx context.Context, c *ftp.ServerConn
 
 	log.Printf("[AXLE] Active session found: %s (Window: %ds)", session.Code, p.SessionService.SessionWindowSeconds)
 
-	// Process batch of files within session window
+	// Process files while session is still active.
 	return p.processBatchInSession(ctx, c, session)
 }
 
-// processBatchInSession collects all files in session window and processes them
-// 2) Capture semua file dalam timeframe session (window start/end).
+// ProcessDummySession inserts one deterministic dummy AXLE row per active session.
+func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
+	if p.SessionService == nil {
+		return fmt.Errorf("session service not configured")
+	}
+	if p.InsertQueue == nil {
+		return fmt.Errorf("insert queue not initialized")
+	}
+
+	session, err := p.SessionService.GetActiveSession()
+	if err != nil {
+		return fmt.Errorf("active session check failed: %w", err)
+	}
+	if session == nil {
+		log.Println("[AXLE_DUMMY] No active IN_PROGRESS session found")
+		return nil
+	}
+
+	externalID := fmt.Sprintf("dummy-axle-%s", session.ID.String())
+	meta := &AxleMetadata{
+		Plate:     buildDummyPlate(session.ID),
+		FrameTime: session.StartedAt.Format("2006.01.02 15:04:05.000"),
+		CameraID:  "DUMMY-CAM-AXLE",
+		ID:        externalID,
+		Length:    12000,
+		NWheels:   10,
+		NAxles:    5,
+		Category:  "DUMMY",
+		BodyType:  "DUMMY-BODY",
+	}
+
+	dateFolder := time.Now().Format("02012006")
+	if err := p.enqueueAxleInsert(meta, &session.ID, dateFolder, "", ""); err != nil {
+		return fmt.Errorf("enqueue dummy AXLE failed: %w", err)
+	}
+
+	log.Printf("[AXLE_DUMMY] Enqueued dummy AXLE for session=%s external_id=%s", session.ID, externalID)
+	return nil
+}
+
+// processBatchInSession collects all files that belong to the active session.
+// 2) Capture semua file dari waktu session dimulai sampai session masih aktif.
 // 3) Pilih 1 data terbaru dengan total_axles > 0.
 // 4) Insert data ke DB (insertAxleRecord).
 func (p *AxleProcessor) processBatchInSession(ctx context.Context, c *ftp.ServerConn, session *ActiveSession) bool {
-	windowStart, windowEnd := p.SessionService.GetWindowBoundaries(session)
-
-	log.Printf("[AXLE_BATCH] Collecting files from session window: %s to %s",
-		windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339))
+	sessionStart := session.StartedAt
+	log.Printf("[AXLE_BATCH] Collecting files from active session start: %s",
+		sessionStart.Format(time.RFC3339))
 
 	entries, err := c.List(p.RemoteDir)
 	if err != nil {
@@ -212,27 +252,27 @@ func (p *AxleProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 			continue
 		}
 
-		if frameTime.After(windowStart) && frameTime.Before(windowEnd) {
-			if meta.NAxles <= 0 {
-				log.Printf("[AXLE_BATCH] Skipping %s (total_axles=%d)", e.Name, meta.NAxles)
-				continue
-			}
-
-			imgName, err := p.findImageForAxleXML(c, e.Name)
-			if err != nil {
-				log.Printf("[AXLE_BATCH] Image not ready for %s: %v", e.Name, err)
-				continue
-			}
-
-			filesInWindow = append(filesInWindow, axleFileData{
-				xmlName:   e.Name,
-				metadata:  meta,
-				imgName:   imgName,
-				frameTime: frameTime,
-			})
-
-			log.Printf("[AXLE_BATCH] Collected: %s (axles=%d)", e.Name, meta.NAxles)
+		if frameTime.Before(sessionStart) {
+			continue
 		}
+		if meta.NAxles <= 0 {
+			log.Printf("[AXLE_BATCH] Skipping %s (total_axles=%d)", e.Name, meta.NAxles)
+			continue
+		}
+
+		imgName, err := p.findImageForAxleXML(c, e.Name)
+		if err != nil {
+			log.Printf("[AXLE_BATCH] Image not ready for %s: %v", e.Name, err)
+		}
+
+		filesInWindow = append(filesInWindow, axleFileData{
+			xmlName:   e.Name,
+			metadata:  meta,
+			imgName:   imgName,
+			frameTime: frameTime,
+		})
+
+		log.Printf("[AXLE_BATCH] Collected: %s (axles=%d session=%s)", e.Name, meta.NAxles, session.ID)
 	}
 
 	log.Printf("[AXLE_BATCH] Total files collected in window: %d", len(filesInWindow))
@@ -250,7 +290,6 @@ func (p *AxleProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 		}
 	}
 
-	processedCount := 0
 	var filesToDelete []string
 
 	datePrefix := time.Now().Format("02012006")
@@ -259,23 +298,30 @@ func (p *AxleProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 	log.Printf("[AXLE_BATCH] Processing latest file: %s (axles=%d)", file.xmlName, file.metadata.NAxles)
 
 	xmlObj := fmt.Sprintf("%s/%s", datePrefix, file.xmlName)
-	imgObj := fmt.Sprintf("%s/%s", datePrefix, file.imgName)
+	imgObj := ""
+	if file.imgName != "" {
+		imgObj = fmt.Sprintf("%s/%s", datePrefix, file.imgName)
+	}
 
 	if err := p.uploadXML(ctx, c, file.xmlName, xmlObj); err != nil {
 		log.Printf("[AXLE_BATCH] Failed to upload XML for %s: %v", file.xmlName, err)
 		return true
 	}
-	if err := p.uploadImage(ctx, c, file.imgName, imgObj); err != nil {
-		log.Printf("[AXLE_BATCH] Failed to upload image for %s: %v", file.xmlName, err)
-		return true
+	if file.imgName != "" {
+		if err := p.uploadImage(ctx, c, file.imgName, imgObj); err != nil {
+			log.Printf("[AXLE_BATCH] Failed to upload image for %s: %v", file.xmlName, err)
+			imgObj = ""
+		}
 	}
-	if err := p.enqueueAxleInsert(file.metadata, datePrefix, xmlObj, imgObj); err != nil {
+	if err := p.enqueueAxleInsert(file.metadata, &session.ID, datePrefix, xmlObj, imgObj); err != nil {
 		log.Printf("[AXLE_BATCH] Failed to enqueue DB for %s: %v", file.xmlName, err)
 		return true
 	}
 
-	filesToDelete = append(filesToDelete, file.xmlName, file.imgName)
-	processedCount++
+	filesToDelete = append(filesToDelete, file.xmlName)
+	if file.imgName != "" {
+		filesToDelete = append(filesToDelete, file.imgName)
+	}
 
 	if len(filesToDelete) > 0 {
 		if err := p.deleteFTP(c, filesToDelete); err != nil {
@@ -283,7 +329,7 @@ func (p *AxleProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 		}
 	}
 
-	log.Printf("[AXLE_BATCH] Session %s: Processed %d files", session.Code, processedCount)
+	log.Printf("[AXLE_BATCH] Session %s: Processed latest file %s", session.Code, file.xmlName)
 	return true
 }
 
@@ -326,7 +372,7 @@ func (p *AxleProcessor) processFileWithoutSession(ctx context.Context, c *ftp.Se
 		return false
 	}
 
-	if err := p.enqueueAxleInsert(meta, datePrefix, xmlObj, imgObj); err != nil {
+	if err := p.enqueueAxleInsert(meta, nil, datePrefix, xmlObj, imgObj); err != nil {
 		log.Println("[AXLE] enqueue DB error:", err)
 		return false
 	}

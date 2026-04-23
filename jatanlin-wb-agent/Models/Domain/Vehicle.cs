@@ -17,6 +17,7 @@ public class Vehicle
     // Additional PostgreSQL fields
     public string? LocationCode { get; set; }
     public Guid? SiteId { get; set; }
+    public Guid? SessionId { get; set; }
     
     // Audit fields
     public bool IsActive { get; set; } = true;

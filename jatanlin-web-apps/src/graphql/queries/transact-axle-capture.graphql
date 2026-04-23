@@ -165,7 +165,7 @@ subscription SubscribeLatestAxleCapture($session_id: uuid!, $site_id: uuid) {
       session_id: { _eq: $session_id }
       site_id: { _eq: $site_id }
     }
-    order_by: { created_date: desc }
+    order_by: [{ updated_date: desc_nulls_last }, { created_date: desc }]
     limit: 1
   ) {
     id
@@ -181,6 +181,7 @@ subscription SubscribeLatestAxleCapture($session_id: uuid!, $site_id: uuid) {
     minio_bucket
     minio_date_folder
     minio_image_object
+    updated_date
     site_id
     created_date
   }

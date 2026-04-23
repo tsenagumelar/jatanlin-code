@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"wim-service/internal/config"
 	"wim-service/internal/ftpwatcher"
@@ -68,6 +69,7 @@ func main() {
 	log.Printf("  FTP Host:     %s", cfg.AxleFTPHost)
 	log.Printf("  FTP Dir:      %s", cfg.AxleFTPDir)
 	log.Printf("  Interval:     %v", cfg.AxleFTPInterval)
+	log.Printf("  Dummy Mode:   %v", cfg.AxleDummyEnabled)
 	log.Printf("  MinIO:        %s", cfg.AxleMinIOEndpoint)
 	log.Printf("  Bucket:       %s", cfg.AxleMinIOBucket)
 	log.Printf("  Session Window: %d seconds", cfg.SessionWindowSeconds)
@@ -86,6 +88,29 @@ func main() {
 		log.Println("[AXLE] Shutting down gracefully...")
 		cancel()
 	}()
+
+	if cfg.AxleDummyEnabled {
+		log.Println("[AXLE] Starting dummy session listener...")
+		ticker := time.NewTicker(cfg.AxleFTPInterval)
+		defer ticker.Stop()
+
+		if err := axleProcessor.ProcessDummySession(ctx); err != nil {
+			log.Printf("[AXLE] Initial dummy session processing failed: %v", err)
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("[AXLE] Dummy listener stopped")
+				log.Println("[AXLE] Shutdown complete. Goodbye!")
+				return
+			case <-ticker.C:
+				if err := axleProcessor.ProcessDummySession(ctx); err != nil {
+					log.Printf("[AXLE] Dummy session processing failed: %v", err)
+				}
+			}
+		}
+	}
 
 	// Start watcher
 	log.Println("[AXLE] Starting FTP watcher...")

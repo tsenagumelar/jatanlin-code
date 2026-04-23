@@ -49,6 +49,9 @@ Thumbs.db
 /bin/
 /build/
 /dist/
+/.gocache/
+/anpr-watcher
+/axle-watcher
 
 # Database files
 *.db

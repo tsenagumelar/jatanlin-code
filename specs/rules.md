@@ -43,6 +43,9 @@
 - Field kosong pada placeholder harus `NULL`, bukan empty string; ini penting untuk field unik seperti `external_id`.
 - Insert data dari FTP/device harus idempotent dan tahan duplicate.
 - Insert placeholder harus idempotent per `session_id + source`.
+- Flow session-driven baru mengharuskan maksimal satu row operasional per source untuk setiap `session_id`.
+- Retry, rescan, replay queue, duplicate payload device, dan klik `Mulai Ulang` pada session aktif tidak boleh membuat row source kedua untuk session yang sama.
+- Jika data baru datang untuk source yang sama dan session yang sama, perilaku yang benar adalah update row existing atau no-op, bukan insert row baru.
 - Correlation berbasis waktu hanya boleh menjadi fallback atau compatibility layer, bukan primary key flow baru.
 
 ## Rules Code Umum

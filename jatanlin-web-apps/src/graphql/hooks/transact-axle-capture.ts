@@ -64,7 +64,7 @@ export type SubscribeLatestAxleCaptureSubscriptionVariables = Types.Exact<{
 }>;
 
 
-export type SubscribeLatestAxleCaptureSubscription = { transact_axle_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_image_object?: string | null, site_id?: any | null, created_date?: any | null }> };
+export type SubscribeLatestAxleCaptureSubscription = { transact_axle_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_image_object?: string | null, site_id?: any | null, created_date?: any | null, updated_date?: any | null }> };
 
 
 export const GetAxleCapturesDocument = gql`
@@ -397,7 +397,7 @@ export const SubscribeLatestAxleCaptureDocument = gql`
     subscription SubscribeLatestAxleCapture($session_id: uuid!, $site_id: uuid) {
   transact_axle_capture(
     where: {is_deleted: {_eq: false}, session_id: {_eq: $session_id}, site_id: {_eq: $site_id}}
-    order_by: {created_date: desc}
+    order_by: [{updated_date: desc_nulls_last}, {created_date: desc}]
     limit: 1
   ) {
     id
@@ -415,6 +415,7 @@ export const SubscribeLatestAxleCaptureDocument = gql`
     minio_image_object
     site_id
     created_date
+    updated_date
   }
 }
     `;

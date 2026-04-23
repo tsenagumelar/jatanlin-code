@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -32,6 +33,7 @@ import (
 	"github.com/pion/rtp"
 
 	"wim-service/internal/config"
+	"wim-service/internal/handler"
 )
 
 type cctvService struct {
@@ -41,6 +43,8 @@ type cctvService struct {
 	siteUUID     string
 	uploadPrefix string
 	queue        *CCTVInsertQueue
+	sessionMu    sync.Mutex
+	recording    bool
 }
 
 const (
@@ -89,6 +93,7 @@ func main() {
 	defer cancel()
 
 	dummyEnabled := getEnvBool("CCTV_TRIGGER_DUMMY", false)
+	sessionService := handler.NewSessionService(cfg.DB, cfg.SiteUUID, cfg.SessionWindowSeconds)
 	rtspURL := ""
 	if !dummyEnabled {
 		var err error
@@ -135,6 +140,56 @@ func main() {
 			if err := startHTTPServer(ctx, rtspURL, service); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Printf("[CCTV] HTTP server error: %v", err)
 				cancel()
+			}
+		}()
+	}
+
+	if dummyEnabled {
+		go func() {
+			interval := time.Duration(getEnvInt("CCTV_DUMMY_INTERVAL_SEC", 5)) * time.Second
+			if interval <= 0 {
+				interval = 5 * time.Second
+			}
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+
+			if err := service.processDummySession(ctx, sessionService); err != nil {
+				log.Printf("[CCTV] Initial dummy session processing failed: %v", err)
+			}
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if err := service.processDummySession(ctx, sessionService); err != nil {
+						log.Printf("[CCTV] Dummy session processing failed: %v", err)
+					}
+				}
+			}
+		}()
+	} else {
+		go func() {
+			interval := time.Duration(getEnvInt("CCTV_SESSION_INTERVAL_SEC", 5)) * time.Second
+			if interval <= 0 {
+				interval = 5 * time.Second
+			}
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+
+			if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
+				log.Printf("[CCTV] Initial live session processing failed: %v", err)
+			}
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
+						log.Printf("[CCTV] Live session processing failed: %v", err)
+					}
+				}
 			}
 		}()
 	}
@@ -601,6 +656,10 @@ func (q *CCTVInsertQueue) handleMsg(msg *nats.Msg) error {
 }
 
 func insertCCTVRecord(ctx context.Context, db *sql.DB, filename, filepath string, siteID uuid.UUID, sessionID *uuid.UUID) error {
+	if sessionID != nil && *sessionID != uuid.Nil {
+		return insertOrUpdateCCTVRecordBySession(ctx, db, filename, filepath, siteID, *sessionID)
+	}
+
 	query := `
 		INSERT INTO public.transact_cctv (filename, filepath, site_id, session_id)
 		VALUES ($1,$2,$3,$4)
@@ -613,6 +672,165 @@ func insertCCTVRecord(ctx context.Context, db *sql.DB, filename, filepath string
 		return fmt.Errorf("exec insert cctv: %w", err)
 	}
 	return nil
+}
+
+func insertOrUpdateCCTVRecordBySession(ctx context.Context, db *sql.DB, filename, filepath string, siteID, sessionID uuid.UUID) error {
+	const selectSQL = `
+		SELECT id
+		FROM public.transact_cctv
+		WHERE session_id = $1
+		ORDER BY created_date ASC
+		LIMIT 1
+	`
+
+	var existingID uuid.UUID
+	err := db.QueryRowContext(ctx, selectSQL, sessionID).Scan(&existingID)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("query cctv by session: %w", err)
+	}
+
+	if err == sql.ErrNoRows {
+		const insertSQL = `
+			INSERT INTO public.transact_cctv (filename, filepath, site_id, session_id)
+			VALUES ($1,$2,$3,$4)
+		`
+		if _, execErr := db.ExecContext(ctx, insertSQL, nullableString(filename), nullableString(filepath), siteID, sessionID); execErr != nil {
+			return fmt.Errorf("insert cctv by session: %w", execErr)
+		}
+		return nil
+	}
+
+	const updateSQL = `
+		UPDATE public.transact_cctv
+		SET filename = COALESCE(NULLIF($2, ''), filename),
+		    filepath = COALESCE(NULLIF($3, ''), filepath),
+		    site_id = $4,
+		    session_id = $5,
+		    updated_date = now()
+		WHERE id = $1
+	`
+
+	if _, execErr := db.ExecContext(ctx, updateSQL, existingID, filename, filepath, siteID, sessionID); execErr != nil {
+		return fmt.Errorf("update cctv by session: %w", execErr)
+	}
+	return nil
+}
+
+func (s *cctvService) processDummySession(ctx context.Context, sessionService *handler.SessionService) error {
+	if sessionService == nil {
+		return fmt.Errorf("session service not configured")
+	}
+
+	session, err := sessionService.GetActiveSession()
+	if err != nil {
+		return fmt.Errorf("active session check failed: %w", err)
+	}
+	if session == nil {
+		log.Println("[CCTV_DUMMY] No active IN_PROGRESS session found")
+		return nil
+	}
+
+	filename := fmt.Sprintf("dummy-cctv-%s.mp4", session.ID.String())
+	filepath := fmt.Sprintf("dummy-cctv/%s.mp4", session.ID.String())
+
+	if _, err := s.insertDummyRecord(ctx, filename, filepath, session.ID.String(), session.SiteID.String()); err != nil {
+		return fmt.Errorf("insert dummy cctv failed: %w", err)
+	}
+
+	log.Printf("[CCTV_DUMMY] Ensured dummy CCTV for session=%s filename=%s", session.ID, filename)
+	return nil
+}
+
+func (s *cctvService) processLiveSession(ctx context.Context, sessionService *handler.SessionService, rtspURL string) error {
+	if sessionService == nil {
+		return fmt.Errorf("session service not configured")
+	}
+	if strings.TrimSpace(rtspURL) == "" {
+		return fmt.Errorf("rtsp url is empty")
+	}
+
+	session, err := sessionService.GetActiveSession()
+	if err != nil {
+		return fmt.Errorf("active session check failed: %w", err)
+	}
+	if session == nil {
+		return nil
+	}
+
+	exists, err := s.sessionRecordExists(ctx, session.ID)
+	if err != nil {
+		return fmt.Errorf("check cctv session row failed: %w", err)
+	}
+	if exists {
+		return nil
+	}
+
+	if !s.beginSessionRecording() {
+		return nil
+	}
+
+	go func(sessionID, siteID string) {
+		defer s.finishSessionRecording()
+
+		seconds := getEnvInt("CCTV_SESSION_RECORD_SECONDS", getEnvInt("RECORD_SECONDS", 20))
+		timeout := time.Duration(seconds+30) * time.Second
+		if timeout <= 0 {
+			timeout = 50 * time.Second
+		}
+
+		recordCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		result, err := s.recordUploadInsert(recordCtx, rtspURL, seconds, sessionID, siteID)
+		if err != nil {
+			log.Printf("[CCTV] session record failed: session=%s err=%v", sessionID, err)
+			return
+		}
+
+		log.Printf("[CCTV] session record success: session=%s file=%s", sessionID, result.FileName)
+	}(session.ID.String(), session.SiteID.String())
+
+	return nil
+}
+
+func (s *cctvService) beginSessionRecording() bool {
+	s.sessionMu.Lock()
+	defer s.sessionMu.Unlock()
+	if s.recording {
+		return false
+	}
+	s.recording = true
+	return true
+}
+
+func (s *cctvService) finishSessionRecording() {
+	s.sessionMu.Lock()
+	s.recording = false
+	s.sessionMu.Unlock()
+}
+
+func (s *cctvService) sessionRecordExists(ctx context.Context, sessionID uuid.UUID) (bool, error) {
+	const sqlText = `
+		SELECT EXISTS (
+			SELECT 1
+			FROM public.transact_cctv
+			WHERE session_id = $1
+		)
+	`
+
+	var exists bool
+	if err := s.db.QueryRowContext(ctx, sqlText, sessionID).Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func nullableString(value string) any {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return trimmed
 }
 
 func (s *cctvService) recordUploadInsert(ctx context.Context, rtspURL string, seconds int, sessionIDRaw, siteIDRaw string) (*recordResult, error) {

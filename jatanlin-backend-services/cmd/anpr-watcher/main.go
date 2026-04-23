@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"wim-service/internal/config"
 	"wim-service/internal/ftpwatcher"
@@ -45,10 +46,12 @@ func main() {
 		if err := dimensionHandler.SetCalibration(calibration); err != nil {
 			log.Fatal("[ANPR] Failed to set camera calibration:", err)
 		}
+		dimensionHandler.SetDummyEnabled(cfg.DimensionDummyEnabled)
 
 		log.Printf("[ANPR] Camera: %dx%d, Height: %.2fm, Tilt: %.2f°",
 			cfg.CameraImageWidth, cfg.CameraImageHeight,
 			cfg.CameraHeight, cfg.CameraTiltAngle)
+		log.Printf("[ANPR] Dimension Dummy Mode: %v", cfg.DimensionDummyEnabled)
 	} else {
 		log.Println("[ANPR] Vehicle Dimension Detection: DISABLED")
 	}
@@ -116,6 +119,7 @@ func main() {
 	log.Printf("  FTP Host:         %s", cfg.ANPRFTPHost)
 	log.Printf("  FTP Dir:          %s", cfg.ANPRFTPDir)
 	log.Printf("  Interval:         %v", cfg.ANPRFTPInterval)
+	log.Printf("  Dummy Mode:       %v", cfg.ANPRDummyEnabled)
 	log.Printf("  MinIO:            %s", cfg.ANPRMinIOEndpoint)
 	log.Printf("  Bucket:           %s", cfg.ANPRMinIOBucket)
 	log.Printf("  Session Window:   %d seconds", cfg.SessionWindowSeconds)
@@ -140,6 +144,29 @@ func main() {
 		log.Println("[ANPR] Shutting down gracefully...")
 		cancel()
 	}()
+
+	if cfg.ANPRDummyEnabled {
+		log.Println("[ANPR] Starting dummy session listener...")
+		ticker := time.NewTicker(cfg.ANPRFTPInterval)
+		defer ticker.Stop()
+
+		if err := anprProcessor.ProcessDummySession(ctx); err != nil {
+			log.Printf("[ANPR] Initial dummy session processing failed: %v", err)
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("[ANPR] Dummy listener stopped")
+				log.Println("[ANPR] Shutdown complete. Goodbye!")
+				return
+			case <-ticker.C:
+				if err := anprProcessor.ProcessDummySession(ctx); err != nil {
+					log.Printf("[ANPR] Dummy session processing failed: %v", err)
+				}
+			}
+		}
+	}
 
 	// Start watcher
 	log.Println("[ANPR] Starting FTP watcher...")

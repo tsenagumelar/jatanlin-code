@@ -16,7 +16,7 @@ export const SubscribeLatestCctvDocument = gql`
     subscription SubscribeLatestCctv($session_id: uuid!, $site_id: uuid) {
   transact_cctv(
     where: {is_deleted: {_eq: false}, session_id: {_eq: $session_id}, site_id: {_eq: $site_id}}
-    order_by: {created_date: desc}
+    order_by: [{updated_date: desc_nulls_last}, {created_date: desc}]
     limit: 1
   ) {
     id

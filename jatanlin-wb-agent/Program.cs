@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<WServerOptions>(builder.Configuration.GetSection("WServer"));
 builder.Services.Configure<NatsOptions>(builder.Configuration.GetSection("Nats"));
+builder.Services.Configure<WbOptions>(builder.Configuration.GetSection("WB"));
 builder.Services.PostConfigure<NatsOptions>(opt =>
 {
     if (string.IsNullOrWhiteSpace(opt.Url))
@@ -20,6 +21,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<WsClient>());
 builder.Services.AddSingleton<INatsCacheService, NatsCacheService>();
 builder.Services.AddSingleton<IWeighingInsertService, WeighingInsertService>();
 builder.Services.AddHostedService<NatsCacheRetryService>();
+builder.Services.AddHostedService<DummySessionCaptureService>();
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 
 var app = builder.Build();

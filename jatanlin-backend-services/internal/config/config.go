@@ -35,18 +35,20 @@ type Config struct {
 	AuthEnabled bool // Toggle auth header enforcement (temporary for FE readiness)
 
 	// ANPR FTP Config
-	ANPRFTPHost     string
-	ANPRFTPUser     string
-	ANPRFTPPass     string
-	ANPRFTPDir      string
-	ANPRFTPInterval time.Duration
+	ANPRFTPHost      string
+	ANPRFTPUser      string
+	ANPRFTPPass      string
+	ANPRFTPDir       string
+	ANPRFTPInterval  time.Duration
+	ANPRDummyEnabled bool
 
 	// AXLE FTP Config
-	AxleFTPHost     string
-	AxleFTPUser     string
-	AxleFTPPass     string
-	AxleFTPDir      string
-	AxleFTPInterval time.Duration
+	AxleFTPHost      string
+	AxleFTPUser      string
+	AxleFTPPass      string
+	AxleFTPDir       string
+	AxleFTPInterval  time.Duration
+	AxleDummyEnabled bool
 
 	// MinIO Config for ANPR
 	ANPRMinIOEndpoint string
@@ -71,6 +73,7 @@ type Config struct {
 
 	// Vehicle Dimension Detection Config
 	DimensionEnabled   bool    // Enable dimension detection
+	DimensionDummyEnabled bool // Enable dummy dimension output
 	DimensionModelPath string  // Path to detection model (if using ML model)
 	DimensionThreshold float64 // Detection confidence threshold
 
@@ -132,18 +135,20 @@ func Load() (*Config, error) {
 		AuthEnabled: getEnvBool("AUTH_ENABLED", false),
 
 		// ANPR FTP
-		ANPRFTPHost:     getEnv("ANPR_FTP_HOST", "51.79.173.213:21"),
-		ANPRFTPUser:     getEnv("ANPR_FTP_USER", "ftpuser"),
-		ANPRFTPPass:     getEnv("ANPR_FTP_PASS", ""),
-		ANPRFTPDir:      getEnv("ANPR_FTP_DIR", "/"),
-		ANPRFTPInterval: time.Duration(getEnvInt("ANPR_FTP_INTERVAL_SEC", 5)) * time.Second,
+		ANPRFTPHost:      getEnv("ANPR_FTP_HOST", "51.79.173.213:21"),
+		ANPRFTPUser:      getEnv("ANPR_FTP_USER", "ftpuser"),
+		ANPRFTPPass:      getEnv("ANPR_FTP_PASS", ""),
+		ANPRFTPDir:       getEnv("ANPR_FTP_DIR", "/"),
+		ANPRFTPInterval:  time.Duration(getEnvInt("ANPR_FTP_INTERVAL_SEC", 5)) * time.Second,
+		ANPRDummyEnabled: getEnvBool("ANPR_DUMMY_ENABLED", false),
 
 		// AXLE FTP
-		AxleFTPHost:     getEnv("AXLE_FTP_HOST", "51.79.173.213:21"),
-		AxleFTPUser:     getEnv("AXLE_FTP_USER", "ftpuser"),
-		AxleFTPPass:     getEnv("AXLE_FTP_PASS", ""),
-		AxleFTPDir:      getEnv("AXLE_FTP_DIR", "/"),
-		AxleFTPInterval: time.Duration(getEnvInt("AXLE_FTP_INTERVAL_SEC", 5)) * time.Second,
+		AxleFTPHost:      getEnv("AXLE_FTP_HOST", "51.79.173.213:21"),
+		AxleFTPUser:      getEnv("AXLE_FTP_USER", "ftpuser"),
+		AxleFTPPass:      getEnv("AXLE_FTP_PASS", ""),
+		AxleFTPDir:       getEnv("AXLE_FTP_DIR", "/"),
+		AxleFTPInterval:  time.Duration(getEnvInt("AXLE_FTP_INTERVAL_SEC", 5)) * time.Second,
+		AxleDummyEnabled: getEnvBool("AXLE_DUMMY_ENABLED", false),
 
 		// ANPR MinIO
 		ANPRMinIOEndpoint: getEnv("ANPR_MINIO_ENDPOINT", "s3minio.activa.id"),
@@ -167,9 +172,10 @@ func Load() (*Config, error) {
 		AttachmentMinIOUseSSL:   getEnvBool("ATTACHMENT_MINIO_USE_SSL", true),
 
 		// Vehicle Dimension Detection
-		DimensionEnabled:   getEnvBool("DIMENSION_ENABLED", false),
-		DimensionModelPath: getEnv("DIMENSION_MODEL_PATH", ""),
-		DimensionThreshold: getEnvFloat("DIMENSION_THRESHOLD", 0.5),
+		DimensionEnabled:      getEnvBool("DIMENSION_ENABLED", false),
+		DimensionDummyEnabled: getEnvBool("DIMENSION_DUMMY_ENABLED", false),
+		DimensionModelPath:    getEnv("DIMENSION_MODEL_PATH", ""),
+		DimensionThreshold:    getEnvFloat("DIMENSION_THRESHOLD", 0.5),
 
 		// Camera Calibration (default values - should be calibrated)
 		CameraFocalLength:    getEnvFloat("CAMERA_FOCAL_LENGTH", 1000.0),

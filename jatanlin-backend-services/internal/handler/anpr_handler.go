@@ -183,8 +183,52 @@ func (p *FileProcessor) HandleNewFile(ctx context.Context, c *ftp.ServerConn, na
 	}
 	log.Printf("[ANPR] Active session found: %s", session.Code)
 
-	// Process batch of files within session window
+	// Process batch of files while session is still active.
 	return p.processBatchInSession(ctx, c, session)
+}
+
+// ProcessDummySession inserts one deterministic dummy ANPR row per active session.
+// It is intended for development/testing when FTP source is disabled.
+func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
+	if p.SessionService == nil {
+		return fmt.Errorf("session service not configured")
+	}
+	if p.InsertQueue == nil {
+		return fmt.Errorf("insert queue not initialized")
+	}
+
+	session, err := p.SessionService.GetActiveSession()
+	if err != nil {
+		return fmt.Errorf("active session check failed: %w", err)
+	}
+	if session == nil {
+		log.Println("[ANPR_DUMMY] No active IN_PROGRESS session found")
+		return nil
+	}
+
+	externalID := fmt.Sprintf("dummy-anpr-%s", session.ID.String())
+	meta := &ANPRMetadata{
+		Plate:      buildDummyPlate(session.ID),
+		FrameTime:  session.StartedAt.Format("2006.01.02 15:04:05.000"),
+		Location:   "DUMMY-ANPR",
+		CameraID:   "DUMMY-CAM-ANPR",
+		Confidence: "99.9",
+		ID:         externalID,
+	}
+
+	dateFolder := time.Now().Format("02012006")
+	if err := p.enqueueANPRInsert(meta, &session.ID, dateFolder, "", "", ""); err != nil {
+		return fmt.Errorf("enqueue dummy ANPR failed: %w", err)
+	}
+
+	if p.DimensionHandler != nil {
+		if _, err := p.DimensionHandler.ProcessANPRImageWithSession("", meta.Plate, meta.ID, &session.ID); err != nil {
+			log.Printf("[ANPR_DUMMY] Dummy dimension failed for session=%s external_id=%s: %v", session.ID, meta.ID, err)
+		}
+	}
+
+	log.Printf("[ANPR_DUMMY] Enqueued dummy ANPR for session=%s external_id=%s plate=%s", session.ID, externalID, meta.Plate)
+	return nil
 }
 
 func (p *FileProcessor) triggerWeighingIfNeeded(ctx context.Context, session *ActiveSession) {
@@ -320,13 +364,12 @@ func buildCCTVTriggerURL(raw string, seconds int, siteID, sessionID uuid.UUID, d
 	return u.String(), nil
 }
 
-// processBatchInSession collects all files in session window and processes them
-// 2) Capture semua file dalam timeframe session (window start/end).
+// processBatchInSession collects all files that belong to the currently active session.
+// 2) Capture semua file dari waktu session dimulai sampai session masih aktif.
 // 3) Pilih 1 data per plate dengan confidence paling tinggi (dedup).
 // 4) Insert data terpilih ke DB (insertANPRRecordWithSession).
 func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.ServerConn, session *ActiveSession) bool {
-	// Get session window boundaries
-	windowStart, windowEnd := p.SessionService.GetWindowBoundaries(session)
+	sessionStart := session.StartedAt
 	// List all files in FTP
 	entries, err := c.List(p.RemoteDir)
 	if err != nil {
@@ -366,31 +409,32 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 			continue
 		}
 
-		// Check if file is within session window
-		if frameTime.After(windowStart) && frameTime.Before(windowEnd) {
-			// Trigger WIM/CCTV as soon as we see any file in the window,
-			// even if plate data/images are missing.
-			p.triggerWeighingIfNeeded(ctx, session)
-			p.triggerCCTVIfNeeded(ctx, session)
-
-			// Find associated images (may be missing when plate is not detected)
-			fullImg, plateImg, err := p.findImagesForXML(c, e.Name)
-			if err != nil {
-				continue
-			}
-
-			// Parse confidence
-			conf, _ := strconv.ParseFloat(meta.Confidence, 64)
-
-			filesInWindow = append(filesInWindow, anprFileData{
-				xmlName:    e.Name,
-				metadata:   meta,
-				fullImg:    fullImg,
-				plateImg:   plateImg,
-				confidence: conf,
-			})
-			log.Printf("[ANPR] Processing file: %s (plate=%s)", e.Name, meta.Plate)
+		// Check if file belongs to the active session.
+		// The active session itself is the upper bound; once it is completed,
+		// new files are no longer associated because GetActiveSession() returns nil.
+		if frameTime.Before(sessionStart) {
+			continue
 		}
+
+		// Find associated images. Missing images should not block ANPR insert;
+		// the row can still be stored with nullable image fields.
+		fullImg, plateImg, err := p.findImagesForXML(c, e.Name)
+		if err != nil {
+			log.Printf("[ANPR] image discovery failed for %s: %v", e.Name, err)
+			continue
+		}
+
+		// Parse confidence
+		conf, _ := strconv.ParseFloat(meta.Confidence, 64)
+
+		filesInWindow = append(filesInWindow, anprFileData{
+			xmlName:    e.Name,
+			metadata:   meta,
+			fullImg:    fullImg,
+			plateImg:   plateImg,
+			confidence: conf,
+		})
+		log.Printf("[ANPR] Processing file: %s (plate=%s session=%s)", e.Name, meta.Plate, session.ID)
 	}
 
 	if len(filesInWindow) == 0 {
@@ -403,7 +447,7 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 
 	for i := range filesInWindow {
 		file := &filesInWindow[i]
-		plateNo := file.metadata.Plate
+		plateNo := anprDedupKey(file.metadata)
 
 		existing, exists := plateMap[plateNo]
 		if !exists || file.confidence > existing.confidence {
@@ -412,7 +456,6 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 	}
 
 	// Process each unique plate
-	processedCount := 0
 	var filesToDelete []string
 
 	datePrefix := time.Now().Format("02012006")
@@ -420,8 +463,14 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 	for plateNo, file := range plateMap {
 		// Upload files to MinIO
 		xmlObj := fmt.Sprintf("%s/%s", datePrefix, file.xmlName)
-		fullObj := fmt.Sprintf("%s/%s", datePrefix, file.fullImg)
-		plateObj := fmt.Sprintf("%s/%s", datePrefix, file.plateImg)
+		fullObj := ""
+		plateObj := ""
+		if file.fullImg != "" {
+			fullObj = fmt.Sprintf("%s/%s", datePrefix, file.fullImg)
+		}
+		if file.plateImg != "" {
+			plateObj = fmt.Sprintf("%s/%s", datePrefix, file.plateImg)
+		}
 
 		// Upload XML
 		if err := p.uploadXML(ctx, c, file.xmlName, xmlObj); err != nil {
@@ -430,35 +479,44 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 
 		// Upload images
 		fullImgUploaded := false
-		if err := p.uploadImage(ctx, c, file.fullImg, fullObj); err != nil {
-			fullObj = ""
-		} else {
-			fullImgUploaded = true
+		if file.fullImg != "" {
+			if err := p.uploadImage(ctx, c, file.fullImg, fullObj); err != nil {
+				log.Printf("[ANPR] full image upload failed for %s: %v", file.fullImg, err)
+				fullObj = ""
+			} else {
+				fullImgUploaded = true
+			}
 		}
 
-		if err := p.uploadImage(ctx, c, file.plateImg, plateObj); err != nil {
-			plateObj = ""
+		if file.plateImg != "" {
+			if err := p.uploadImage(ctx, c, file.plateImg, plateObj); err != nil {
+				log.Printf("[ANPR] plate image upload failed for %s: %v", file.plateImg, err)
+				plateObj = ""
+			}
 		}
 
-		// Insert to database with session_id
-		// 4) Simpan data ANPR ke DB dengan session_id.
+		// Insert to database with session_id.
 		if err := p.enqueueANPRInsert(file.metadata, &session.ID, datePrefix, xmlObj, fullObj, plateObj); err != nil {
 			log.Printf("[ANPR] Enqueue failed: plate=%s id=%s err=%v", plateNo, file.metadata.ID, err)
 			continue
 		}
-		log.Printf("[ANPR] Enqueued insert: plate=%s id=%s", plateNo, file.metadata.ID)
+		log.Printf("[ANPR] Enqueued insert: plate=%s id=%s session=%s", plateNo, file.metadata.ID, session.ID)
 
-		// Process dimensions if enabled
-		// DIMENSION: perhitungan dimensi kendaraan dari gambar full (via processDimensionsFromFTP).
-		if p.DimensionHandler != nil {
-			if err := p.processDimensionsFromFTP(ctx, c, file.metadata, file.fullImg, fullImgUploaded, fullObj); err != nil {
+		// Dimension remains explicitly dependent on ANPR image availability.
+		if p.DimensionHandler != nil && (file.fullImg != "" || p.DimensionHandler.DummyEnabled) {
+			if err := p.processDimensionsFromFTP(ctx, c, file.metadata, &session.ID, file.fullImg, fullImgUploaded, fullObj); err != nil {
 				_ = err
 			}
 		}
 
 		// Mark files for deletion
-		filesToDelete = append(filesToDelete, file.xmlName, file.fullImg, file.plateImg)
-		processedCount++
+		filesToDelete = append(filesToDelete, file.xmlName)
+		if file.fullImg != "" {
+			filesToDelete = append(filesToDelete, file.fullImg)
+		}
+		if file.plateImg != "" {
+			filesToDelete = append(filesToDelete, file.plateImg)
+		}
 	}
 
 	// Delete all processed files from FTP
@@ -468,6 +526,29 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 		}
 	}
 	return true
+}
+
+func anprDedupKey(meta *ANPRMetadata) string {
+	if meta == nil {
+		return ""
+	}
+	plate := strings.TrimSpace(meta.Plate)
+	if plate != "" {
+		return strings.ToUpper(plate)
+	}
+	externalID := strings.TrimSpace(meta.ID)
+	if externalID != "" {
+		return "external:" + externalID
+	}
+	return fmt.Sprintf("unknown:%d", time.Now().UnixNano())
+}
+
+func buildDummyPlate(sessionID uuid.UUID) string {
+	compact := strings.ToUpper(strings.ReplaceAll(sessionID.String(), "-", ""))
+	if len(compact) < 6 {
+		return "B 0000 DMY"
+	}
+	return fmt.Sprintf("B %s DMY", compact[:4])
 }
 
 // processFileWithoutSession processes single file (legacy behavior)
@@ -491,25 +572,35 @@ func (p *FileProcessor) processFileWithoutSession(ctx context.Context, c *ftp.Se
 
 	// Object name di MinIO: bucket/03122025/original-filename
 	xmlObj := fmt.Sprintf("%s/%s", datePrefix, name)
-	fullObj := fmt.Sprintf("%s/%s", datePrefix, fullImg)
-	plateObj := fmt.Sprintf("%s/%s", datePrefix, plateImg)
+	fullObj := ""
+	plateObj := ""
+	if fullImg != "" {
+		fullObj = fmt.Sprintf("%s/%s", datePrefix, fullImg)
+	}
+	if plateImg != "" {
+		plateObj = fmt.Sprintf("%s/%s", datePrefix, plateImg)
+	}
 
 	// upload XML
 	if err := p.uploadXML(ctx, c, name, xmlObj); err != nil {
 		return false
 	}
 
-	// upload 2 image - track success for each
+	// upload image - track success for dimension
 	fullImgUploaded := false
 
-	if err := p.uploadImage(ctx, c, fullImg, fullObj); err != nil {
-		fullObj = "" // Set to empty if upload failed
-	} else {
-		fullImgUploaded = true
+	if fullImg != "" {
+		if err := p.uploadImage(ctx, c, fullImg, fullObj); err != nil {
+			fullObj = "" // Set to empty if upload failed
+		} else {
+			fullImgUploaded = true
+		}
 	}
 
-	if err := p.uploadImage(ctx, c, plateImg, plateObj); err != nil {
-		plateObj = "" // Set to empty if upload failed
+	if plateImg != "" {
+		if err := p.uploadImage(ctx, c, plateImg, plateObj); err != nil {
+			plateObj = "" // Set to empty if upload failed
+		}
 	}
 
 	// insert ke database (even if image upload failed, save what we have)
@@ -518,18 +609,23 @@ func (p *FileProcessor) processFileWithoutSession(ctx context.Context, c *ftp.Se
 		return false
 	}
 	log.Printf("[ANPR] Enqueued insert: plate=%s id=%s", meta.Plate, meta.ID)
-	p.triggerWeighingIfNeeded(ctx, nil)
 
-	// Process vehicle dimensions if handler is set
-	// DIMENSION: perhitungan dimensi kendaraan dari gambar full (via processDimensionsFromFTP).
-	if p.DimensionHandler != nil {
-		if err := p.processDimensionsFromFTP(ctx, c, meta, fullImg, fullImgUploaded, fullObj); err != nil {
+	// Process vehicle dimensions if handler is set.
+	if p.DimensionHandler != nil && (fullImg != "" || p.DimensionHandler.DummyEnabled) {
+		if err := p.processDimensionsFromFTP(ctx, c, meta, nil, fullImg, fullImgUploaded, fullObj); err != nil {
 			_ = err
 		}
 	}
 
 	// semua sukses -> hapus dari FTP
-	if err := p.deleteFTP(c, []string{name, fullImg, plateImg}); err != nil {
+	toDelete := []string{name}
+	if fullImg != "" {
+		toDelete = append(toDelete, fullImg)
+	}
+	if plateImg != "" {
+		toDelete = append(toDelete, plateImg)
+	}
+	if err := p.deleteFTP(c, toDelete); err != nil {
 		return true
 	}
 	return true
@@ -592,10 +688,6 @@ func (p *FileProcessor) findImagesForXML(c *ftp.ServerConn, xmlName string) (ful
 			// diasumsikan jpg lain adalah full image
 			fullImg = e.Name
 		}
-	}
-
-	if fullImg == "" || plateImg == "" {
-		return "", "", fmt.Errorf("images not ready yet (full=%q plate=%q)", fullImg, plateImg)
 	}
 
 	return fullImg, plateImg, nil
@@ -677,17 +769,17 @@ func (p *FileProcessor) insertANPRRecord(ctx context.Context, meta *ANPRMetadata
 		ctx,
 		query,
 		p.SiteUUID, // Site UUID from master_site.id
-		meta.ID,
-		meta.Plate,
+		nullableTrimmedString(meta.ID),
+		nullableTrimmedString(meta.Plate),
 		conf,
 		capturedAt,
-		meta.Location,
-		meta.CameraID,
-		p.Bucket,
-		dateFolder,
-		xmlObj,
-		fullObj,
-		plateObj,
+		nullableTrimmedString(meta.Location),
+		nullableTrimmedString(meta.CameraID),
+		nullableTrimmedString(p.Bucket),
+		nullableTrimmedString(dateFolder),
+		nullableTrimmedString(xmlObj),
+		nullableTrimmedString(fullObj),
+		nullableTrimmedString(plateObj),
 	)
 	if err != nil {
 		return fmt.Errorf("exec insert: %w", err)
@@ -733,17 +825,17 @@ func (p *FileProcessor) insertANPRRecordWithSession(ctx context.Context, meta *A
 		query,
 		p.SiteUUID, // Site UUID from master_site.id
 		sessionID,  // Session ID
-		meta.ID,
-		meta.Plate,
+		nullableTrimmedString(meta.ID),
+		nullableTrimmedString(meta.Plate),
 		conf,
 		capturedAt,
-		meta.Location,
-		meta.CameraID,
-		p.Bucket,
-		dateFolder,
-		xmlObj,
-		fullObj,
-		plateObj,
+		nullableTrimmedString(meta.Location),
+		nullableTrimmedString(meta.CameraID),
+		nullableTrimmedString(p.Bucket),
+		nullableTrimmedString(dateFolder),
+		nullableTrimmedString(xmlObj),
+		nullableTrimmedString(fullObj),
+		nullableTrimmedString(plateObj),
 	)
 	if err != nil {
 		return fmt.Errorf("exec insert with session: %w", err)
@@ -787,9 +879,17 @@ func (p *FileProcessor) processDimensions(ctx context.Context, meta *ANPRMetadat
 }
 
 // processDimensionsFromFTP processes dimensions directly from FTP or MinIO
-func (p *FileProcessor) processDimensionsFromFTP(ctx context.Context, c *ftp.ServerConn, meta *ANPRMetadata, fullImgName string, uploaded bool, minioObject string) error {
+func (p *FileProcessor) processDimensionsFromFTP(ctx context.Context, c *ftp.ServerConn, meta *ANPRMetadata, sessionID *uuid.UUID, fullImgName string, uploaded bool, minioObject string) error {
 	tmpFile := fmt.Sprintf("/tmp/anpr_%s.jpg", meta.ID)
 	defer os.Remove(tmpFile)
+
+	if p.DimensionHandler != nil && p.DimensionHandler.DummyEnabled {
+		_, err := p.DimensionHandler.ProcessANPRImageWithSession("", meta.Plate, meta.ID, sessionID)
+		if err != nil {
+			return fmt.Errorf("process dummy dimensions: %w", err)
+		}
+		return nil
+	}
 
 	// If image was uploaded to MinIO, download from there
 	if uploaded && minioObject != "" {
@@ -828,7 +928,7 @@ func (p *FileProcessor) processDimensionsFromFTP(ctx context.Context, c *ftp.Ser
 	}
 
 	// Process dimensions
-	_, err := p.DimensionHandler.ProcessANPRImage(tmpFile, meta.Plate, meta.ID)
+	_, err := p.DimensionHandler.ProcessANPRImageWithSession(tmpFile, meta.Plate, meta.ID, sessionID)
 	if err != nil {
 		return fmt.Errorf("process dimensions: %w", err)
 	}
