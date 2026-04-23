@@ -37,6 +37,7 @@
 - WB agent bertanggung jawab komunikasi dengan WServer/WIM device dan insert weighing ke `transact_weighing`.
 - Session aktif berada di `transact_wim_session` dengan status `IN_PROGRESS`; semua capture harus mengikuti session context.
 - `session_id` wajib menjadi correlation key utama untuk ANPR, weighing, AXLE, dimension, CCTV, dan vehicle actual saat session aktif.
+- Untuk scope dimension saat ini, `actual_length` harus memprioritaskan hasil AXLE; ANPR image dimension dipakai terutama untuk `actual_width` dan `actual_height`.
 - Tidak boleh ada source capture yang menjadi blocker source lain; ANPR gagal tidak boleh menghentikan weighing, AXLE, dimension, atau CCTV.
 - Data parsial adalah kondisi valid dan harus bisa masuk ke proses verifikasi/adjustment.
 - Jika source tidak mendeteksi data, tetap insert placeholder row dengan minimal `id` dan `session_id`; field lainnya harus nullable dan boleh diisi saat verifikasi.
@@ -59,6 +60,7 @@
 - Fitur realtime harus menjelaskan source event, filter `site_id`, dan window waktu/session.
 - Semua external call harus punya timeout/cancellation.
 - Implementasi flow baru harus mengacu ke `specs/session-processing.md` sebelum mengubah code processing.
+- Implementasi dimension harus mengacu ke installation contract dan calibration profile yang didokumentasikan di `specs/backend/features/dimension-processing.md`.
 
 ## Rules Testing dan Verifikasi
 

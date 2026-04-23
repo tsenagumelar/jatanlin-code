@@ -58,6 +58,7 @@ Penjelasan target:
 - Begitu session `IN_PROGRESS` terdeteksi, masing-masing service mulai listen source-nya sendiri sampai session selesai.
 - Dimension adalah pengecualian yang eksplisit: dimension tidak berjalan bebas seperti source lain, tetapi menunggu data ANPR baru dengan `session_id` yang sama lalu memproses image ANPR tersebut.
 - Dependency dimension ke ANPR adalah dependency source data, bukan dependency urutan proses seluruh session.
+- Pada flow final yang dituju, `length` kendaraan diprioritaskan dari AXLE, sedangkan dimension dari ANPR image dipakai terutama untuk `width` dan `height`.
 
 ## Rules Target
 
@@ -75,6 +76,8 @@ Penjelasan target:
 - ANPR, WB, dan AXLE harus mulai listen dari saat session menjadi `IN_PROGRESS` sampai session selesai.
 - CCTV juga harus berjalan berdasarkan session aktif, bukan keberhasilan ANPR.
 - Dimension harus listen terhadap data ANPR baru dalam `session_id` yang sama, lalu membuat hasil dimension dari image ANPR tersebut.
+- `transact_vehicle_actual.actual_length` harus memprioritaskan hasil AXLE bila tersedia.
+- `transact_vehicle_actual.actual_width` dan `transact_vehicle_actual.actual_height` diprioritaskan dari dimension ANPR image.
 - Capture parsial adalah kondisi valid. Satu session boleh hanya memiliki sebagian dari ANPR, weighing, AXLE, dimension, atau CCTV.
 - Correlation data harus memakai `session_id` lebih dulu, lalu fallback window waktu hanya untuk discovery atau legacy compatibility.
 - Setiap source harus punya dua lapis idempotency:
@@ -160,7 +163,7 @@ Aturan evaluasi payload baru:
 | WB | `session_id` | `record_id`, timestamp device | Update row session yang sama jika hasil timbang lebih lengkap/final |
 | AXLE | `session_id` | `external_id`, capture time | Update row session yang sama jika metadata axle lebih lengkap |
 | CCTV | `session_id` | filename, filepath, recording start time | Update row session yang sama saat file rekaman final tersedia |
-| DIMENSION | `session_id` | source ANPR id, processed_at | Update row session yang sama saat hasil hitung tersedia |
+| DIMENSION | `session_id` | source ANPR id, processed_at, installation profile | Update row session yang sama saat hasil width/height tersedia |
 
 ## Dampak ke Database
 
@@ -177,7 +180,7 @@ Aturan evaluasi payload baru:
 | ANPR watcher | Listen FTP ANPR selama session aktif, simpan plate/image jika tersedia dan link ke `session_id` | Trigger wajib untuk WB/CCTV |
 | WB agent | Listen session aktif dari DB, jalankan capture weighing per session, lalu insert/update `transact_weighing.session_id` | Bergantung pada ANPR capture |
 | AXLE watcher | Listen FTP AXLE selama session aktif dan insert `session_id` | Hanya menyimpan data tanpa session pada flow session aktif |
-| Dimension processor | Listen data ANPR baru dalam session, lalu hitung dimension dari image ANPR dan link ke session | Menjadi gate untuk WB/AXLE/CCTV |
+| Dimension processor | Listen data ANPR baru dalam session, lalu hitung `width`/`height` dari image ANPR sesuai installation contract dan link ke session | Menjadi gate untuk WB/AXLE/CCTV atau menjadi source utama `length` bila AXLE tersedia |
 | CCTV recorder | Listen session aktif dari DB, jalankan recording per session dengan `session_id` | Hanya aktif setelah ANPR sukses |
 
 ## Session Lifecycle
