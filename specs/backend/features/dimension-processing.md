@@ -9,13 +9,25 @@
 ## Current Behavior dari Code
 
 - `DimensionHandler` menggunakan `vision.DimensionService`.
-- Camera calibration dari env: focal length, image size, camera height, tilt angle, reference pixel/real length, reference distance.
+- Camera calibration dari env sekarang terdiri dari dua kelompok:
+  - config geometri/kamera lama untuk compatibility
+  - empirical measurement profile untuk `width` dan `height`
 - Dapat process image standalone atau ANPR image.
-- Hasil dimension berisi length, width, height, distance, confidence, center point, class info.
+- Hasil dimension sekarang berisi:
+  - `width`
+  - `height`
+  - `distance` sebagai debug/legacy field
+  - `confidence`
+  - center point
+  - `width_px`
+  - `height_px`
+  - `profile_name`
+- Pada jalur empirical ANPR saat ini, `length` dari image tidak lagi menjadi hasil utama; nilai itu dibiarkan `0`/`NULL` dan `length` final tetap diprioritaskan dari AXLE pada flow vehicle actual.
 - Untuk ANPR image, handler mencari `transact_anpr_capture` dari `external_id` dan insert ke `transact_dimension`.
 - Jalur session-aware sekarang juga dapat menulis `session_id` ke `transact_dimension`.
 - Ada fallback table `vehicle_dimensions` untuk save result generic.
-- Detector saat ini masih perlu validasi production sesuai catatan code/README.
+- Detector saat ini masih mock/placeholder dan belum menjadi detector production.
+- Untuk benchmark lokal, code saat ini memiliki sample-specific mock mapping untuk kumpulan sample ANPR referensi agar width/height target dapat divalidasi sebelum detector real tersedia.
 - Current gap: dimension session masih ter-couple ke ANPR capture, sehingga ANPR missing dapat membuat dimension tidak terbentuk.
 
 ## Target Behavior Paralel
@@ -206,6 +218,19 @@
   - konversi dengan empirical calibration profile
   - tetap simpan `length` final dari AXLE di layer processing/vehicle actual
 - Jika detector saat ini belum mampu membedakan main body vs mirror/noise, hasil real dimension harus tetap dianggap screening result dan wajib mudah dioverride pada proses verifikasi.
+
+## Sample Benchmark
+
+- Folder sample benchmark untuk review dimension saat ini berada di `specs/backend/sample-vehicle-anpr/`.
+- Sample benchmark dipakai untuk memvalidasi bahwa formula empirical profile menghasilkan width/height yang sesuai target referensi operasional.
+- Target benchmark saat ini:
+  - `1.jpg` -> `width 1.775 m`, `height 1.710 m`
+  - `2.jpg` -> `width 2.545 m`, `height 3.305 m`
+  - `3.jpg` -> `width 2.545 m`, `height 3.505 m`
+  - `4.jpg` -> `width 2.545 m`, `height 3.405 m`
+  - `5.jpg` -> `width 2.545 m`, `height 3.605 m`
+- Selama detector real belum tersedia, sample benchmark boleh memakai sample-specific mock mapping untuk regression check lokal.
+- Sample-specific mock mapping tidak boleh dianggap sebagai detector production dan harus diganti saat pipeline pembacaan silhouette/body edge yang nyata sudah tersedia.
 
 ## Dummy Mode
 

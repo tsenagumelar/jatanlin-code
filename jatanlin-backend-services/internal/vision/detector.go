@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
 	// Uncomment when ready to use real YOLO with gocv
 	// "log"
 	// "gocv.io/x/gocv"
@@ -18,8 +17,8 @@ import (
 
 // VehicleDetector handles vehicle detection in images
 type VehicleDetector struct {
-	ModelPath string
-	Threshold float64
+	ModelPath   string
+	Threshold   float64
 	UseRealYOLO bool // Toggle between mock and real YOLO
 	// For real YOLO implementation:
 	// net       *gocv.Net
@@ -29,8 +28,8 @@ type VehicleDetector struct {
 // NewVehicleDetector creates a new vehicle detector instance
 func NewVehicleDetector(modelPath string, threshold float64) *VehicleDetector {
 	detector := &VehicleDetector{
-		ModelPath: modelPath,
-		Threshold: threshold,
+		ModelPath:   modelPath,
+		Threshold:   threshold,
 		UseRealYOLO: false, // Default to mock for now
 	}
 
@@ -66,18 +65,12 @@ func (vd *VehicleDetector) detectWithMock(imagePath string) ([]BoundingBox, erro
 		return nil, fmt.Errorf("failed to load image: %w", err)
 	}
 
-	// Mock detection - create different bounding boxes based on filename
-	// Expected dimensions (from camera front view):
-	// car1: L=2.5m W=1.5m H=1.4m -> bbox should produce these after calibration
-	// car2: L=4.0m W=2.0m H=1.8m
-	// car3: L=3.8m W=1.7m H=1.4m
-	//
-	// From calibration.go:
-	// - bbox.Width (pixels) → Length (meters)
-	// - bbox.Height (pixels) → Width (meters) with 0.68 vertical scale factor
-	//
-	// At reference: 960 pixels = 4.70m at 55m distance
-	// PixelToMeterRatio = 4.70 / 960 = 0.004896 m/pixel
+	// Mock detection - create different bounding boxes based on filename.
+	// In the empirical ANPR flow:
+	// - bbox.Width is used as measured_width_px
+	// - bbox.Height is used as measured_height_px
+	// Final width/height come from empirical scale factors, not from
+	// perspective-derived length estimation.
 
 	var mockBoxes []BoundingBox
 
@@ -86,64 +79,102 @@ func (vd *VehicleDetector) detectWithMock(imagePath string) ([]BoundingBox, erro
 	// Remove extension for matching
 	filenameWithoutExt := strings.TrimSuffix(strings.TrimSuffix(strings.TrimSuffix(filename, ".jpg"), ".jpeg"), ".png")
 
-	if strings.Contains(filenameWithoutExt, "car1") {
-		// car1: L=2.5m, W=1.5m
-		// At reference distance (55m), we need:
-		// Length: 2.5m / 0.004896 = 511 pixels (bbox.Width)
-		// Width: (1.5m / 0.68) / 0.004896 = 451 pixels (bbox.Height)
-		// Position Y calculated to produce ~55m distance
-		// EstimateDistance formula: distance = height / tan(tilt - atan(pixelOffsetY/focal))
-		// For 55m: pixelOffsetY ≈ 360, so bottomY = 540 + 360 = 900
+	if strings.Contains(filenameWithoutExt, "1769752479677.xml") || filenameWithoutExt == "sample_car" {
+		mockBoxes = []BoundingBox{
+			{
+				X:      520,
+				Y:      980,
+				Width:  386,
+				Height: 186,
+				Label:  "car",
+				Score:  0.96,
+			},
+		}
+	} else if strings.Contains(filenameWithoutExt, "1769752479679.xml") || filenameWithoutExt == "sample1_car" {
+		mockBoxes = []BoundingBox{
+			{
+				X:      420,
+				Y:      780,
+				Width:  553,
+				Height: 359,
+				Label:  "truck",
+				Score:  0.97,
+			},
+		}
+	} else if strings.Contains(filenameWithoutExt, "1769752479699.xml") || filenameWithoutExt == "sample2_car" {
+		mockBoxes = []BoundingBox{
+			{
+				X:      420,
+				Y:      760,
+				Width:  553,
+				Height: 381,
+				Label:  "truck",
+				Score:  0.97,
+			},
+		}
+	} else if strings.Contains(filenameWithoutExt, "1769752479701.xml") || filenameWithoutExt == "sample3_car" {
+		mockBoxes = []BoundingBox{
+			{
+				X:      420,
+				Y:      770,
+				Width:  553,
+				Height: 370,
+				Label:  "truck",
+				Score:  0.97,
+			},
+		}
+	} else if strings.Contains(filenameWithoutExt, "1769752479704.xml") || filenameWithoutExt == "sample4_car" {
+		mockBoxes = []BoundingBox{
+			{
+				X:      420,
+				Y:      748,
+				Width:  553,
+				Height: 392,
+				Label:  "truck",
+				Score:  0.97,
+			},
+		}
+	} else if strings.Contains(filenameWithoutExt, "car1") {
 		mockBoxes = []BoundingBox{
 			{
 				X:      320,
-				Y:      449,  // bottomY = 449 + 451 = 900 → distance ≈ 55m
-				Width:  511,  // Will produce ~2.5m length at 55m
-				Height: 451,  // Will produce ~1.5m width after scaling
+				Y:      449,
+				Width:  511,
+				Height: 451,
 				Label:  "car",
 				Score:  0.95,
 			},
 		}
 	} else if strings.Contains(filenameWithoutExt, "car2") {
-		// car2: L=4.0m, W=2.0m
-		// Length: 4.0m / 0.004896 = 817 pixels
-		// Width: (2.0m / 0.68) / 0.004896 = 601 pixels
-		// Position to produce ~55m distance: bottomY = 900
 		mockBoxes = []BoundingBox{
 			{
 				X:      240,
-				Y:      299,  // bottomY = 299 + 601 = 900 → distance ≈ 55m
-				Width:  817,  // Will produce ~4.0m length at 55m
-				Height: 601,  // Will produce ~2.0m width after scaling
+				Y:      299,
+				Width:  817,
+				Height: 601,
 				Label:  "car",
 				Score:  0.95,
 			},
 		}
 	} else if strings.Contains(filenameWithoutExt, "car3") {
-		// car3: L=3.8m, W=1.7m
-		// Length: 3.8m / 0.004896 = 776 pixels
-		// Width: (1.7m / 0.68) / 0.004896 = 511 pixels
-		// Position to produce ~55m distance: bottomY = 900
 		mockBoxes = []BoundingBox{
 			{
 				X:      260,
-				Y:      389,  // bottomY = 389 + 511 = 900 → distance ≈ 55m
-				Width:  776,  // Will produce ~3.8m length at 55m
-				Height: 511,  // Will produce ~1.7m width after scaling
+				Y:      389,
+				Width:  776,
+				Height: 511,
 				Label:  "car",
 				Score:  0.95,
 			},
 		}
 	} else {
-		// Default mock for other images (use car1-like dimensions)
-		// This ensures valid dimensions for any ANPR image
-		// L=2.5m, W=1.5m, H=1.4m
+		// Default mock for other images.
 		mockBoxes = []BoundingBox{
 			{
 				X:      320,
-				Y:      449,  // bottomY = 449 + 451 = 900 → distance ≈ 55m
-				Width:  511,  // Will produce ~2.5m length at 55m
-				Height: 451,  // Will produce ~1.5m width after scaling
+				Y:      449,
+				Width:  511,
+				Height: 451,
 				Label:  "vehicle",
 				Score:  0.95,
 			},
@@ -159,82 +190,82 @@ func (vd *VehicleDetector) detectWithYOLO(imagePath string) ([]BoundingBox, erro
 	// Uncomment when ready to use:
 
 	/*
-	// Read image
-	img := gocv.IMRead(imagePath, gocv.IMReadColor)
-	if img.Empty() {
-		return nil, fmt.Errorf("failed to read image: %s", imagePath)
-	}
-	defer img.Close()
+		// Read image
+		img := gocv.IMRead(imagePath, gocv.IMReadColor)
+		if img.Empty() {
+			return nil, fmt.Errorf("failed to read image: %s", imagePath)
+		}
+		defer img.Close()
 
-	// Create blob from image
-	blob := gocv.BlobFromImage(img, 1/255.0, image.Pt(416, 416),
-		gocv.NewScalar(0, 0, 0, 0), true, false)
-	defer blob.Close()
+		// Create blob from image
+		blob := gocv.BlobFromImage(img, 1/255.0, image.Pt(416, 416),
+			gocv.NewScalar(0, 0, 0, 0), true, false)
+		defer blob.Close()
 
-	// Set input to the network
-	vd.net.SetInput(blob, "")
+		// Set input to the network
+		vd.net.SetInput(blob, "")
 
-	// Forward pass to get output
-	prob := vd.net.Forward("")
-	defer prob.Close()
+		// Forward pass to get output
+		prob := vd.net.Forward("")
+		defer prob.Close()
 
-	// Parse YOLO output
-	var boxes []BoundingBox
+		// Parse YOLO output
+		var boxes []BoundingBox
 
-	// Get output layer names
-	outLayers := vd.net.GetUnconnectedOutLayersNames()
+		// Get output layer names
+		outLayers := vd.net.GetUnconnectedOutLayersNames()
 
-	for _, layerName := range outLayers {
-		out := vd.net.ForwardLayers([]string{layerName})[0]
-		defer out.Close()
+		for _, layerName := range outLayers {
+			out := vd.net.ForwardLayers([]string{layerName})[0]
+			defer out.Close()
 
-		// Process each detection
-		for i := 0; i < out.Rows(); i++ {
-			scores := out.RowRange(i, i+1).ColRange(5, out.Cols())
-			_, confidence, _, maxLoc := gocv.MinMaxLoc(scores)
+			// Process each detection
+			for i := 0; i < out.Rows(); i++ {
+				scores := out.RowRange(i, i+1).ColRange(5, out.Cols())
+				_, confidence, _, maxLoc := gocv.MinMaxLoc(scores)
 
-			if confidence > vd.Threshold {
-				// Get class ID (vehicle classes: car, truck, bus, motorcycle)
-				classID := maxLoc.X
-				vehicleClasses := []int{2, 3, 5, 7} // COCO dataset: car, motorcycle, bus, truck
+				if confidence > vd.Threshold {
+					// Get class ID (vehicle classes: car, truck, bus, motorcycle)
+					classID := maxLoc.X
+					vehicleClasses := []int{2, 3, 5, 7} // COCO dataset: car, motorcycle, bus, truck
 
-				isVehicle := false
-				for _, vc := range vehicleClasses {
-					if classID == vc {
-						isVehicle = true
-						break
+					isVehicle := false
+					for _, vc := range vehicleClasses {
+						if classID == vc {
+							isVehicle = true
+							break
+						}
 					}
+
+					if !isVehicle {
+						continue
+					}
+
+					// Extract bounding box coordinates
+					centerX := int(out.GetFloatAt(i, 0) * float32(img.Cols()))
+					centerY := int(out.GetFloatAt(i, 1) * float32(img.Rows()))
+					width := int(out.GetFloatAt(i, 2) * float32(img.Cols()))
+					height := int(out.GetFloatAt(i, 3) * float32(img.Rows()))
+
+					x := centerX - width/2
+					y := centerY - height/2
+
+					boxes = append(boxes, BoundingBox{
+						X:      x,
+						Y:      y,
+						Width:  width,
+						Height: height,
+						Label:  vd.classes[classID],
+						Score:  float64(confidence),
+					})
 				}
-
-				if !isVehicle {
-					continue
-				}
-
-				// Extract bounding box coordinates
-				centerX := int(out.GetFloatAt(i, 0) * float32(img.Cols()))
-				centerY := int(out.GetFloatAt(i, 1) * float32(img.Rows()))
-				width := int(out.GetFloatAt(i, 2) * float32(img.Cols()))
-				height := int(out.GetFloatAt(i, 3) * float32(img.Rows()))
-
-				x := centerX - width/2
-				y := centerY - height/2
-
-				boxes = append(boxes, BoundingBox{
-					X:      x,
-					Y:      y,
-					Width:  width,
-					Height: height,
-					Label:  vd.classes[classID],
-					Score:  float64(confidence),
-				})
 			}
 		}
-	}
 
-	// Apply Non-Maximum Suppression (NMS)
-	boxes = applyNMS(boxes, 0.4)
+		// Apply Non-Maximum Suppression (NMS)
+		boxes = applyNMS(boxes, 0.4)
 
-	return boxes, nil
+		return boxes, nil
 	*/
 
 	// For now, return error indicating YOLO is not implemented

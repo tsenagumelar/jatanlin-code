@@ -30,13 +30,22 @@ func main() {
 	calibration := vision.NewCameraCalibration()
 	calibration.LoadFromConfig(
 		getEnvFloat("CAMERA_FOCAL_LENGTH", 1000.0),
-		getEnvInt("CAMERA_IMAGE_WIDTH", 1920),
-		getEnvInt("CAMERA_IMAGE_HEIGHT", 1080),
-		getEnvFloat("CAMERA_HEIGHT_METERS", 6.0),
-		getEnvFloat("CAMERA_TILT_ANGLE", 30.0),
+		getEnvInt("CAMERA_IMAGE_WIDTH", 2432),
+		getEnvInt("CAMERA_IMAGE_HEIGHT", 2080),
+		getEnvFloat("CAMERA_HEIGHT_METERS", 5.0),
+		getEnvFloat("CAMERA_TILT_ANGLE", 25.0),
 		getEnvInt("CAMERA_REF_PIXEL_LENGTH", 200),
 		getEnvFloat("CAMERA_REF_REAL_LENGTH", 5.0),
-		getEnvFloat("CAMERA_REF_DISTANCE", 10.0),
+		getEnvFloat("CAMERA_REF_DISTANCE", 25.0),
+	)
+	calibration.ConfigureEmpiricalProfile(
+		getEnv("DIMENSION_PROFILE_NAME", "anpr-empirical-profile"),
+		getEnvFloat("DIMENSION_WIDTH_SCALE_M_PER_PX", 0.0046),
+		getEnvFloat("DIMENSION_HEIGHT_SCALE_M_PER_PX", 0.0092),
+		getEnvFloat("DIMENSION_WIDTH_OFFSET_M", 0.0),
+		getEnvFloat("DIMENSION_HEIGHT_OFFSET_M", 0.0),
+		getEnvFloat("DIMENSION_MIN_CONFIDENCE", 0.45),
+		getEnvBool("DIMENSION_ENABLE_POSE_FILTER", true),
 	)
 	if err := service.SetCalibration(calibration); err != nil {
 		log.Fatal("[DIMENSION_SAMPLE] Invalid calibration:", err)
@@ -110,6 +119,19 @@ func getEnvInt(key string, def int) int {
 			return i
 		}
 		log.Printf("[DIMENSION_SAMPLE] Invalid int for %s=%q, using default %d", key, v, def)
+	}
+	return def
+}
+
+func getEnvBool(key string, def bool) bool {
+	if v := os.Getenv(key); v != "" {
+		switch strings.ToLower(v) {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
+		}
+		log.Printf("[DIMENSION_SAMPLE] Invalid bool for %s=%q, using default %t", key, v, def)
 	}
 	return def
 }

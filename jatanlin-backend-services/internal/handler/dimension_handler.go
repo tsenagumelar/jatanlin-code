@@ -271,14 +271,17 @@ func (dh *DimensionHandler) processDummyDimension(imagePath string, plateNumber 
 
 	dims := vision.VehicleDimensions{
 		ImagePath:      imagePath,
-		LengthMeters:   22.0,
+		LengthMeters:   0,
 		WidthMeters:    3.6,
 		HeightMeters:   4.8,
 		DistanceMeters: 8.0,
 		Confidence:     0.99,
-		CenterX:        960,
-		CenterY:        540,
+		CenterX:        1216,
+		CenterY:        1040,
 		Timestamp:      time.Now(),
+		WidthPixels:    780,
+		HeightPixels:   520,
+		ProfileName:    "dummy-overdimension-profile",
 	}
 	result.Dimensions = []vision.VehicleDimensions{dims}
 
@@ -402,10 +405,19 @@ func nullableFloat(dims *vision.VehicleDimensions, field string) any {
 	}
 	switch field {
 	case "length":
+		if dims.LengthMeters <= 0 {
+			return nil
+		}
 		return dims.LengthMeters
 	case "width":
+		if dims.WidthMeters <= 0 {
+			return nil
+		}
 		return dims.WidthMeters
 	case "height":
+		if dims.HeightMeters <= 0 {
+			return nil
+		}
 		return dims.HeightMeters
 	default:
 		return nil

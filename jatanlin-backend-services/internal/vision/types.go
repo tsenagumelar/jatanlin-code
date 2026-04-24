@@ -16,13 +16,16 @@ type BoundingBox struct {
 type VehicleDimensions struct {
 	LengthMeters   float64   // Vehicle length in meters
 	WidthMeters    float64   // Vehicle width in meters
-	HeightMeters   float64   // Vehicle height in meters (estimated)
-	DistanceMeters float64   // Distance from camera in meters
+	HeightMeters   float64   // Vehicle height in meters
+	DistanceMeters float64   // Distance from camera in meters (debug/legacy)
 	CenterX        int       // Center X coordinate in image
 	CenterY        int       // Center Y coordinate in image
 	Confidence     float64   // Confidence score (0-1)
 	Timestamp      time.Time // When the measurement was taken
 	ImagePath      string    // Path to the source image
+	WidthPixels    int       // Measured width span in pixels
+	HeightPixels   int       // Measured height span in pixels
+	ProfileName    string    // Calibration profile used for measurement
 }
 
 // VehicleClass represents vehicle classification based on dimensions

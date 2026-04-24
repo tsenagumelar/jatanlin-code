@@ -72,10 +72,20 @@ type Config struct {
 	AttachmentMinIOUseSSL   bool
 
 	// Vehicle Dimension Detection Config
-	DimensionEnabled   bool    // Enable dimension detection
-	DimensionDummyEnabled bool // Enable dummy dimension output
-	DimensionModelPath string  // Path to detection model (if using ML model)
-	DimensionThreshold float64 // Detection confidence threshold
+	DimensionEnabled              bool    // Enable dimension detection
+	DimensionDummyEnabled         bool    // Enable dummy dimension output
+	DimensionModelPath            string  // Path to detection model (if using ML model)
+	DimensionThreshold            float64 // Detection confidence threshold
+	DimensionProfileName          string
+	DimensionWidthScale           float64
+	DimensionHeightScale          float64
+	DimensionWidthOffset          float64
+	DimensionHeightOffset         float64
+	DimensionMinConfidence        float64
+	DimensionEnablePoseFilter     bool
+	DimensionToleranceDistancePct float64
+	DimensionToleranceTiltPct     float64
+	DimensionToleranceHeightPct   float64
 
 	// Camera Calibration Parameters
 	CameraFocalLength    float64 // Focal length in pixels
@@ -172,20 +182,30 @@ func Load() (*Config, error) {
 		AttachmentMinIOUseSSL:   getEnvBool("ATTACHMENT_MINIO_USE_SSL", true),
 
 		// Vehicle Dimension Detection
-		DimensionEnabled:      getEnvBool("DIMENSION_ENABLED", false),
-		DimensionDummyEnabled: getEnvBool("DIMENSION_DUMMY_ENABLED", false),
-		DimensionModelPath:    getEnv("DIMENSION_MODEL_PATH", ""),
-		DimensionThreshold:    getEnvFloat("DIMENSION_THRESHOLD", 0.5),
+		DimensionEnabled:              getEnvBool("DIMENSION_ENABLED", false),
+		DimensionDummyEnabled:         getEnvBool("DIMENSION_DUMMY_ENABLED", false),
+		DimensionModelPath:            getEnv("DIMENSION_MODEL_PATH", ""),
+		DimensionThreshold:            getEnvFloat("DIMENSION_THRESHOLD", 0.5),
+		DimensionProfileName:          getEnv("DIMENSION_PROFILE_NAME", "anpr-empirical-profile"),
+		DimensionWidthScale:           getEnvFloat("DIMENSION_WIDTH_SCALE_M_PER_PX", 0.0046),
+		DimensionHeightScale:          getEnvFloat("DIMENSION_HEIGHT_SCALE_M_PER_PX", 0.0092),
+		DimensionWidthOffset:          getEnvFloat("DIMENSION_WIDTH_OFFSET_M", 0.0),
+		DimensionHeightOffset:         getEnvFloat("DIMENSION_HEIGHT_OFFSET_M", 0.0),
+		DimensionMinConfidence:        getEnvFloat("DIMENSION_MIN_CONFIDENCE", 0.45),
+		DimensionEnablePoseFilter:     getEnvBool("DIMENSION_ENABLE_POSE_FILTER", true),
+		DimensionToleranceDistancePct: getEnvFloat("DIMENSION_INSTALL_TOLERANCE_DISTANCE_PCT", 5.0),
+		DimensionToleranceTiltPct:     getEnvFloat("DIMENSION_INSTALL_TOLERANCE_TILT_PCT", 2.0),
+		DimensionToleranceHeightPct:   getEnvFloat("DIMENSION_INSTALL_TOLERANCE_HEIGHT_PCT", 10.0),
 
 		// Camera Calibration (default values - should be calibrated)
 		CameraFocalLength:    getEnvFloat("CAMERA_FOCAL_LENGTH", 1000.0),
-		CameraImageWidth:     getEnvInt("CAMERA_IMAGE_WIDTH", 1920),
-		CameraImageHeight:    getEnvInt("CAMERA_IMAGE_HEIGHT", 1080),
-		CameraHeight:         getEnvFloat("CAMERA_HEIGHT_METERS", 6.0),
-		CameraTiltAngle:      getEnvFloat("CAMERA_TILT_ANGLE", 30.0),
+		CameraImageWidth:     getEnvInt("CAMERA_IMAGE_WIDTH", 2432),
+		CameraImageHeight:    getEnvInt("CAMERA_IMAGE_HEIGHT", 2080),
+		CameraHeight:         getEnvFloat("CAMERA_HEIGHT_METERS", 5.0),
+		CameraTiltAngle:      getEnvFloat("CAMERA_TILT_ANGLE", 25.0),
 		CameraRefPixelLength: getEnvInt("CAMERA_REF_PIXEL_LENGTH", 200),
 		CameraRefRealLength:  getEnvFloat("CAMERA_REF_REAL_LENGTH", 5.0),
-		CameraRefDistance:    getEnvFloat("CAMERA_REF_DISTANCE", 10.0),
+		CameraRefDistance:    getEnvFloat("CAMERA_REF_DISTANCE", 25.0),
 
 		// WIM Session Configuration
 		SessionWindowSeconds: getEnvInt("SESSION_WINDOW_SECONDS", 60),

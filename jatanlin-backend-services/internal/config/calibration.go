@@ -16,6 +16,15 @@ func (c *Config) GetCameraCalibration() *vision.CameraCalibration {
 		c.CameraRefRealLength,
 		c.CameraRefDistance,
 	)
+	calibration.ConfigureEmpiricalProfile(
+		c.DimensionProfileName,
+		c.DimensionWidthScale,
+		c.DimensionHeightScale,
+		c.DimensionWidthOffset,
+		c.DimensionHeightOffset,
+		c.DimensionMinConfidence,
+		c.DimensionEnablePoseFilter,
+	)
 
 	return calibration
 }

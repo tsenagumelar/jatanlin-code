@@ -7,6 +7,8 @@ import (
 
 // CameraCalibration holds camera calibration parameters
 type CameraCalibration struct {
+	ProfileName string
+
 	// Intrinsic parameters
 	FocalLengthPixels float64 // Focal length in pixels
 	ImageWidth        int     // Image width in pixels
@@ -25,22 +27,37 @@ type CameraCalibration struct {
 
 	// Computed values
 	PixelToMeterRatio float64 // Conversion ratio at reference distance
+
+	// Empirical profile for operational measurement
+	WidthScaleMetersPerPixel  float64
+	HeightScaleMetersPerPixel float64
+	WidthOffsetMeters         float64
+	HeightOffsetMeters        float64
+	MinConfidence             float64
+	EnablePoseFilter          bool
 }
 
 // NewCameraCalibration creates a new camera calibration with default values
 func NewCameraCalibration() *CameraCalibration {
 	return &CameraCalibration{
 		// Default values - should be configured
-		FocalLengthPixels:    1000.0,
-		ImageWidth:           1920,
-		ImageHeight:          1080,
-		PrincipalPointX:      960.0,
-		PrincipalPointY:      540.0,
-		CameraHeightMeters:   6.0,
-		TiltAngleDegrees:     30.0,
-		ReferencePixelLength: 200,
-		ReferenceRealLength:  5.0,
-		ReferenceDistanceM:   10.0,
+		ProfileName:               "default-empirical",
+		FocalLengthPixels:         1000.0,
+		ImageWidth:                2432,
+		ImageHeight:               2080,
+		PrincipalPointX:           1216.0,
+		PrincipalPointY:           1040.0,
+		CameraHeightMeters:        5.0,
+		TiltAngleDegrees:          25.0,
+		ReferencePixelLength:      200,
+		ReferenceRealLength:       5.0,
+		ReferenceDistanceM:        25.0,
+		WidthScaleMetersPerPixel:  0.0046,
+		HeightScaleMetersPerPixel: 0.0092,
+		WidthOffsetMeters:         0.0,
+		HeightOffsetMeters:        0.0,
+		MinConfidence:             0.45,
+		EnablePoseFilter:          true,
 	}
 }
 
@@ -71,6 +88,25 @@ func (cc *CameraCalibration) ComputePixelToMeterRatio() {
 	if cc.ReferencePixelLength > 0 {
 		cc.PixelToMeterRatio = cc.ReferenceRealLength / float64(cc.ReferencePixelLength)
 	}
+}
+
+// ConfigureEmpiricalProfile sets empirical width/height conversion parameters.
+func (cc *CameraCalibration) ConfigureEmpiricalProfile(profileName string, widthScale, heightScale, widthOffset, heightOffset, minConfidence float64, enablePoseFilter bool) {
+	if profileName != "" {
+		cc.ProfileName = profileName
+	}
+	if widthScale > 0 {
+		cc.WidthScaleMetersPerPixel = widthScale
+	}
+	if heightScale > 0 {
+		cc.HeightScaleMetersPerPixel = heightScale
+	}
+	cc.WidthOffsetMeters = widthOffset
+	cc.HeightOffsetMeters = heightOffset
+	if minConfidence > 0 {
+		cc.MinConfidence = minConfidence
+	}
+	cc.EnablePoseFilter = enablePoseFilter
 }
 
 // PixelsToMeters converts pixel measurements to meters at a given distance
@@ -118,43 +154,84 @@ func (cc *CameraCalibration) EstimateDistance(pixelY int) float64 {
 	return distance
 }
 
-// CalculateGroundDimensions calculates real-world dimensions from bounding box
+func (cc *CameraCalibration) calculateMeasurementConfidence(bbox BoundingBox) float64 {
+	confidence := 0.9
+
+	if bbox.Score > 0 {
+		confidence *= bbox.Score
+	}
+
+	leftMargin := bbox.X
+	rightMargin := cc.ImageWidth - (bbox.X + bbox.Width)
+	topMargin := bbox.Y
+	bottomMargin := cc.ImageHeight - (bbox.Y + bbox.Height)
+
+	if leftMargin < 0 || rightMargin < 0 || topMargin < 0 || bottomMargin < 0 {
+		confidence *= 0.4
+	}
+
+	if cc.EnablePoseFilter {
+		if bbox.Width <= 0 || bbox.Height <= 0 {
+			confidence *= 0.3
+		} else {
+			ratio := float64(bbox.Width) / float64(bbox.Height)
+			if ratio < 0.35 || ratio > 3.0 {
+				confidence *= 0.7
+			}
+		}
+
+		edgePenalty := 1.0
+		if leftMargin < 40 || rightMargin < 40 {
+			edgePenalty *= 0.8
+		}
+		if topMargin < 40 || bottomMargin < 40 {
+			edgePenalty *= 0.8
+		}
+		confidence *= edgePenalty
+	}
+
+	if confidence < 0 {
+		return 0
+	}
+	if confidence > 0.99 {
+		return 0.99
+	}
+	return confidence
+}
+
+// CalculateGroundDimensions calculates width/height screening measurements from a bounding box.
 func (cc *CameraCalibration) CalculateGroundDimensions(bbox BoundingBox) (*VehicleDimensions, error) {
-	// Calculate bottom center of bounding box (closest point to camera)
+	if bbox.Width <= 0 || bbox.Height <= 0 {
+		return nil, fmt.Errorf("invalid bounding box size")
+	}
+
 	bottomY := bbox.Y + bbox.Height
 	centerX := bbox.X + bbox.Width/2
+	centerY := bbox.Y + bbox.Height/2
 
-	// Estimate distance to vehicle
+	width := float64(bbox.Width)*cc.WidthScaleMetersPerPixel + cc.WidthOffsetMeters
+	height := float64(bbox.Height)*cc.HeightScaleMetersPerPixel + cc.HeightOffsetMeters
 	distance := cc.EstimateDistance(bottomY)
+	confidence := cc.calculateMeasurementConfidence(bbox)
 
-	// Convert pixel dimensions to meters
-	// PENTING: Untuk camera ANPR yang menghadap kendaraan dari depan/belakang:
-	// - bbox.Width (horizontal) = panjang kendaraan (tampak dari depan)
-	// - bbox.Height (vertical) = tinggi kendaraan (tampak dari depan)
-	//
-	// Jadi kita swap length dan width untuk mendapatkan dimensi yang benar
-	length := cc.PixelsToMeters(bbox.Width, distance) // Width pixel → Length (panjang kendaraan)
-	width := cc.PixelsToMeters(bbox.Height, distance) // Height pixel → Width (lebar kendaraan)
-
-	// CORRECTION: Apply vertical scale factor for width
-	// Vertical measurements need different scaling due to camera perspective
-	// Empirically determined: vertical measurements are ~1.47x oversized (2.64m / 1.8m)
-	// Correction factor: 0.68 (to scale 2.64m down to 1.8m)
-	verticalScaleFactor := 0.68
-	width = width * verticalScaleFactor
-
-	// Height estimation (simplified - assumes vehicle height proportional to length)
-	// For better accuracy, need side-view camera or 3D reconstruction
-	height := length * 0.4 // Rough estimate: vehicles are typically 40% as tall as long
+	if width < 0 {
+		width = 0
+	}
+	if height < 0 {
+		height = 0
+	}
 
 	return &VehicleDimensions{
-		LengthMeters:   length,
+		LengthMeters:   0,
 		WidthMeters:    width,
 		HeightMeters:   height,
 		DistanceMeters: distance,
 		CenterX:        centerX,
-		CenterY:        bottomY,
-		Confidence:     0.7, // Medium confidence without side view
+		CenterY:        centerY,
+		Confidence:     confidence,
+		WidthPixels:    bbox.Width,
+		HeightPixels:   bbox.Height,
+		ProfileName:    cc.ProfileName,
 	}, nil
 }
 
@@ -175,6 +252,12 @@ func (cc *CameraCalibration) Validate() error {
 	if cc.ReferenceRealLength <= 0 {
 		return fmt.Errorf("reference length must be positive")
 	}
+	if cc.WidthScaleMetersPerPixel <= 0 {
+		return fmt.Errorf("width scale must be positive")
+	}
+	if cc.HeightScaleMetersPerPixel <= 0 {
+		return fmt.Errorf("height scale must be positive")
+	}
 
 	return nil
 }
@@ -187,13 +270,19 @@ func (cc *CameraCalibration) GetCalibrationInfo() string {
 			"  Focal Length: %.2f pixels\n"+
 			"  Height: %.2f m\n"+
 			"  Tilt Angle: %.2f°\n"+
+			"  Profile: %s\n"+
 			"  Reference: %d pixels = %.2f m at %.2f m distance\n"+
-			"  Pixel-to-Meter Ratio: %.6f m/pixel",
+			"  Pixel-to-Meter Ratio: %.6f m/pixel\n"+
+			"  Width Scale: %.6f m/pixel\n"+
+			"  Height Scale: %.6f m/pixel",
 		cc.ImageWidth, cc.ImageHeight,
 		cc.FocalLengthPixels,
 		cc.CameraHeightMeters,
 		cc.TiltAngleDegrees,
+		cc.ProfileName,
 		cc.ReferencePixelLength, cc.ReferenceRealLength, cc.ReferenceDistanceM,
 		cc.PixelToMeterRatio,
+		cc.WidthScaleMetersPerPixel,
+		cc.HeightScaleMetersPerPixel,
 	)
 }

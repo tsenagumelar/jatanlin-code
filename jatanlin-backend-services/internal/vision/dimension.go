@@ -3,6 +3,7 @@ package vision
 import (
 	"fmt"
 	"log"
+	"time"
 )
 
 // DimensionService handles vehicle dimension calculations
@@ -58,14 +59,17 @@ func (ds *DimensionService) ProcessImage(imagePath string) ([]VehicleDimensions,
 
 		// Set additional metadata
 		dims.ImagePath = imagePath
+		dims.Timestamp = timeNow()
 
-		// Adjust confidence based on detection score
-		dims.Confidence = dims.Confidence * box.Score
+		// Detection score is already part of empirical confidence calculation.
+		if dims.Confidence > 0.99 {
+			dims.Confidence = 0.99
+		}
 
 		results = append(results, *dims)
 
-		log.Printf("[DIMENSION] Vehicle %d dimensions: L=%.2fm W=%.2fm H=%.2fm (distance: %.2fm, confidence: %.2f)",
-			i+1, dims.LengthMeters, dims.WidthMeters, dims.HeightMeters, dims.DistanceMeters, dims.Confidence)
+		log.Printf("[DIMENSION] Vehicle %d dimensions: profile=%s width=%.2fm height=%.2fm px=(w:%d h:%d) confidence=%.2f",
+			i+1, dims.ProfileName, dims.WidthMeters, dims.HeightMeters, dims.WidthPixels, dims.HeightPixels, dims.Confidence)
 	}
 
 	return results, nil
@@ -78,6 +82,23 @@ func (ds *DimensionService) ClassifyVehicle(dims VehicleDimensions) VehicleClass
 
 	length := dims.LengthMeters
 	width := dims.WidthMeters
+	height := dims.HeightMeters
+
+	if length <= 0 {
+		if width >= 2.2 || height >= 3.0 {
+			return VehicleClass{
+				Class:       "truck",
+				Confidence:  dims.Confidence,
+				Description: "Truk / Kendaraan Barang",
+			}
+		}
+
+		return VehicleClass{
+			Class:       "unknown",
+			Confidence:  dims.Confidence * 0.5,
+			Description: "Kendaraan Tidak Teridentifikasi",
+		}
+	}
 
 	// Motorcycle: small vehicles
 	if length < 2.5 && width < 1.5 {
@@ -136,16 +157,21 @@ func (ds *DimensionService) ClassifyVehicle(dims VehicleDimensions) VehicleClass
 func (vd VehicleDimensions) String() string {
 	return fmt.Sprintf(
 		"Vehicle Dimensions:\n"+
-			"  Length: %.2f m\n"+
+			"  Length: %.2f m (AXLE priority for final flow)\n"+
 			"  Width: %.2f m\n"+
-			"  Height: %.2f m (estimated)\n"+
+			"  Height: %.2f m\n"+
 			"  Distance: %.2f m\n"+
+			"  Profile: %s\n"+
+			"  Pixel Span: width=%d height=%d\n"+
 			"  Confidence: %.2f%%\n"+
 			"  Timestamp: %s",
 		vd.LengthMeters,
 		vd.WidthMeters,
 		vd.HeightMeters,
 		vd.DistanceMeters,
+		vd.ProfileName,
+		vd.WidthPixels,
+		vd.HeightPixels,
 		vd.Confidence*100,
 		vd.Timestamp.Format("2006-01-02 15:04:05"),
 	)
@@ -153,18 +179,22 @@ func (vd VehicleDimensions) String() string {
 
 // IsValid checks if the dimensions are within reasonable ranges
 func (vd VehicleDimensions) IsValid() bool {
-	// Check if dimensions are within reasonable ranges for vehicles
-	if vd.LengthMeters < 1.0 || vd.LengthMeters > 20.0 {
+	// Length from image is optional in the empirical ANPR flow.
+	if vd.LengthMeters > 0 && (vd.LengthMeters < 1.0 || vd.LengthMeters > 30.0) {
 		return false
 	}
-	if vd.WidthMeters < 0.5 || vd.WidthMeters > 3.5 {
+	if vd.WidthMeters < 0.5 || vd.WidthMeters > 5.0 {
 		return false
 	}
-	if vd.HeightMeters < 0.5 || vd.HeightMeters > 5.0 {
+	if vd.HeightMeters < 0.5 || vd.HeightMeters > 6.5 {
 		return false
 	}
 	if vd.Confidence < 0.3 { // Minimum confidence threshold
 		return false
 	}
 	return true
+}
+
+var timeNow = func() time.Time {
+	return time.Now()
 }
