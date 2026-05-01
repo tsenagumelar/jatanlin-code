@@ -2,14 +2,15 @@
 set -euo pipefail
 
 ensure_portainer() {
-  if docker ps --format '{{.Names}}' | rg -x 'portainer' >/dev/null 2>&1; then
-    log "Portainer container already running"
-    return
-  fi
-
-  if docker ps -a --format '{{.Names}}' | rg -x 'portainer' >/dev/null 2>&1; then
-    log "Starting existing Portainer container"
-    docker start portainer >/dev/null
+  if docker container inspect portainer >/dev/null 2>&1; then
+    local state
+    state="$(docker inspect -f '{{.State.Status}}' portainer 2>/dev/null || true)"
+    if [[ "$state" == "running" ]]; then
+      log "Portainer container already running"
+    else
+      log "Starting existing Portainer container"
+      docker start portainer >/dev/null
+    fi
     return
   fi
 
