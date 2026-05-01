@@ -41,3 +41,13 @@ Folder ini berisi spesifikasi teknis monorepo Jatanlin. File di root `specs/` ha
 - [CCTV Streamer](backend/features/cctv-streamer.md)
 - [Dimension Processing](backend/features/dimension-processing.md)
 - [Queue & Database](backend/features/queue-database.md)
+
+## Central Dashboard Specs
+
+- [Central Dashboard General](central/general.md)
+- [Multi-Area Central Dashboard](central/features/central-dashboard.md)
+
+## Deployment Specs
+
+- [Deployment General](deployment/general.md)
+- [One-Click Area Rollout](deployment/features/one-click-area-rollout.md)

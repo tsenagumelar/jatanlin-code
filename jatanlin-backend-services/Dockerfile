@@ -1,5 +1,7 @@
 # Build stage
 FROM golang:1.24-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -17,10 +19,11 @@ RUN go mod download
 COPY . .
 
 # Build all binaries
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
     go build -ldflags="-w -s" -o /app/bin/api ./cmd/api && \
     go build -ldflags="-w -s" -o /app/bin/anpr-watcher ./cmd/anpr-watcher && \
-    go build -ldflags="-w -s" -o /app/bin/axle-watcher ./cmd/axle-watcher
+    go build -ldflags="-w -s" -o /app/bin/axle-watcher ./cmd/axle-watcher && \
+    go build -ldflags="-w -s" -o /app/bin/cctv-streamer ./cmd/cctv-streamer
 
 # Runtime stage
 FROM alpine:latest
@@ -54,12 +57,13 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD sh -c '[ "$SERVICE" != "api" ] || wget --no-verbose --tries=1 --spider http://127.0.0.1:${API_PORT:-4000}/health || exit 1'
 
-# Entrypoint selector (SERVICE=api|anpr-watcher|axle-watcher)
+# Entrypoint selector (SERVICE=api|anpr-watcher|axle-watcher|cctv-streamer)
 ENTRYPOINT ["/bin/sh", "-c", "\
   case \"$SERVICE\" in \
     api|\"\" ) exec /app/bin/api ;; \
     anpr-watcher ) exec /app/bin/anpr-watcher ;; \
     axle-watcher ) exec /app/bin/axle-watcher ;; \
+    cctv-streamer ) exec /app/bin/cctv-streamer ;; \
     * ) echo \"Unknown SERVICE '$SERVICE'\"; exit 1 ;; \
   esac \
 "]
