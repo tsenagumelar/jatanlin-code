@@ -46,7 +46,7 @@ interface DataProcessingProps {
 export const DataProcessing: React.FC<DataProcessingProps> = ({
   variant = "full",
 }) => {
-  const STEP_WAIT_TIMEOUT_MS = 5_000;
+  const STEP_MIN_DURATION_MS = 3_000;
   const FINAL_WAIT_IDLE_TIMEOUT_MS = 60_000;
 
   const router = useRouter();
@@ -101,6 +101,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
   const finalWaitStartedAtRef = useRef<number | null>(null);
   const finalWaitLastDataAtRef = useRef<number | null>(null);
   const finalDataSignatureRef = useRef<string | null>(null);
+  const currentStepHasDataRef = useRef(false);
 
   // Get site_id from env
   const siteId = process.env.NEXT_PUBLIC_SITE_ID || undefined;
@@ -485,7 +486,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     }
   }, [dimensionSubscriptionData, dimensionData, sessionId, setDimensionData]);
 
-  // Step 2-5: wait max 10s for current step data, then continue
+  // Step 2-5: each step must stay at least 5s before moving.
   const currentStepHasData = useMemo(() => {
     if (currentStepId === 2) return !!anprData;
     if (currentStepId === 3) return !!weightData;
@@ -495,26 +496,26 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
   }, [currentStepId, anprData, weightData, axleData, dimensionData]);
 
   useEffect(() => {
+    currentStepHasDataRef.current = currentStepHasData;
+  }, [currentStepHasData]);
+
+  useEffect(() => {
     if (currentStepId < 2 || currentStepId > 5) return;
 
     const stepId = currentStepId;
-    const advance = (isTimeout: boolean) => {
-      if (isTimeout) {
+    currentStepHasDataRef.current = currentStepHasData;
+
+    const timer = setTimeout(() => {
+      if (!currentStepHasDataRef.current) {
         setTimedOutSteps((prev) =>
           prev.includes(stepId) ? prev : [...prev, stepId],
         );
       }
       moveToNextStep();
-    };
+    }, STEP_MIN_DURATION_MS);
 
-    if (currentStepHasData) {
-      const readyTimer = setTimeout(() => advance(false), 400);
-      return () => clearTimeout(readyTimer);
-    }
-
-    const timeoutTimer = setTimeout(() => advance(true), STEP_WAIT_TIMEOUT_MS);
-    return () => clearTimeout(timeoutTimer);
-  }, [currentStepId, currentStepHasData, moveToNextStep, STEP_WAIT_TIMEOUT_MS]);
+    return () => clearTimeout(timer);
+  }, [currentStepId, currentStepHasData, moveToNextStep, STEP_MIN_DURATION_MS]);
 
   const finalDataPresence = useMemo(
     () => ({
@@ -555,7 +556,8 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
         actual_height: dimensionData?.height ?? null,
         actual_weight: weightData?.total_weight ?? null,
         actual_plat_no: anprData?.plate_no ?? null,
-        actual_total_axle: weightData?.total_axle ?? axleData?.total_axles ?? null,
+        actual_total_axle:
+          weightData?.total_axle ?? axleData?.total_axles ?? null,
         is_active: true,
         is_deleted: false,
         created_by: "00000000-0000-0000-0000-000000000000",
@@ -1042,7 +1044,8 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                     <div className="space-y-10">
                       {!vehicleActualId && !isFinalDataComplete && (
                         <p className="text-3xl text-blue-200">
-                          Menunggu data tambahan {finalWaitRemainingSeconds} detik
+                          Menunggu data tambahan {finalWaitRemainingSeconds}{" "}
+                          detik
                         </p>
                       )}
                       <p
@@ -1853,7 +1856,8 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                       </p>
                       {!vehicleActualId && !isFinalDataComplete && (
                         <p className="mt-1 text-xs text-gray-600">
-                          Menunggu timeout idle: {finalWaitRemainingSeconds} detik
+                          Menunggu timeout idle: {finalWaitRemainingSeconds}{" "}
+                          detik
                         </p>
                       )}
                     </div>

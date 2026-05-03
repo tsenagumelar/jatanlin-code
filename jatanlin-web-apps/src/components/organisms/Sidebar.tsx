@@ -45,6 +45,13 @@ const menuItems: MenuItem[] = [
     section: "Transaksi",
   },
   {
+    label: "Data Center",
+    href: "/data-center",
+    icon: <CardUi24Regular />,
+    activeIcon: <CardUi24Filled />,
+    section: "Transaksi",
+  },
+  {
     label: "Pengguna",
     href: "/master-data/pengguna",
     icon: <People24Regular />,

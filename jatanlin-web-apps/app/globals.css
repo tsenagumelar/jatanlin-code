@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 :root {
   --background: #ffffff;
@@ -35,4 +36,22 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: 'Segoe UI', 'Segoe UI Web (West European)', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
+}
+
+.city-badge-tooltip {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.city-badge-tooltip span {
+  display: inline-block;
+  background: #0078d4;
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }

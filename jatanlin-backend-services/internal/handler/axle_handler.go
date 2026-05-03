@@ -32,6 +32,10 @@ type AxleMetadata struct {
 	BodyType string
 }
 
+type dummyAxleSample struct {
+	MinioImageObj sql.NullString
+}
+
 func parseFrameTime(value string) (time.Time, error) {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
@@ -186,26 +190,72 @@ func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
 		return nil
 	}
 
-	externalID := fmt.Sprintf("dummy-axle-%s", session.ID.String())
-	meta := &AxleMetadata{
-		Plate:     buildDummyPlate(session.ID),
-		FrameTime: session.StartedAt.Format("2006.01.02 15:04:05.000"),
-		CameraID:  "DUMMY-CAM-AXLE",
-		ID:        externalID,
-		Length:    12000,
-		NWheels:   10,
-		NAxles:    5,
-		Category:  "DUMMY",
-		BodyType:  "DUMMY-BODY",
+	sample, err := p.getRandomDummyAxleSample(ctx, session.SiteID)
+	if err != nil {
+		return fmt.Errorf("pick random AXLE sample failed: %w", err)
 	}
 
-	dateFolder := time.Now().Format("02012006")
-	if err := p.enqueueAxleInsert(meta, &session.ID, dateFolder, "", ""); err != nil {
+	externalID := fmt.Sprintf("dummy-axle-%s", session.ID.String())
+	plate := buildDummyPlate(uuid.New())
+	cameraID := fmt.Sprintf("DUMMY-CAM-AXLE-%d", time.Now().Unix()%100)
+	length := 8000 + int(time.Now().UnixNano()%12000)
+	nAxles := 2 + int(time.Now().UnixNano()%4)
+	nWheels := nAxles * 2
+	category := fmt.Sprintf("CAT-%d", 1+time.Now().Unix()%5)
+	bodyType := fmt.Sprintf("BODY-%d", 1+time.Now().Unix()%5)
+	imgObj := ""
+
+	if sample != nil {
+		if sample.MinioImageObj.Valid {
+			imgObj = strings.TrimSpace(sample.MinioImageObj.String)
+		}
+	}
+
+	meta := &AxleMetadata{
+		Plate:     plate,
+		FrameTime: session.StartedAt.Format("2006.01.02 15:04:05.000"),
+		CameraID:  cameraID,
+		ID:        externalID,
+		Length:    length,
+		NWheels:   nWheels,
+		NAxles:    nAxles,
+		Category:  category,
+		BodyType:  bodyType,
+	}
+
+	if err := p.enqueueAxleInsert(meta, &session.ID, "", "", imgObj); err != nil {
 		return fmt.Errorf("enqueue dummy AXLE failed: %w", err)
 	}
 
 	log.Printf("[AXLE_DUMMY] Enqueued dummy AXLE for session=%s external_id=%s", session.ID, externalID)
 	return nil
+}
+
+func (p *AxleProcessor) getRandomDummyAxleSample(ctx context.Context, siteID uuid.UUID) (*dummyAxleSample, error) {
+	const query = `
+		SELECT
+			a.minio_image_object
+		FROM public.transact_vehicle_actual va
+		JOIN public.transact_axle_capture a ON a.id = va.axle_id
+		WHERE va.site_id = $1
+		  AND va.is_deleted = false
+		  AND COALESCE(a.minio_image_object, '') <> ''
+		ORDER BY random()
+		LIMIT 1
+	`
+
+	row := p.DB.QueryRowContext(ctx, query, siteID)
+	var sample dummyAxleSample
+	err := row.Scan(
+		&sample.MinioImageObj,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &sample, nil
 }
 
 // processBatchInSession collects all files that belong to the active session.

@@ -31,6 +31,10 @@ type ANPRMetadata struct {
 	ID         string
 }
 
+type dummyANPRSample struct {
+	MinioFullObject sql.NullString
+}
+
 // Sesuaikan dengan struktur XML dari kamera
 type xmlResult struct {
 	Location struct {
@@ -206,18 +210,34 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 		return nil
 	}
 
+	sample, err := p.getRandomDummyANPRSample(ctx, session.SiteID)
+	if err != nil {
+		return fmt.Errorf("pick random ANPR sample failed: %w", err)
+	}
+
 	externalID := fmt.Sprintf("dummy-anpr-%s", session.ID.String())
+	plate := buildDummyPlate(uuid.New())
+	location := "DUMMY-ANPR"
+	cameraID := fmt.Sprintf("DUMMY-CAM-ANPR-%d", time.Now().Unix()%100)
+	confidence := fmt.Sprintf("%.1f", 80+float64(time.Now().UnixNano()%190)/10.0)
+	fullObject := ""
+
+	if sample != nil {
+		if sample.MinioFullObject.Valid {
+			fullObject = strings.TrimSpace(sample.MinioFullObject.String)
+		}
+	}
+
 	meta := &ANPRMetadata{
-		Plate:      buildDummyPlate(session.ID),
+		Plate:      plate,
 		FrameTime:  session.StartedAt.Format("2006.01.02 15:04:05.000"),
-		Location:   "DUMMY-ANPR",
-		CameraID:   "DUMMY-CAM-ANPR",
-		Confidence: "99.9",
+		Location:   location,
+		CameraID:   cameraID,
+		Confidence: confidence,
 		ID:         externalID,
 	}
 
-	dateFolder := time.Now().Format("02012006")
-	if err := p.enqueueANPRInsert(meta, &session.ID, dateFolder, "", "", ""); err != nil {
+	if err := p.enqueueANPRInsert(meta, &session.ID, "", "", fullObject, ""); err != nil {
 		return fmt.Errorf("enqueue dummy ANPR failed: %w", err)
 	}
 
@@ -229,6 +249,33 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 
 	log.Printf("[ANPR_DUMMY] Enqueued dummy ANPR for session=%s external_id=%s plate=%s", session.ID, externalID, meta.Plate)
 	return nil
+}
+
+func (p *FileProcessor) getRandomDummyANPRSample(ctx context.Context, siteID uuid.UUID) (*dummyANPRSample, error) {
+	const query = `
+		SELECT
+			a.minio_full_image_object
+		FROM public.transact_vehicle_actual va
+		JOIN public.transact_anpr_capture a ON a.id = va.anpr_id
+		WHERE va.site_id = $1
+		  AND va.is_deleted = false
+		  AND COALESCE(a.minio_full_image_object, '') <> ''
+		ORDER BY random()
+		LIMIT 1
+	`
+
+	row := p.DB.QueryRowContext(ctx, query, siteID)
+	var sample dummyANPRSample
+	err := row.Scan(
+		&sample.MinioFullObject,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &sample, nil
 }
 
 func (p *FileProcessor) triggerWeighingIfNeeded(ctx context.Context, session *ActiveSession) {

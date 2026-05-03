@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -733,12 +734,50 @@ func (s *cctvService) processDummySession(ctx context.Context, sessionService *h
 	filename := fmt.Sprintf("dummy-cctv-%s.mp4", session.ID.String())
 	filepath := fmt.Sprintf("dummy-cctv/%s.mp4", session.ID.String())
 
+	sampleFilename, sampleFilepath, err := s.getRandomDummyCCTVSample(ctx, session.SiteID)
+	if err != nil {
+		return fmt.Errorf("pick random CCTV sample failed: %w", err)
+	}
+	if strings.TrimSpace(sampleFilepath) != "" {
+		filepath = strings.TrimSpace(sampleFilepath)
+		if strings.TrimSpace(sampleFilename) != "" {
+			filename = strings.TrimSpace(sampleFilename)
+		} else {
+			filename = path.Base(filepath)
+		}
+	}
+
 	if _, err := s.insertDummyRecord(ctx, filename, filepath, session.ID.String(), session.SiteID.String()); err != nil {
 		return fmt.Errorf("insert dummy cctv failed: %w", err)
 	}
 
 	log.Printf("[CCTV_DUMMY] Ensured dummy CCTV for session=%s filename=%s", session.ID, filename)
 	return nil
+}
+
+func (s *cctvService) getRandomDummyCCTVSample(ctx context.Context, siteID uuid.UUID) (string, string, error) {
+	const query = `
+		SELECT c.filename, c.filepath
+		FROM public.transact_vehicle_actual va
+		JOIN public.transact_cctv c ON c.id = va.transact_cctv_id
+		WHERE va.site_id = $1
+		  AND va.is_deleted = false
+		  AND COALESCE(c.filepath, '') <> ''
+		ORDER BY random()
+		LIMIT 1
+	`
+
+	var filename sql.NullString
+	var filepath sql.NullString
+	err := s.db.QueryRowContext(ctx, query, siteID).Scan(&filename, &filepath)
+	if err == sql.ErrNoRows {
+		return "", "", nil
+	}
+	if err != nil {
+		return "", "", err
+	}
+
+	return filename.String, filepath.String, nil
 }
 
 func (s *cctvService) processLiveSession(ctx context.Context, sessionService *handler.SessionService, rtspURL string) error {
