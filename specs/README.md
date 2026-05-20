@@ -8,6 +8,7 @@ Folder ini berisi spesifikasi teknis monorepo Jatanlin. File di root `specs/` ha
 - [Rules](rules.md)
 - [Session Processing Model](session-processing.md)
 - [Dongle/USB Licensing](licensing-dongle.md)
+- [Dongle License Testing README](dongle-license-testing-readme.md)
 
 ## Area Specs
 
