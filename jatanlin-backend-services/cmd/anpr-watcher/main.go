@@ -8,9 +8,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jlaffaye/ftp"
+
 	"wim-service/internal/config"
 	"wim-service/internal/ftpwatcher"
 	"wim-service/internal/handler"
+	"wim-service/internal/license"
 )
 
 func main() {
@@ -27,6 +30,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	licenseSvc := license.NewService(cfg.LicenseEnabled, cfg.LicenseStatus)
 
 	// Initialize dimension handler if enabled
 	var dimensionHandler *handler.DimensionHandler
@@ -81,7 +85,7 @@ func main() {
 	anprProcessor.SetSessionService(sessionService)
 
 	// Configure ANPR insert queue (NATS JetStream)
-	if err := anprProcessor.SetInsertQueue(cfg.NATSURL); err != nil {
+	if err := anprProcessor.SetInsertQueue(cfg.NATSURL, licenseSvc); err != nil {
 		log.Fatalf("[ANPR] Failed to init ANPR queue: %v", err)
 	}
 
@@ -111,7 +115,13 @@ func main() {
 		cfg.ANPRFTPPass,
 		cfg.ANPRFTPDir,
 		cfg.ANPRFTPInterval,
-		anprProcessor.HandleNewFile,
+		func(ctx context.Context, c *ftp.ServerConn, name string) bool {
+			if !licenseSvc.IsAllowed() {
+				log.Printf("[ANPR][LICENSE] Skip file %s because license status=%s", name, licenseSvc.Evaluate())
+				return false
+			}
+			return anprProcessor.HandleNewFile(ctx, c, name)
+		},
 	)
 
 	log.Println("")
@@ -123,6 +133,8 @@ func main() {
 	log.Printf("  MinIO:            %s", cfg.ANPRMinIOEndpoint)
 	log.Printf("  Bucket:           %s", cfg.ANPRMinIOBucket)
 	log.Printf("  Session Window:   %d seconds", cfg.SessionWindowSeconds)
+	log.Printf("  License Enabled:  %v", cfg.LicenseEnabled)
+	log.Printf("  License Status:   %s", licenseSvc.Evaluate())
 	if cfg.WeighingTriggerURL != "" {
 		log.Printf("  Weighing Trigger: %s (save=%v dummy=%v)", cfg.WeighingTriggerURL, cfg.WeighingTriggerSave, cfg.WeighingTriggerDummy)
 	}
@@ -161,6 +173,10 @@ func main() {
 				log.Println("[ANPR] Shutdown complete. Goodbye!")
 				return
 			case <-ticker.C:
+				if !licenseSvc.IsAllowed() {
+					log.Printf("[ANPR][LICENSE] Standby (status=%s)", licenseSvc.Evaluate())
+					continue
+				}
 				if err := anprProcessor.ProcessDummySession(ctx); err != nil {
 					log.Printf("[ANPR] Dummy session processing failed: %v", err)
 				}
@@ -169,6 +185,15 @@ func main() {
 	}
 
 	// Start watcher
+	for !licenseSvc.IsAllowed() {
+		log.Printf("[ANPR][LICENSE] Startup standby (status=%s), waiting 5s...", licenseSvc.Evaluate())
+		select {
+		case <-ctx.Done():
+			log.Println("[ANPR] Shutdown complete. Goodbye!")
+			return
+		case <-time.After(5 * time.Second):
+		}
+	}
 	log.Println("[ANPR] Starting FTP watcher...")
 	if err := anprWatcher.Start(ctx); err != nil {
 		log.Printf("[ANPR] Watcher stopped: %v", err)

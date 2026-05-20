@@ -35,6 +35,7 @@ import (
 
 	"wim-service/internal/config"
 	"wim-service/internal/handler"
+	"wim-service/internal/license"
 )
 
 type cctvService struct {
@@ -46,6 +47,7 @@ type cctvService struct {
 	queue        *CCTVInsertQueue
 	sessionMu    sync.Mutex
 	recording    bool
+	license      *license.Service
 }
 
 const (
@@ -66,6 +68,7 @@ type CCTVInsertQueue struct {
 	nc       *nats.Conn
 	db       *sql.DB
 	siteUUID string
+	license  *license.Service
 }
 
 func main() {
@@ -92,6 +95,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	licenseSvc := license.NewService(cfg.LicenseEnabled, cfg.LicenseStatus)
 
 	dummyEnabled := getEnvBool("CCTV_TRIGGER_DUMMY", false)
 	sessionService := handler.NewSessionService(cfg.DB, cfg.SiteUUID, cfg.SessionWindowSeconds)
@@ -130,6 +134,10 @@ func main() {
 
 	if !dummyEnabled && getEnvBool("RECORD_ON_START", false) {
 		go func() {
+			if !licenseSvc.IsAllowed() {
+				log.Printf("[CCTV][LICENSE] Skip RECORD_ON_START because status=%s", licenseSvc.Evaluate())
+				return
+			}
 			if _, err := service.recordUploadInsert(ctx, rtspURL, 0, "", ""); err != nil {
 				log.Printf("[CCTV] Record failed: %v", err)
 			}
@@ -163,6 +171,10 @@ func main() {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
+					if !licenseSvc.IsAllowed() {
+						log.Printf("[CCTV][LICENSE] Dummy listener standby (status=%s)", licenseSvc.Evaluate())
+						continue
+					}
 					if err := service.processDummySession(ctx, sessionService); err != nil {
 						log.Printf("[CCTV] Dummy session processing failed: %v", err)
 					}
@@ -187,6 +199,10 @@ func main() {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
+					if !licenseSvc.IsAllowed() {
+						log.Printf("[CCTV][LICENSE] Live listener standby (status=%s)", licenseSvc.Evaluate())
+						continue
+					}
 					if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
 						log.Printf("[CCTV] Live session processing failed: %v", err)
 					}
@@ -383,6 +399,14 @@ func startHTTPServer(ctx context.Context, rtspURL string, service *cctvService) 
 		dummy := parseBoolParam(r.URL.Query().Get("dummy"), false)
 
 		w.Header().Set("Content-Type", "application/json")
+		if service.license != nil && !service.license.IsAllowed() {
+			w.WriteHeader(http.StatusLocked)
+			_ = json.NewEncoder(w).Encode(recordResponse{
+				Status:  "locked",
+				Message: "license is locked",
+			})
+			return
+		}
 
 		// Run recording asynchronously to avoid client timeouts.
 		go func(seconds int, sessionID, siteID string, dummy bool) {
@@ -521,7 +545,8 @@ func newCCTVService(cfg *config.Config) (*cctvService, error) {
 		return nil, err
 	}
 
-	q, err := NewCCTVInsertQueue(cfg.NATSURL, cfg.DB, cfg.SiteUUID)
+	licenseSvc := license.NewService(cfg.LicenseEnabled, cfg.LicenseStatus)
+	q, err := NewCCTVInsertQueue(cfg.NATSURL, cfg.DB, cfg.SiteUUID, licenseSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -533,10 +558,11 @@ func newCCTVService(cfg *config.Config) (*cctvService, error) {
 		siteUUID:     cfg.SiteUUID,
 		uploadPrefix: getEnv("CCTV_UPLOAD_PREFIX", "cctv"),
 		queue:        q,
+		license:      licenseSvc,
 	}, nil
 }
 
-func NewCCTVInsertQueue(natsURL string, db *sql.DB, siteUUID string) (*CCTVInsertQueue, error) {
+func NewCCTVInsertQueue(natsURL string, db *sql.DB, siteUUID string, licenseSvc *license.Service) (*CCTVInsertQueue, error) {
 	nc, err := nats.Connect(natsURL)
 	if err != nil {
 		return nil, err
@@ -563,6 +589,7 @@ func NewCCTVInsertQueue(natsURL string, db *sql.DB, siteUUID string) (*CCTVInser
 		nc:       nc,
 		db:       db,
 		siteUUID: siteUUID,
+		license:  licenseSvc,
 	}
 	go q.consumeLoop()
 	return q, nil
@@ -622,6 +649,10 @@ func (q *CCTVInsertQueue) consumeLoop() {
 }
 
 func (q *CCTVInsertQueue) handleMsg(msg *nats.Msg) error {
+	if q.license != nil && !q.license.IsAllowed() {
+		return fmt.Errorf("license locked: %s", q.license.Evaluate())
+	}
+
 	var p cctvInsertPayload
 	if err := json.Unmarshal(msg.Data, &p); err != nil {
 		return err
@@ -873,6 +904,10 @@ func nullableString(value string) any {
 }
 
 func (s *cctvService) recordUploadInsert(ctx context.Context, rtspURL string, seconds int, sessionIDRaw, siteIDRaw string) (*recordResult, error) {
+	if s.license != nil && !s.license.IsAllowed() {
+		return nil, fmt.Errorf("license locked: %s", s.license.Evaluate())
+	}
+
 	outPath, err := recordFromRTSP(ctx, rtspURL, seconds)
 	if err != nil {
 		return nil, err
@@ -904,6 +939,10 @@ func (s *cctvService) recordUploadInsert(ctx context.Context, rtspURL string, se
 }
 
 func (s *cctvService) insertDummyRecord(ctx context.Context, filename, filepath string, sessionIDRaw, siteIDRaw string) (*recordResult, error) {
+	if s.license != nil && !s.license.IsAllowed() {
+		return nil, fmt.Errorf("license locked: %s", s.license.Evaluate())
+	}
+
 	siteID, sessionID, err := s.resolveIDs(siteIDRaw, sessionIDRaw)
 	if err != nil {
 		return nil, err

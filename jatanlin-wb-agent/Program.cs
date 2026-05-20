@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<WServerOptions>(builder.Configuration.GetSection("WServer"));
 builder.Services.Configure<NatsOptions>(builder.Configuration.GetSection("Nats"));
 builder.Services.Configure<WbOptions>(builder.Configuration.GetSection("WB"));
+builder.Services.Configure<LicenseOptions>(builder.Configuration.GetSection("License"));
 builder.Services.PostConfigure<NatsOptions>(opt =>
 {
     if (string.IsNullOrWhiteSpace(opt.Url))
@@ -23,8 +24,33 @@ builder.Services.AddSingleton<IWeighingInsertService, WeighingInsertService>();
 builder.Services.AddHostedService<NatsCacheRetryService>();
 builder.Services.AddHostedService<DummySessionCaptureService>();
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
+builder.Services.AddSingleton<LicenseStateService>();
 
 var app = builder.Build();
+
+app.Use(async (ctx, next) =>
+{
+    var license = ctx.RequestServices.GetRequiredService<LicenseStateService>();
+    var path = ctx.Request.Path.Value ?? string.Empty;
+    var isLicenseStatusEndpoint = path.Equals("/license/status", StringComparison.OrdinalIgnoreCase);
+    var isRootEndpoint = path.Equals("/", StringComparison.OrdinalIgnoreCase);
+    var isWriteMethod = HttpMethods.IsPost(ctx.Request.Method) || HttpMethods.IsPut(ctx.Request.Method) || HttpMethods.IsDelete(ctx.Request.Method);
+
+    if (!isLicenseStatusEndpoint && !isRootEndpoint && isWriteMethod && !license.IsAllowed())
+    {
+        ctx.Response.StatusCode = StatusCodes.Status423Locked;
+        await ctx.Response.WriteAsJsonAsync(new
+        {
+            message = "license is locked",
+            license = license.GetPayload()
+        });
+        return;
+    }
+
+    await next();
+});
+
+app.MapGet("/license/status", (LicenseStateService license) => Results.Ok(license.GetPayload()));
 
 // PostgreSQL schema is expected to exist; migrations are managed separately.
 

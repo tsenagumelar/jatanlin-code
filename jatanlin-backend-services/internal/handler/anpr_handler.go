@@ -20,6 +20,7 @@ import (
 	"github.com/jlaffaye/ftp"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"wim-service/internal/license"
 )
 
 type ANPRMetadata struct {
@@ -112,8 +113,8 @@ func (p *FileProcessor) SetSessionService(service *SessionService) {
 }
 
 // SetInsertQueue initializes the ANPR insert queue backed by NATS JetStream.
-func (p *FileProcessor) SetInsertQueue(natsURL string) error {
-	q, err := NewANPRInsertQueue(natsURL, p.DB, p.SiteUUID)
+func (p *FileProcessor) SetInsertQueue(natsURL string, licenseSvc *license.Service) error {
+	q, err := NewANPRInsertQueue(natsURL, p.DB, p.SiteUUID, licenseSvc)
 	if err != nil {
 		return err
 	}

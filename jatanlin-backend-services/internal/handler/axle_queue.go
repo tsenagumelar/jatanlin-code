@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"wim-service/internal/license"
 )
 
 type axleSessionRecord struct {
@@ -57,9 +58,10 @@ type AxleInsertQueue struct {
 	nc       *nats.Conn
 	db       *sql.DB
 	siteUUID string
+	license  *license.Service
 }
 
-func NewAxleInsertQueue(natsURL string, db *sql.DB, siteUUID string) (*AxleInsertQueue, error) {
+func NewAxleInsertQueue(natsURL string, db *sql.DB, siteUUID string, licenseSvc *license.Service) (*AxleInsertQueue, error) {
 	nc, err := nats.Connect(natsURL)
 	if err != nil {
 		return nil, err
@@ -86,6 +88,7 @@ func NewAxleInsertQueue(natsURL string, db *sql.DB, siteUUID string) (*AxleInser
 		nc:       nc,
 		db:       db,
 		siteUUID: siteUUID,
+		license:  licenseSvc,
 	}
 	go q.consumeLoop()
 	return q, nil
@@ -159,6 +162,10 @@ func (q *AxleInsertQueue) consumeLoop() {
 }
 
 func (q *AxleInsertQueue) handleMsg(msg *nats.Msg) error {
+	if q.license != nil && !q.license.IsAllowed() {
+		return fmt.Errorf("license locked: %s", q.license.Evaluate())
+	}
+
 	var p axleInsertPayload
 	if err := json.Unmarshal(msg.Data, &p); err != nil {
 		return err

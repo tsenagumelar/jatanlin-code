@@ -5,6 +5,7 @@ import (
 	"log"
 	"wim-service/internal/auth"
 	"wim-service/internal/handler"
+	"wim-service/internal/license"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -18,9 +19,10 @@ type Server struct {
 	AuthHandler       *AuthHandler
 	AttachmentHandler *handler.AttachmentHandler
 	AuthEnabled       bool
+	LicenseService    *license.Service
 }
 
-func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *handler.AttachmentHandler, authEnabled bool) *Server {
+func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *handler.AttachmentHandler, authEnabled bool, licenseService *license.Service) *Server {
 	app := fiber.New(fiber.Config{
 		AppName: "WIM Service API",
 	})
@@ -42,6 +44,7 @@ func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *handler.Attachme
 		AuthHandler:       authHandler,
 		AttachmentHandler: attachmentHandler,
 		AuthEnabled:       authEnabled,
+		LicenseService:    licenseService,
 	}
 
 	if !authEnabled {
@@ -63,12 +66,18 @@ func (s *Server) setupRoutes() {
 
 	api := s.App.Group("/api")
 
+	api.Get("/license/status", func(c *fiber.Ctx) error {
+		return c.JSON(s.LicenseService.StatusPayload())
+	})
+
 	// Auth routes (public)
 	authRoutes := api.Group("/auth")
+	authRoutes.Use(s.licenseGuard)
 	authRoutes.Post("/login", s.AuthHandler.Login)
 
 	// Protected routes (requires JWT)
 	protected := api.Group("/auth")
+	protected.Use(s.licenseGuard)
 	if s.AuthEnabled {
 		protected.Use(JWTMiddleware(s.AuthService))
 	}
@@ -76,6 +85,7 @@ func (s *Server) setupRoutes() {
 
 	// Attachment upload routes (protected - requires JWT)
 	attachment := api.Group("/attachment")
+	attachment.Use(s.licenseGuard)
 	if s.AuthEnabled {
 		attachment.Use(JWTMiddleware(s.AuthService))
 	}
@@ -83,6 +93,17 @@ func (s *Server) setupRoutes() {
 
 	// Note: WIM Session management is handled via Hasura GraphQL
 	// No REST API endpoints needed here
+}
+
+func (s *Server) licenseGuard(c *fiber.Ctx) error {
+	if s.LicenseService == nil || s.LicenseService.IsAllowed() {
+		return c.Next()
+	}
+
+	return c.Status(fiber.StatusLocked).JSON(fiber.Map{
+		"message": "license is locked",
+		"license": s.LicenseService.StatusPayload(),
+	})
 }
 
 func (s *Server) Start(port string) error {

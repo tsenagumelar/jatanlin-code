@@ -9,6 +9,7 @@ import (
 	"wim-service/internal/api"
 	"wim-service/internal/config"
 	"wim-service/internal/handler"
+	"wim-service/internal/license"
 )
 
 func main() {
@@ -36,7 +37,8 @@ func main() {
 	}
 
 	// Create API server
-	apiServer := api.NewServer(cfg.DB, cfg.JWTSecret, attachmentHandler, cfg.AuthEnabled)
+	licenseService := license.NewService(cfg.LicenseEnabled, cfg.LicenseStatus)
+	apiServer := api.NewServer(cfg.DB, cfg.JWTSecret, attachmentHandler, cfg.AuthEnabled, licenseService)
 
 	log.Println("")
 	log.Println("API Endpoints:")

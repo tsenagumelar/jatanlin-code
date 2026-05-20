@@ -15,6 +15,7 @@ import (
 	"github.com/jlaffaye/ftp"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"wim-service/internal/license"
 )
 
 // ===== Metadata axle yg kita ambil =====
@@ -123,8 +124,8 @@ func (p *AxleProcessor) SetSessionService(service *SessionService) {
 }
 
 // SetInsertQueue initializes the AXLE insert queue backed by NATS JetStream.
-func (p *AxleProcessor) SetInsertQueue(natsURL string) error {
-	q, err := NewAxleInsertQueue(natsURL, p.DB, p.SiteUUID)
+func (p *AxleProcessor) SetInsertQueue(natsURL string, licenseSvc *license.Service) error {
+	q, err := NewAxleInsertQueue(natsURL, p.DB, p.SiteUUID, licenseSvc)
 	if err != nil {
 		return err
 	}

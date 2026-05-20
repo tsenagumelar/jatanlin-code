@@ -20,17 +20,20 @@ public sealed class DummySessionCaptureService : BackgroundService
     private readonly string _direction;
     private readonly string? _locationCode;
     private readonly SemaphoreSlim _captureLock = new(1, 1);
+    private readonly LicenseStateService _license;
 
     public DummySessionCaptureService(
         ILogger<DummySessionCaptureService> logger,
         IServiceScopeFactory scopeFactory,
         WsClient wsClient,
+        LicenseStateService license,
         IOptions<WbOptions> wbOptions,
         IConfiguration config)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
         _wsClient = wsClient;
+        _license = license;
         var options = wbOptions.Value;
         _connectionString = NormalizePostgresConnectionString(
             config.GetConnectionString("PostgresDatabase")
@@ -103,6 +106,11 @@ public sealed class DummySessionCaptureService : BackgroundService
 
                 if (_siteId != Guid.Empty)
                 {
+                    if (!_license.IsAllowed())
+                    {
+                        _logger.LogWarning("WB session listener standby because license status is {Status}", _license.GetStatus());
+                        continue;
+                    }
                     await ProcessOnceAsync(stoppingToken);
                 }
             }

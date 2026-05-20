@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"wim-service/internal/license"
 )
 
 type anprSessionRecord struct {
@@ -55,9 +56,10 @@ type ANPRInsertQueue struct {
 	nc       *nats.Conn
 	db       *sql.DB
 	siteUUID string
+	license  *license.Service
 }
 
-func NewANPRInsertQueue(natsURL string, db *sql.DB, siteUUID string) (*ANPRInsertQueue, error) {
+func NewANPRInsertQueue(natsURL string, db *sql.DB, siteUUID string, licenseSvc *license.Service) (*ANPRInsertQueue, error) {
 	nc, err := nats.Connect(natsURL)
 	if err != nil {
 		return nil, err
@@ -84,6 +86,7 @@ func NewANPRInsertQueue(natsURL string, db *sql.DB, siteUUID string) (*ANPRInser
 		nc:       nc,
 		db:       db,
 		siteUUID: siteUUID,
+		license:  licenseSvc,
 	}
 	go q.consumeLoop()
 	return q, nil
@@ -155,6 +158,10 @@ func (q *ANPRInsertQueue) consumeLoop() {
 }
 
 func (q *ANPRInsertQueue) handleMsg(msg *nats.Msg) error {
+	if q.license != nil && !q.license.IsAllowed() {
+		return fmt.Errorf("license locked: %s", q.license.Evaluate())
+	}
+
 	var p anprInsertPayload
 	if err := json.Unmarshal(msg.Data, &p); err != nil {
 		return err

@@ -12,6 +12,7 @@ import (
 
 	"wim-service/internal/config"
 	"wim-service/internal/handler"
+	"wim-service/internal/license"
 )
 
 func main() {
@@ -68,7 +69,8 @@ func main() {
 }
 
 func simulateANPR(cfg *config.Config, db *sql.DB, sessionID, externalID, plate, confidence, frameTime, location, cameraID string, wait time.Duration) error {
-	queue, err := handler.NewANPRInsertQueue(cfg.NATSURL, db, cfg.SiteUUID)
+	licenseSvc := license.NewService(cfg.LicenseEnabled, cfg.LicenseStatus)
+	queue, err := handler.NewANPRInsertQueue(cfg.NATSURL, db, cfg.SiteUUID, licenseSvc)
 	if err != nil {
 		return fmt.Errorf("create anpr queue: %w", err)
 	}
@@ -98,7 +100,8 @@ func simulateANPR(cfg *config.Config, db *sql.DB, sessionID, externalID, plate, 
 }
 
 func simulateAxle(cfg *config.Config, db *sql.DB, sessionID, externalID, plate, frameTime, cameraID string, length, nwheels, naxles int, category, bodyType string, wait time.Duration) error {
-	queue, err := handler.NewAxleInsertQueue(cfg.NATSURL, db, cfg.SiteUUID)
+	licenseSvc := license.NewService(cfg.LicenseEnabled, cfg.LicenseStatus)
+	queue, err := handler.NewAxleInsertQueue(cfg.NATSURL, db, cfg.SiteUUID, licenseSvc)
 	if err != nil {
 		return fmt.Errorf("create axle queue: %w", err)
 	}

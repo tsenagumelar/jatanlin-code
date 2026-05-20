@@ -33,6 +33,9 @@ type Config struct {
 	APIPort     string
 	JWTSecret   string
 	AuthEnabled bool // Toggle auth header enforcement (temporary for FE readiness)
+	// License Gate Config (mock mode for pre-dongle implementation)
+	LicenseEnabled bool
+	LicenseStatus  string
 
 	// ANPR FTP Config
 	ANPRFTPHost      string
@@ -140,9 +143,11 @@ func Load() (*Config, error) {
 		SyncEnabled:        getEnvBool("SYNC_ENABLED", false),
 
 		// API Config
-		APIPort:     getEnv("API_PORT", "4000"),
-		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-this-in-production"),
-		AuthEnabled: getEnvBool("AUTH_ENABLED", false),
+		APIPort:        getEnv("API_PORT", "4000"),
+		JWTSecret:      getEnv("JWT_SECRET", "your-secret-key-change-this-in-production"),
+		AuthEnabled:    getEnvBool("AUTH_ENABLED", false),
+		LicenseEnabled: getEnvBool("LICENSE_RUNTIME_ENABLED", false),
+		LicenseStatus:  getEnv("LICENSE_MOCK_STATUS", "ACTIVE"),
 
 		// ANPR FTP
 		ANPRFTPHost:      getEnv("ANPR_FTP_HOST", "51.79.173.213:21"),

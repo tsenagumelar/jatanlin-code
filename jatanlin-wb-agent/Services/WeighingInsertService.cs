@@ -18,10 +18,12 @@ public sealed class WeighingInsertService : IWeighingInsertService
     private readonly string? _pgConnectionString;
     private readonly string? _siteCode;
     private readonly Guid _configuredSiteId;
+    private readonly LicenseStateService _license;
 
-    public WeighingInsertService(ILogger<WeighingInsertService> logger, IConfiguration config, IOptions<WbOptions> wbOptions)
+    public WeighingInsertService(ILogger<WeighingInsertService> logger, IConfiguration config, IOptions<WbOptions> wbOptions, LicenseStateService license)
     {
         _logger = logger;
+        _license = license;
         var options = wbOptions.Value;
         var rawConn = config.GetConnectionString("PostgresDatabase")
             ?? Environment.GetEnvironmentVariable("DATABASE_URL");
@@ -41,6 +43,12 @@ public sealed class WeighingInsertService : IWeighingInsertService
 
     public async Task<bool> TryInsertWeighingAsync(Vehicle vehicle, CancellationToken ct = default)
     {
+        if (!_license.IsAllowed())
+        {
+            _logger.LogWarning("Skip transact_weighing insert because license status is {Status}", _license.GetStatus());
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(_pgConnectionString))
         {
             _logger.LogWarning("PostgreSQL connection string not set; skipping transact_weighing insert.");
