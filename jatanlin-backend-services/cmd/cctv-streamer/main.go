@@ -37,6 +37,23 @@ import (
 	"wim-service/internal/handler"
 )
 
+type rtspState struct {
+	mu  sync.RWMutex
+	url string
+}
+
+func (s *rtspState) Set(url string) {
+	s.mu.Lock()
+	s.url = strings.TrimSpace(url)
+	s.mu.Unlock()
+}
+
+func (s *rtspState) Get() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.url
+}
+
 type cctvService struct {
 	db           *sql.DB
 	minioClient  *minio.Client
@@ -94,15 +111,8 @@ func main() {
 	defer cancel()
 
 	sessionService := handler.NewSessionService(cfg.DB, cfg.SiteUUID, cfg.SessionWindowSeconds)
-	rtspURL := ""
-	rtspResolved := false
-	if resolvedURL, err := resolveRTSPURL(ctx); err == nil {
-		rtspURL = resolvedURL
-		rtspResolved = true
-		log.Printf("[CCTV] Stream URL: %s", redactRTSP(rtspURL))
-	} else {
-		log.Printf("[CCTV] RTSP unavailable, live session capture will be skipped until configured: %v", err)
-	}
+	var rtsp rtspState
+	rtsp.Set("")
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1)
@@ -112,7 +122,7 @@ func main() {
 			case syscall.SIGUSR1:
 				// Trigger recording on demand: kill -USR1 <pid>
 				go func() {
-					if _, err := service.recordUploadInsert(ctx, rtspURL, 0, "", ""); err != nil {
+					if _, err := service.recordUploadInsert(ctx, rtsp.Get(), 0, "", ""); err != nil {
 						log.Printf("[CCTV] Record failed: %v", err)
 					}
 				}()
@@ -125,9 +135,9 @@ func main() {
 		}
 	}()
 
-	if rtspResolved && getEnvBool("RECORD_ON_START", false) {
+	if getEnvBool("RECORD_ON_START", false) {
 		go func() {
-			if _, err := service.recordUploadInsert(ctx, rtspURL, 0, "", ""); err != nil {
+			if _, err := service.recordUploadInsert(ctx, rtsp.Get(), 0, "", ""); err != nil {
 				log.Printf("[CCTV] Record failed: %v", err)
 			}
 		}()
@@ -135,7 +145,7 @@ func main() {
 
 	if getEnvBool("CCTV_HTTP_ENABLED", true) {
 		go func() {
-			if err := startHTTPServer(ctx, rtspURL, service); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := startHTTPServer(ctx, rtsp.Get, service); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Printf("[CCTV] HTTP server error: %v", err)
 				cancel()
 			}
@@ -174,7 +184,7 @@ func main() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
+		if err := service.processLiveSession(ctx, sessionService, rtsp.Get()); err != nil {
 			log.Printf("[CCTV] Initial live session processing failed: %v", err)
 		}
 
@@ -183,22 +193,59 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
+				if err := service.processLiveSession(ctx, sessionService, rtsp.Get()); err != nil {
 					log.Printf("[CCTV] Live session processing failed: %v", err)
 				}
 			}
 		}
 	}()
 
-	if rtspResolved {
-		if err := runRTSP(ctx, rtspURL); err != nil && !errors.Is(err, context.Canceled) {
-			log.Printf("[CCTV] Stream ended: %v", err)
-		}
-	} else {
-		<-ctx.Done()
-	}
+	go maintainRTSPConnection(ctx, &rtsp)
+	<-ctx.Done()
 
 	log.Println("[CCTV] Shutdown complete. Goodbye!")
+}
+
+func maintainRTSPConnection(ctx context.Context, state *rtspState) {
+	retryDelay := time.Duration(getEnvInt("CCTV_RTSP_RETRY_SEC", 5)) * time.Second
+	if retryDelay <= 0 {
+		retryDelay = 5 * time.Second
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		resolvedURL, err := resolveRTSPURL(ctx)
+		if err != nil {
+			state.Set("")
+			log.Printf("[CCTV] RTSP resolve failed, will retry in %v: %v", retryDelay, err)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(retryDelay):
+			}
+			continue
+		}
+
+		state.Set(resolvedURL)
+		log.Printf("[CCTV] Stream URL ready: %s", redactRTSP(resolvedURL))
+
+		if err := runRTSP(ctx, resolvedURL); err != nil && !errors.Is(err, context.Canceled) {
+			state.Set("")
+			log.Printf("[CCTV] Stream disconnected, retry in %v: %v", retryDelay, err)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(retryDelay):
+			}
+			continue
+		}
+		return
+	}
 }
 
 func resolveRTSPURL(ctx context.Context) (string, error) {
@@ -348,7 +395,7 @@ func getEnvBool(key string, def bool) bool {
 	return def
 }
 
-func startHTTPServer(ctx context.Context, rtspURL string, service *cctvService) error {
+func startHTTPServer(ctx context.Context, getRTSPURL func() string, service *cctvService) error {
 	port := getEnv("CCTV_HTTP_PORT", "8090")
 	mux := http.NewServeMux()
 
@@ -398,6 +445,7 @@ func startHTTPServer(ctx context.Context, rtspURL string, service *cctvService) 
 				}
 				result, err = service.insertDummyRecord(bgCtx, filename, filePath, sessionID, siteID)
 			} else {
+				rtspURL := getRTSPURL()
 				result, err = service.recordUploadInsert(bgCtx, rtspURL, seconds, sessionID, siteID)
 			}
 			if err != nil {

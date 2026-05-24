@@ -4,10 +4,16 @@ services:
     container_name: jtn-web-new
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_HASURA_URL: "http://localhost:8080/v1/graphql"
-      NEXT_PUBLIC_HASURA_WS_IP: "ws://localhost:8080/v1/graphql"
-      NEXT_PUBLIC_HASURA_SECRET: change-me-admin-secret
-      NEXT_PUBLIC_API_URL: "http://localhost:24000"
+      NEXT_PUBLIC_HASURA_URL: "http://51.79.173.213:8080/v1/graphql"
+      NEXT_PUBLIC_HASURA_WS: "ws://hasura.activa.id/v1/graphql"
+      NEXT_PUBLIC_HASURA_WS_IP: "ws://51.79.173.213:8080/v1/graphql"
+      NEXT_PUBLIC_HASURA_SECRET: devhasurasecret
+      NEXT_PUBLIC_API_URL: "http://localhost:4000"
+      NEXT_PUBLIC_SITE_ID: "e1123daf-a4db-4ee1-88da-ba9bff382f45"
+      NEXT_PUBLIC_SITE_CODE: "MST-25-00001"
+      NEXT_PUBLIC_SITE_NAME: "Mampang"
+      NEXT_PUBLIC_SITE_LOCATION: "Central Office"
+      NEXT_PUBLIC_SITE_REGION: "Default"
       NEXT_PUBLIC_MINIO_URL: "http://51.79.173.213:9000"
     ports:
       - target: 3000
@@ -25,50 +31,52 @@ services:
       SERVICE: api
       SITE_CODE: MST-25-00001
       SITE_NAME: Mampang
-      SITE_LOCATION: Jakarta Selatan
-      SITE_REGION: JABODETABEK
+      SITE_LOCATION: Central Office
+      SITE_REGION: Default
 
-      DATABASE_URL: "postgres://postgres:postgres@host.docker.internal:5432/jatanlin?sslmode=disable"
+      DATABASE_URL: "postgres://jatanlin:SuperSecretPasswordBang123@51.79.173.213:5432/jatanlin?sslmode=disable"
       API_PORT: "4000"
-      JWT_SECRET: super-secret-jwt
-      AUTH_ENABLED: "true"
-      NATS_URL: "nats://nats:natspass@host.docker.internal:4222"
+      JWT_SECRET: "wim-secret-key-change-in-production-2024"
+      AUTH_ENABLED: "false"
+      NATS_URL: "nats://51.79.173.213:4222"
+      SESSION_WINDOW_SECONDS: "600"
 
-      ANPR_FTP_HOST: "host.docker.internal:21"
+      ANPR_FTP_HOST: "51.79.173.213:21"
       ANPR_FTP_USER: ftpuser
-      ANPR_FTP_PASS: ftppass
-      ANPR_FTP_DIR: /anpr
+      ANPR_FTP_PASS: ftpsecret123
+      ANPR_FTP_DIR: /home/ftpuser/anpr/
       ANPR_FTP_INTERVAL_SEC: "5"
 
-      AXLE_FTP_HOST: "host.docker.internal:21"
+      AXLE_FTP_HOST: "51.79.173.213:21"
       AXLE_FTP_USER: ftpuser
-      AXLE_FTP_PASS: ftppass
-      AXLE_FTP_DIR: /axle
+      AXLE_FTP_PASS: ftpsecret123
+      AXLE_FTP_DIR: /home/ftpuser/axle/
       AXLE_FTP_INTERVAL_SEC: "5"
 
       ANPR_MINIO_ENDPOINT: "51.79.173.213:9000"
-      ANPR_MINIO_ACCESS_KEY: minioadmin
-      ANPR_MINIO_SECRET_KEY: minioadmin123
+      ANPR_MINIO_ACCESS_KEY: admin
+      ANPR_MINIO_SECRET_KEY: admin12345
       ANPR_MINIO_BUCKET: anpr
       ANPR_MINIO_USE_SSL: "false"
 
       AXLE_MINIO_ENDPOINT: "51.79.173.213:9000"
-      AXLE_MINIO_ACCESS_KEY: minioadmin
-      AXLE_MINIO_SECRET_KEY: minioadmin123
+      AXLE_MINIO_ACCESS_KEY: admin
+      AXLE_MINIO_SECRET_KEY: admin12345
       AXLE_MINIO_BUCKET: axle
       AXLE_MINIO_USE_SSL: "false"
 
       ATTACHMENT_MINIO_ENDPOINT: "51.79.173.213:9000"
-      ATTACHMENT_MINIO_ACCESS_KEY: minioadmin
-      ATTACHMENT_MINIO_SECRET_KEY: minioadmin123
+      ATTACHMENT_MINIO_ACCESS_KEY: admin
+      ATTACHMENT_MINIO_SECRET_KEY: admin12345
       ATTACHMENT_MINIO_BUCKET: attachment
       ATTACHMENT_MINIO_USE_SSL: "false"
 
       DIMENSION_ENABLED: "true"
+      DIMENSION_DUMMY_ENABLED: "true"
       RTSP_URL: rtsp://admin:admin@192.168.1.18:554/live.sdp
-      WEIGHING_TRIGGER_URL: "http://jtn-wb:5000/ws/wim/anpr-capture"
+      WEIGHING_TRIGGER_URL: "http://localhost:5000/ws/wim/anpr-capture"
       WEIGHING_TRIGGER_DUMMY: "true"
-      CCTV_TRIGGER_URL: "http://jtn-cctv:8090/record"
+      CCTV_TRIGGER_URL: "http://localhost:8090/record"
       CCTV_TRIGGER_DUMMY: "true"
     ports:
       - target: 4000
@@ -88,29 +96,31 @@ services:
       SERVICE: anpr-watcher
       SITE_CODE: MST-25-00001
       SITE_NAME: Mampang
-      SITE_LOCATION: Jakarta Selatan
-      SITE_REGION: JABODETABEK
-      DATABASE_URL: "postgres://postgres:postgres@host.docker.internal:5432/jatanlin?sslmode=disable"
-      JWT_SECRET: super-secret-jwt
-      NATS_URL: "nats://nats:natspass@host.docker.internal:4222"
+      SITE_LOCATION: Central Office
+      SITE_REGION: Default
+      DATABASE_URL: "postgres://jatanlin:SuperSecretPasswordBang123@51.79.173.213:5432/jatanlin?sslmode=disable"
+      JWT_SECRET: "wim-secret-key-change-in-production-2024"
+      NATS_URL: "nats://51.79.173.213:4222"
+      SESSION_WINDOW_SECONDS: "600"
 
-      ANPR_FTP_HOST: "host.docker.internal:21"
+      ANPR_FTP_HOST: "51.79.173.213:21"
       ANPR_FTP_USER: ftpuser
-      ANPR_FTP_PASS: ftppass
-      ANPR_FTP_DIR: /anpr
+      ANPR_FTP_PASS: ftpsecret123
+      ANPR_FTP_DIR: /home/ftpuser/anpr/
       ANPR_FTP_INTERVAL_SEC: "5"
       ANPR_DUMMY_ENABLED: "true"
 
       ANPR_MINIO_ENDPOINT: "51.79.173.213:9000"
-      ANPR_MINIO_ACCESS_KEY: minioadmin
-      ANPR_MINIO_SECRET_KEY: minioadmin123
+      ANPR_MINIO_ACCESS_KEY: admin
+      ANPR_MINIO_SECRET_KEY: admin12345
       ANPR_MINIO_BUCKET: anpr
       ANPR_MINIO_USE_SSL: "false"
 
       DIMENSION_ENABLED: "true"
-      WEIGHING_TRIGGER_URL: "http://jtn-wb:5000/ws/wim/anpr-capture"
+      DIMENSION_DUMMY_ENABLED: "true"
+      WEIGHING_TRIGGER_URL: "http://localhost:5000/ws/wim/anpr-capture"
       WEIGHING_TRIGGER_DUMMY: "true"
-      CCTV_TRIGGER_URL: "http://jtn-cctv:8090/record"
+      CCTV_TRIGGER_URL: "http://localhost:8090/record"
       CCTV_TRIGGER_DUMMY: "true"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -125,22 +135,23 @@ services:
       SERVICE: axle-watcher
       SITE_CODE: MST-25-00001
       SITE_NAME: Mampang
-      SITE_LOCATION: Jakarta Selatan
-      SITE_REGION: JABODETABEK
-      DATABASE_URL: "postgres://postgres:postgres@host.docker.internal:5432/jatanlin?sslmode=disable"
-      JWT_SECRET: super-secret-jwt
-      NATS_URL: "nats://nats:natspass@host.docker.internal:4222"
+      SITE_LOCATION: Central Office
+      SITE_REGION: Default
+      DATABASE_URL: "postgres://jatanlin:SuperSecretPasswordBang123@51.79.173.213:5432/jatanlin?sslmode=disable"
+      JWT_SECRET: "wim-secret-key-change-in-production-2024"
+      NATS_URL: "nats://51.79.173.213:4222"
+      SESSION_WINDOW_SECONDS: "600"
 
-      AXLE_FTP_HOST: "host.docker.internal:21"
+      AXLE_FTP_HOST: "51.79.173.213:21"
       AXLE_FTP_USER: ftpuser
-      AXLE_FTP_PASS: ftppass
-      AXLE_FTP_DIR: /axle
+      AXLE_FTP_PASS: ftpsecret123
+      AXLE_FTP_DIR: /home/ftpuser/axle/
       AXLE_FTP_INTERVAL_SEC: "5"
       AXLE_DUMMY_ENABLED: "true"
 
       AXLE_MINIO_ENDPOINT: "51.79.173.213:9000"
-      AXLE_MINIO_ACCESS_KEY: minioadmin
-      AXLE_MINIO_SECRET_KEY: minioadmin123
+      AXLE_MINIO_ACCESS_KEY: admin
+      AXLE_MINIO_SECRET_KEY: admin12345
       AXLE_MINIO_BUCKET: axle
       AXLE_MINIO_USE_SSL: "false"
     extra_hosts:
