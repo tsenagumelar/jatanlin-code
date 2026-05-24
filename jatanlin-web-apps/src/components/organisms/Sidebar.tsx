@@ -15,6 +15,8 @@ import {
   VehicleCar24Filled,
   Settings24Regular,
   Settings24Filled,
+  ShieldKeyhole24Regular,
+  ShieldKeyhole24Filled,
   BookQuestionMark24Regular,
   BookQuestionMark24Filled,
 } from "@fluentui/react-icons";
@@ -64,6 +66,13 @@ const menuItems: MenuItem[] = [
     icon: <VehicleCar24Regular />,
     activeIcon: <VehicleCar24Filled />,
     section: "Master Data",
+  },
+  {
+    label: "License",
+    href: "/license",
+    icon: <ShieldKeyhole24Regular />,
+    activeIcon: <ShieldKeyhole24Filled />,
+    section: "Konfigurasi",
   },
   {
     label: "Konfigurasi",
