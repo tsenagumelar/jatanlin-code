@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
 
   // Private routes that require authentication
   const isPrivateRoute =
-    pathname.startsWith("/beranda") || pathname.startsWith("/(private)");
+    pathname.startsWith("/beranda") || pathname.startsWith("/(private)") || pathname.startsWith("/v2");
 
   // Redirect logic
   if (!isAuthenticated && isPrivateRoute) {

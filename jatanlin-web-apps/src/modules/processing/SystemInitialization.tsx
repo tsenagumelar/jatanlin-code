@@ -10,7 +10,9 @@ import {
 import {
   CheckmarkCircle24Filled,
   DismissCircle24Filled,
+  Warning24Filled,
 } from "@fluentui/react-icons";
+import { useSystemMode } from "@/src/hooks/useSystemMode";
 
 type DeviceStatus = "checking" | "connected" | "error";
 
@@ -56,6 +58,11 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
   variant = "full",
 }) => {
   const router = useRouter();
+  const { mode: systemMode } = useSystemMode();
+
+  // DEMO MODE from DB overrides env var — skip real device checks
+  const effectiveProdMode = isDeviceCheckProdMode && systemMode !== "DEMO";
+
   const [devices, setDevices] = useState<Device[]>(
     initialDevices.map((d) => ({ ...d, status: "checking" as DeviceStatus }))
   );
@@ -105,9 +112,10 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
 
         let isSuccess = true;
 
-        if (isDeviceCheckProdMode) {
+        if (effectiveProdMode) {
           isSuccess = await pingDevice(initialDevices[i].ip);
         } else {
+          // DEMO MODE or dev env — simulate fast check
           await new Promise((res) => setTimeout(res, 300));
         }
 
@@ -201,6 +209,20 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
     >
       <div className={`w-[80%] ${isClicker ? "min-w-6xl!" : "max-w-3xl"}`}>
         <Card className={isClicker ? "p-10! bg-black! border border-slate-700" : "p-8"}>
+          {/* DEMO MODE Banner */}
+          {systemMode === "DEMO" && (
+            <div className={`mb-4 flex items-center gap-2 rounded-lg px-4 py-3 border ${
+              isClicker
+                ? "bg-amber-900 border-amber-500 text-amber-100"
+                : "bg-amber-50 border-amber-200 text-amber-800"
+            }`}>
+              <Warning24Filled className="w-5 h-5 shrink-0" />
+              <p className={`text-sm font-semibold ${isClicker ? "text-amber-100 text-xl" : ""}`}>
+                DEMO MODE — pengecekan perangkat disimulasikan, bukan koneksi nyata
+              </p>
+            </div>
+          )}
+
           {/* Header */}
           <div className="mb-6 flex items-center justify-between">
             <div>

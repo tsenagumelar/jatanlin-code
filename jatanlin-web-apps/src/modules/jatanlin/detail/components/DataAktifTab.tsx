@@ -2,13 +2,14 @@
 'use client';
 
 import React from 'react';
-import { Card, CardHeader } from '@fluentui/react-components';
 import type { VehicleActualData } from '../../types';
 import { VehicleInfoCard } from './VehicleInfoCard';
 import { VehicleClassCard } from './VehicleClassCard';
 import { ViolationCard } from './ViolationCard';
 import { TimelineCard } from './TimelineCard';
 import { EvidenceCard } from './EvidenceCard';
+import { WimDetailCard } from './WimDetailCard';
+import { VacDetailCard } from './VacDetailCard';
 
 interface DataAktifTabProps {
   vehicle: VehicleActualData;
@@ -28,6 +29,12 @@ export const DataAktifTab: React.FC<DataAktifTabProps> = ({ vehicle }) => {
 
       {/* Kelas Kendaraan & Batas Legal */}
       <VehicleClassCard vehicle={vehicle} />
+
+      {/* WIM Detail & Error Codes */}
+      <WimDetailCard vehicle={vehicle} />
+
+      {/* VAC Axle Detail & Lift Axle Score */}
+      <VacDetailCard vehicle={vehicle} />
 
       {/* Timeline Proses & Evidence */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

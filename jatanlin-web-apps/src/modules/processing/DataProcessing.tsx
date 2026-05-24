@@ -1127,111 +1127,79 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-6 px-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm">
-              <CheckmarkCircle24Filled className="text-white w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
-                Proses Pengecekan ODOL
-              </h1>
-              <p className="text-sm text-gray-600 mt-0.5">
-                Monitoring penimbangan dan deteksi kendaraan waktu nyata
-              </p>
-            </div>
+      {/* Header — slim bar */}
+      <div className="bg-white border-b border-gray-100 px-5 py-2.5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+            <CheckmarkCircle24Filled className="text-white w-4 h-4" />
           </div>
-          <Button appearance="secondary" onClick={handleClickerMode}>
-            Mode Klik
-          </Button>
+          <div>
+            <span className="text-sm font-semibold text-gray-900 leading-none">Proses Pengecekan ODOL</span>
+            <span className="ml-2 text-xs text-gray-400 hidden sm:inline">Monitoring penimbangan &amp; deteksi kendaraan waktu nyata</span>
+          </div>
+        </div>
+        <Button appearance="subtle" size="small" onClick={handleClickerMode}>
+          Mode Klik
+        </Button>
+      </div>
+
+      {/* Stepper — compact inline pill strip */}
+      <div className="px-5 py-2 bg-white border-b border-gray-100 shrink-0">
+        <div className="relative flex items-center gap-0">
+          {/* Background track */}
+          <div className="absolute inset-y-1/2 left-4 right-4 h-px bg-gray-200 -translate-y-1/2" />
+          <div
+            className="absolute inset-y-1/2 left-4 h-px bg-blue-500 transition-all duration-500 -translate-y-1/2"
+            style={{ width: `calc(${((currentStepId - 1) / (displaySteps.length - 1)) * 100}% - 2rem)` }}
+          />
+          <div className="relative flex w-full justify-between">
+            {displaySteps.map((step) => {
+              const isClickable = step.status === "completed" && step.id >= 2;
+              const isSelected = effectiveDetailStepId === step.id;
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => isClickable && handleShowDetail(step.id)}
+                  disabled={!isClickable}
+                  title={step.title}
+                  className={`group flex flex-col items-center gap-0.5 focus:outline-none ${isClickable ? "cursor-pointer" : "cursor-default"}`}
+                >
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-200 border-2
+                      ${step.status === "completed"
+                        ? isSelected
+                          ? "bg-blue-600 border-blue-600 text-white ring-2 ring-blue-300"
+                          : "bg-green-600 border-green-600 text-white hover:bg-green-500"
+                        : step.status === "active"
+                          ? "bg-blue-600 border-blue-600 text-white animate-pulse"
+                          : "bg-white border-gray-300 text-gray-400"
+                      }`}
+                  >
+                    {step.status === "completed"
+                      ? <CheckmarkCircle24Filled className="w-3.5 h-3.5" />
+                      : <span>{step.id}</span>
+                    }
+                  </div>
+                  <span
+                    className={`text-[10px] font-medium leading-tight max-w-[4.5rem] text-center truncate
+                      ${step.status === "active" ? "text-blue-600" : step.status === "completed" ? "text-gray-600" : "text-gray-400"}`}
+                  >
+                    {step.title}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Stepper */}
-      <div className="mx-8 mt-6">
-        <Card className="shadow-sm bg-white">
-          <div className="p-2">
-            <div className="relative">
-              {/* Progress Line */}
-              <div className="absolute top-6 left-0 right-0 h-0.5 bg-gray-200" />
-              <div
-                className="absolute top-6 left-0 h-0.5 bg-blue-600 transition-all duration-500"
-                style={{ width: `${((currentStepId - 1) / 5) * 100}%` }}
-              />
-
-              {/* Steps */}
-              <div className="relative flex justify-between">
-                {displaySteps.map((step) => (
-                  <div
-                    key={step.id}
-                    className="flex flex-col items-center w-28"
-                  >
-                    <button
-                      onClick={() => {
-                        if (step.status === "completed" && step.id >= 2) {
-                          handleShowDetail(step.id);
-                        }
-                      }}
-                      disabled={step.status !== "completed" || step.id < 2}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 z-10 ${
-                        step.status === "completed"
-                          ? "bg-green-700 text-white cursor-pointer hover:bg-green-600 shadow-sm hover:shadow-md"
-                          : step.status === "active"
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "bg-white border-2 border-gray-300 text-gray-400"
-                      } ${
-                        step.status === "completed" && step.id >= 2
-                          ? ""
-                          : "cursor-default"
-                      } ${
-                        effectiveDetailStepId === step.id
-                          ? "ring-4 ring-blue-400"
-                          : ""
-                      }`}
-                    >
-                      {step.status === "completed" ? (
-                        <CheckmarkCircle24Filled className="w-5 h-5" />
-                      ) : (
-                        <span className="text-base font-semibold">
-                          {step.id}
-                        </span>
-                      )}
-                    </button>
-                    <div className="mt-2.5 text-center">
-                      <p
-                        className={`text-xs font-medium leading-tight ${
-                          step.status === "active"
-                            ? "text-blue-600"
-                            : step.status === "completed"
-                              ? "text-gray-700"
-                              : "text-gray-400"
-                        }`}
-                      >
-                        {step.title}
-                      </p>
-                      {step.status === "completed" && step.id >= 2 && (
-                        <span className="block text-[10px] text-green-600 mt-0.5 font-medium">
-                          Klik untuk detail
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-
       {/* Content Area */}
-      <div className="flex-1 mx-8 my-6 overflow-hidden">
+      <div className="flex-1 mx-5 my-4 overflow-hidden">
         <Card
           id="content-area"
           className="shadow-sm bg-white h-full flex flex-col"
         >
-          <div className="p-6 overflow-y-auto flex-1">
+          <div className="p-4 overflow-y-auto flex-1">
             {/* Step 1: Waiting */}
             {currentStepId === 1 && !effectiveDetailStepId && (
               <div className="space-y-5">
