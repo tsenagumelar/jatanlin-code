@@ -31,7 +31,7 @@ export const ProcessingModule: React.FC<ProcessingModuleProps> = ({
     ].join("");
   };
 
-  const handleInitComplete = async () => {
+  const handleInitComplete = async (isDummyMode: boolean) => {
     const now = new Date();
     const startedAt = now.toISOString();
     const sessionName = formatSessionName(now);
@@ -47,6 +47,7 @@ export const ProcessingModule: React.FC<ProcessingModuleProps> = ({
             started_at: startedAt,
             site_id: siteId,
             is_active: true,
+            is_dummy: isDummyMode,
             is_deleted: false,
             created_by: "00000000-0000-0000-0000-000000000000",
             created_date: startedAt,

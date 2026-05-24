@@ -35,9 +35,12 @@ func NewAttachmentHandler(endpoint, accessKey, secretKey, bucket string, useSSL 
 }
 
 type UploadResponse struct {
-	Success  bool   `json:"success"`
-	FilePath string `json:"file_path"`
-	Message  string `json:"message,omitempty"`
+	Success    bool   `json:"success"`
+	FilePath   string `json:"file_path"`
+	Bucket     string `json:"bucket,omitempty"`
+	DateFolder string `json:"date_folder,omitempty"`
+	ObjectName string `json:"object_name,omitempty"`
+	Message    string `json:"message,omitempty"`
 }
 
 // UploadImage handles image upload to MinIO
@@ -122,8 +125,11 @@ func (h *AttachmentHandler) UploadImage(c *fiber.Ctx) error {
 	log.Printf("[ATTACHMENT] Successfully uploaded: %s", filePath)
 
 	return c.JSON(UploadResponse{
-		Success:  true,
-		FilePath: filePath,
-		Message:  "File uploaded successfully",
+		Success:    true,
+		FilePath:   filePath,
+		Bucket:     h.Bucket,
+		DateFolder: "",
+		ObjectName: objectName,
+		Message:    "File uploaded successfully",
 	})
 }

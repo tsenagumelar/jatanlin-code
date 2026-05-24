@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/src/redux/hooks";
 import { logout } from "@/src/modules/login/slice";
@@ -16,12 +15,9 @@ import {
   Tooltip,
 } from "@fluentui/react-components";
 import {
-  Person24Regular,
   SignOut24Regular,
-  Settings24Regular,
-  Alert24Regular,
-  QuestionCircle24Regular,
   Navigation20Regular,
+  Calendar20Regular,
 } from "@fluentui/react-icons";
 import { useSidebar } from "@/src/contexts/SidebarContext";
 
@@ -29,7 +25,7 @@ export const Navbar: React.FC = () => {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.login);
-  const { isCollapsed, toggleSidebar } = useSidebar();
+  const { toggleSidebar } = useSidebar();
 
   const MINIO_URL = process.env.NEXT_PUBLIC_MINIO_URL || "";
 
@@ -46,47 +42,42 @@ export const Navbar: React.FC = () => {
     router.push("/login");
   };
 
-  return (
-    <nav className="h-12 bg-blue-800 flex items-center justify-between shadow-md">
-      {/* Left Section - Logo & Title & Menu Toggle */}
-      <div className="flex items-center">
-        <div
-          className={`flex items-center gap-2 px-3 bg-white transition-all duration-300 h-12 ${
-            isCollapsed ? "w-12" : "w-56"
-          }`}
-        >
-          <div className="w-8 h-8 flex items-center justify-center shrink-0">
-            <Image
-              src="/polantas.png"
-              alt="Logo Polantas"
-              width={32}
-              height={32}
-              className="object-contain"
-            />
-          </div>
-          {!isCollapsed && (
-            <span className="text-black font-extrabold text-lg whitespace-nowrap">
-              JATANLIN
-            </span>
-          )}
-        </div>
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const timeStr = now.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-        {/* Sidebar Toggle Button */}
-        <div className="px-4 border-l border-[#005A9E]">
-          <Tooltip content="Buka/Tutup Menu" relationship="label">
-            <button
-              onClick={toggleSidebar}
-              className="w-8 h-8 flex items-center justify-center text-white hover:bg-[#005A9E] rounded-sm transition-colors"
-            >
-              <Navigation20Regular />
-            </button>
-          </Tooltip>
-        </div>
+  return (
+    <nav className="h-12 bg-blue-800 flex items-center justify-between shadow-md px-3">
+      <div className="flex items-center">
+        <Tooltip content="Buka/Tutup Menu" relationship="label">
+          <button
+            onClick={toggleSidebar}
+            className="w-8 h-8 flex items-center justify-center text-white hover:bg-[#005A9E] rounded-sm transition-colors"
+          >
+            <Navigation20Regular />
+          </button>
+        </Tooltip>
       </div>
 
-      {/* Right Section - Actions & Profile */}
       <div className="flex items-center gap-2">
-        {/* Profile Menu */}
+        <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-sm bg-[#005A9E]">
+          <Calendar20Regular className="w-3.5 h-3.5 text-blue-100 shrink-0" />
+          <span className="text-[11px] text-blue-50 font-medium whitespace-nowrap">
+            {dateStr}
+          </span>
+          <span className="text-[11px] text-blue-200 whitespace-nowrap">
+            {timeStr} WIB
+          </span>
+        </div>
+
         <Menu>
           <MenuTrigger>
             <button className="flex items-center gap-2 hover:bg-[#005A9E] px-2 h-8 rounded-sm transition-colors">
@@ -100,12 +91,19 @@ export const Navbar: React.FC = () => {
                 color="colorful"
                 size={24}
               />
+              <div className="hidden sm:flex flex-col items-start leading-none">
+                <span className="text-[12px] font-semibold text-white max-w-[140px] truncate">
+                  {user?.full_name || "Pengguna"}
+                </span>
+                <span className="text-[10px] text-blue-200">
+                  {user?.master_role?.role_name || "-"}
+                </span>
+              </div>
             </button>
           </MenuTrigger>
 
           <MenuPopover>
             <MenuList>
-              {/* User Profile Info */}
               <div className="px-3 py-3 border-b border-gray-200">
                 <div className="flex items-center gap-3">
                   <Avatar
@@ -129,7 +127,6 @@ export const Navbar: React.FC = () => {
                 </div>
               </div>
 
-              {/* Logout Menu Item */}
               <MenuItem icon={<SignOut24Regular />} onClick={handleLogout}>
                 Keluar
               </MenuItem>

@@ -24,7 +24,7 @@ export type GetDimensionsByAnprIdQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetDimensionsByAnprIdQuery = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, site_id?: any | null }> };
+export type GetDimensionsByAnprIdQuery = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, updated_date?: any | null, site_id?: any | null }> };
 
 export type GetDimensionsBySiteQueryVariables = Types.Exact<{
   site_id: Types.Scalars['uuid']['input'];
@@ -63,7 +63,7 @@ export type SubscribeLatestDimensionSubscriptionVariables = Types.Exact<{
 }>;
 
 
-export type SubscribeLatestDimensionSubscription = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, updated_date?: any | null, site_id?: any | null }> };
+export type SubscribeLatestDimensionSubscription = { transact_dimension: Array<{ id: any, anpr_id?: any | null, filepath?: string | null, length?: any | null, width?: any | null, height?: any | null, is_active?: boolean | null, created_date?: any | null, site_id?: any | null }> };
 
 export type SubscribeDimensionsByAnprSubscriptionVariables = Types.Exact<{
   anpr_id: Types.Scalars['uuid']['input'];

@@ -2,7 +2,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { checkOdolViolation, VehicleActual, VehicleClassLimit } from "@/src/utils/odol";
+import { gql, useMutation } from "@apollo/client";
+import {
+  checkOdolViolation,
+  VehicleActual,
+  VehicleClassLimit,
+} from "@/src/utils/odol";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -39,6 +44,22 @@ import {
   useUpdateVehicleActualMutation,
 } from "@/src/graphql/hooks/transact-vehicle-actual";
 import {
+  useInsertAnprCaptureMutation,
+  useUpdateAnprCaptureMutation,
+} from "@/src/graphql/hooks/transact-anpr-capture";
+import {
+  useInsertAxleCaptureMutation,
+  useUpdateAxleCaptureMutation,
+} from "@/src/graphql/hooks/transact-axle-capture";
+import {
+  useInsertWeighingMutation,
+  useUpdateWeighingMutation,
+} from "@/src/graphql/hooks/transact-vehicke-weight";
+import {
+  useInsertDimensionMutation,
+  useUpdateDimensionMutation,
+} from "@/src/graphql/hooks/transact-vehicle-dimension";
+import {
   useInsertVehicleStatusMutation,
   useUpdateVehicleStatusMutation,
   useGetVehicleStatusByActualIdQuery,
@@ -51,6 +72,33 @@ import { getOdolTolerances } from "@/src/utils/odol";
 interface JatanlinVerifyModuleProps {
   id: string;
 }
+
+const INSERT_CCTV = gql`
+  mutation InsertCctv($object: transact_cctv_insert_input!) {
+    insert_transact_cctv_one(object: $object) {
+      id
+      filepath
+      filename
+    }
+  }
+`;
+
+const UPDATE_CCTV = gql`
+  mutation UpdateCctv($id: uuid!, $set: transact_cctv_set_input!) {
+    update_transact_cctv_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id
+      filepath
+      filename
+    }
+  }
+`;
+
+type UploadedImageMeta = {
+  filePath: string;
+  bucket?: string;
+  dateFolder?: string;
+  objectName?: string;
+};
 
 const formatDateTime = (dateString: any) => {
   if (!dateString) return "-";
@@ -78,6 +126,24 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
   const [actualHeight, setActualHeight] = useState("");
   const [actualWeight, setActualWeight] = useState("");
   const [actualTotalAxle, setActualTotalAxle] = useState("");
+  const [sourcePlateNo, setSourcePlateNo] = useState("");
+  const [sourceTotalAxle, setSourceTotalAxle] = useState("");
+  const [sourceWeightKg, setSourceWeightKg] = useState("");
+  const [sourceLength, setSourceLength] = useState("");
+  const [sourceWidth, setSourceWidth] = useState("");
+  const [sourceHeight, setSourceHeight] = useState("");
+  const [sourceAnprImagePath, setSourceAnprImagePath] = useState("");
+  const [sourceAxleImagePath, setSourceAxleImagePath] = useState("");
+  const [sourceCctvPath, setSourceCctvPath] = useState("");
+  const [sourceAnprBucket, setSourceAnprBucket] = useState("");
+  const [sourceAnprDateFolder, setSourceAnprDateFolder] = useState("");
+  const [sourceAnprObjectName, setSourceAnprObjectName] = useState("");
+  const [sourceAxleBucket, setSourceAxleBucket] = useState("");
+  const [sourceAxleDateFolder, setSourceAxleDateFolder] = useState("");
+  const [sourceAxleObjectName, setSourceAxleObjectName] = useState("");
+  const [uploadingSourceImage, setUploadingSourceImage] = useState<
+    "anpr" | "axle" | "cctv" | null
+  >(null);
   const [locationAddress, setLocationAddress] = useState("");
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLng, setLocationLng] = useState<number | null>(null);
@@ -86,6 +152,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [sourceActiveTab, setSourceActiveTab] = useState<
+    "anpr" | "axle" | "wim" | "dimension" | "cctv"
+  >("anpr");
   const [confirmAction, setConfirmAction] = useState<
     "save" | "verify" | "reject"
   >("save");
@@ -114,6 +184,14 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     useUpdateVehicleActualMutation({
       refetchQueries: ["GetVehicleActualById", "GetVehicleActuals"],
     });
+  const [insertAnprCapture] = useInsertAnprCaptureMutation();
+  const [updateAnprCapture] = useUpdateAnprCaptureMutation();
+  const [insertAxleCapture] = useInsertAxleCaptureMutation();
+  const [updateAxleCapture] = useUpdateAxleCaptureMutation();
+  const [insertWeighing] = useInsertWeighingMutation();
+  const [updateWeighing] = useUpdateWeighingMutation();
+  const [insertDimension] = useInsertDimensionMutation();
+  const [updateDimension] = useUpdateDimensionMutation();
 
   const [insertVehicleStatus, { loading: insertingStatus }] =
     useInsertVehicleStatusMutation({
@@ -133,13 +211,16 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       ],
     });
 
+  const [insertCctv] = useMutation(INSERT_CCTV);
+  const [updateCctv] = useMutation(UPDATE_CCTV);
+
   const submitting = updatingVehicle || insertingStatus || updatingStatus;
 
   const vehicle = data?.transact_vehicle_actual_by_pk;
   const existingStatus = statusData?.transact_vehicle_status?.[0];
   const vehicleClasses = React.useMemo(
     () => vehicleClassData?.master_vehicle_class || [],
-    [vehicleClassData?.master_vehicle_class]
+    [vehicleClassData?.master_vehicle_class],
   );
 
   // Find matching vehicle class based on total axle
@@ -162,7 +243,6 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     const parsed = parseFloat(String(value));
     return Number.isFinite(parsed) ? parsed / 1000 : null;
   }, [matchingVehicleClass?.class_3_weight]);
-
 
   // Check if form is valid (all required fields filled)
   const isFormValid = React.useMemo(() => {
@@ -219,6 +299,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     }
   }, [
     matchingVehicleClass,
+    class2WeightTon,
+    class3WeightTon,
     actualWeight,
     actualLength,
     actualWidth,
@@ -253,6 +335,45 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       setActualHeight(initial.height);
       setActualWeight(initial.weight);
       setActualTotalAxle(initial.totalAxle);
+      setSourcePlateNo(
+        vehicle.transact_anpr_capture?.plate_no ||
+          vehicle.transact_axle_capture?.plate_no ||
+          "",
+      );
+      setSourceTotalAxle(
+        vehicle.transact_axle_capture?.total_axles?.toString() ||
+          vehicle.transact_weighing?.total_axle?.toString() ||
+          "",
+      );
+      setSourceWeightKg(
+        vehicle.transact_weighing?.total_weight != null
+          ? Number(vehicle.transact_weighing.total_weight).toString()
+          : "",
+      );
+      setSourceLength(vehicle.transact_dimension?.length?.toString() || "");
+      setSourceWidth(vehicle.transact_dimension?.width?.toString() || "");
+      setSourceHeight(vehicle.transact_dimension?.height?.toString() || "");
+      setSourceAnprImagePath(
+        vehicle.transact_anpr_capture?.minio_full_image_object || "",
+      );
+      setSourceAnprBucket(vehicle.transact_anpr_capture?.minio_bucket || "");
+      setSourceAnprDateFolder(
+        vehicle.transact_anpr_capture?.minio_date_folder || "",
+      );
+      setSourceAnprObjectName(
+        vehicle.transact_anpr_capture?.minio_full_image_object || "",
+      );
+      setSourceAxleImagePath(
+        vehicle.transact_axle_capture?.minio_image_object || "",
+      );
+      setSourceAxleBucket(vehicle.transact_axle_capture?.minio_bucket || "");
+      setSourceAxleDateFolder(
+        vehicle.transact_axle_capture?.minio_date_folder || "",
+      );
+      setSourceAxleObjectName(
+        vehicle.transact_axle_capture?.minio_image_object || "",
+      );
+      setSourceCctvPath(vehicle.transact_cctv?.filepath || "");
       setLocationAddress(vehicle.location_address || "");
       setLocationLat(vehicle.location_lat ?? null);
       setLocationLng(vehicle.location_lng ?? null);
@@ -269,7 +390,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       () => {
         setLocationLat(null);
         setLocationLng(null);
-      }
+      },
     );
   }, []);
 
@@ -280,7 +401,9 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       const existingAttachments = existingStatus.attachment || [];
       if (existingAttachments.length > 0) {
         setAttachmentPaths(existingAttachments);
-        setAttachmentPreviews(existingAttachments.map((path) => getImageUrl(path)));
+        setAttachmentPreviews(
+          existingAttachments.map((path) => getImageUrl(path)),
+        );
       }
       if (existingAttachments.length === 0) {
         setAttachmentPaths([]);
@@ -317,7 +440,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             {
               method: "POST",
               body: formData,
-            }
+            },
           );
 
           const result = await response.json();
@@ -326,11 +449,14 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
           }
 
           throw new Error(result.message || "Upload gagal");
-        })
+        }),
       );
 
       const uploadedPaths = results
-        .filter((result): result is PromiseFulfilledResult<string> => result.status === "fulfilled")
+        .filter(
+          (result): result is PromiseFulfilledResult<string> =>
+            result.status === "fulfilled",
+        )
         .map((result) => result.value);
       const firstError = results.find((result) => result.status === "rejected");
 
@@ -351,12 +477,89 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       }
     };
 
-    uploadAll()
-      .finally(() => {
-        setUploadingAttachments(false);
-        e.target.value = "";
-      });
+    uploadAll().finally(() => {
+      setUploadingAttachments(false);
+      e.target.value = "";
+    });
   };
+
+  const uploadSourceImage = async (file: File): Promise<UploadedImageMeta> => {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Harap pilih file gambar");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("Ukuran file harus kurang dari 5MB");
+    }
+    const formData = new FormData();
+    formData.append("image", file);
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/attachment/upload`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+    const result = await response.json();
+    if (result.success && result.file_path) {
+      return {
+        filePath: result.file_path as string,
+        bucket: (result.bucket as string | undefined) || undefined,
+        dateFolder: (result.date_folder as string | undefined) || undefined,
+        objectName: (result.object_name as string | undefined) || undefined,
+      };
+    }
+    throw new Error(result.message || "Upload gagal");
+  };
+
+  const handleSourceImageUpload =
+    (type: "anpr" | "axle" | "cctv") =>
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setAttachmentError(null);
+      setUploadingSourceImage(type);
+      try {
+        const uploaded = await uploadSourceImage(file);
+        if (type === "anpr") {
+          setSourceAnprImagePath(uploaded.filePath);
+          const fallbackBucket = uploaded.filePath.includes("/")
+            ? uploaded.filePath.split("/")[0]
+            : "";
+          if (uploaded.bucket || fallbackBucket) {
+            setSourceAnprBucket(uploaded.bucket || fallbackBucket);
+          }
+          if (uploaded.dateFolder !== undefined) {
+            setSourceAnprDateFolder(uploaded.dateFolder);
+          }
+          setSourceAnprObjectName(
+            uploaded.objectName ||
+              uploaded.filePath.split("/").slice(1).join("/"),
+          );
+        }
+        if (type === "axle") {
+          setSourceAxleImagePath(uploaded.filePath);
+          const fallbackBucket = uploaded.filePath.includes("/")
+            ? uploaded.filePath.split("/")[0]
+            : "";
+          if (uploaded.bucket || fallbackBucket) {
+            setSourceAxleBucket(uploaded.bucket || fallbackBucket);
+          }
+          if (uploaded.dateFolder !== undefined) {
+            setSourceAxleDateFolder(uploaded.dateFolder);
+          }
+          setSourceAxleObjectName(
+            uploaded.objectName ||
+              uploaded.filePath.split("/").slice(1).join("/"),
+          );
+        }
+        if (type === "cctv") setSourceCctvPath(uploaded.filePath);
+      } catch (err: any) {
+        setAttachmentError(err?.message || "Gagal mengunggah gambar source.");
+      } finally {
+        setUploadingSourceImage(null);
+        e.target.value = "";
+      }
+    };
 
   const handleRemoveAttachment = (index: number) => {
     setAttachmentPaths((prev) => {
@@ -376,15 +579,227 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (!vehicle) return;
+
     try {
       let statusToSave = "draft";
       if (confirmAction === "verify") statusToSave = "verified";
       if (confirmAction === "reject") statusToSave = "rejected";
 
+      let sourceAnprId =
+        vehicle.transact_anpr_capture?.id || vehicle.anpr_id || null;
+      let sourceAxleId =
+        vehicle.transact_axle_capture?.id || vehicle.axle_id || null;
+      let sourceWeighingId =
+        vehicle.transact_weighing?.id || vehicle.transact_weighing_id || null;
+      let sourceDimensionId =
+        vehicle.transact_dimension?.id || vehicle.transact_dimension_id || null;
+      let sourceCctvId =
+        vehicle.transact_cctv?.id || vehicle.transact_cctv_id || null;
+      const hasExistingAnprImage =
+        !!vehicle.transact_anpr_capture?.minio_full_image_object;
+      const hasExistingAxleImage =
+        !!vehicle.transact_axle_capture?.minio_image_object;
+      const hasExistingCctvPath = !!vehicle.transact_cctv?.filepath;
+
+      if (sourceAnprId) {
+        await updateAnprCapture({
+          variables: {
+            id: sourceAnprId,
+            set: {
+              plate_no: sourcePlateNo || null,
+              minio_bucket:
+                hasExistingAnprImage || !sourceAnprObjectName
+                  ? undefined
+                  : sourceAnprBucket || undefined,
+              minio_date_folder:
+                hasExistingAnprImage || !sourceAnprObjectName
+                  ? undefined
+                  : sourceAnprDateFolder || undefined,
+              minio_full_image_object:
+                hasExistingAnprImage || !sourceAnprObjectName
+                  ? undefined
+                  : sourceAnprObjectName,
+              minio_plate_image_object:
+                hasExistingAnprImage || !sourceAnprObjectName
+                  ? undefined
+                  : sourceAnprObjectName,
+              updated_by: "00000000-0000-0000-0000-000000000000",
+              updated_date: new Date().toISOString(),
+            },
+          },
+        });
+      } else if (sourcePlateNo) {
+        const inserted = await insertAnprCapture({
+          variables: {
+            object: {
+              plate_no: sourcePlateNo,
+              captured_at: vehicle.created_date,
+              minio_bucket: sourceAnprBucket || null,
+              minio_date_folder: sourceAnprDateFolder || null,
+              minio_full_image_object: sourceAnprObjectName || null,
+              minio_plate_image_object: sourceAnprObjectName || null,
+              site_id: vehicle.site_id,
+              is_active: true,
+              is_deleted: false,
+              created_by: "00000000-0000-0000-0000-000000000000",
+              created_date: new Date().toISOString(),
+            },
+          },
+        });
+        sourceAnprId =
+          inserted.data?.insert_transact_anpr_capture_one?.id || null;
+      }
+
+      if (sourceAxleId) {
+        await updateAxleCapture({
+          variables: {
+            id: sourceAxleId,
+            set: {
+              plate_no: sourcePlateNo || null,
+              total_axles: sourceTotalAxle ? parseInt(sourceTotalAxle) : null,
+              minio_bucket:
+                hasExistingAxleImage || !sourceAxleObjectName
+                  ? undefined
+                  : sourceAxleBucket || undefined,
+              minio_date_folder:
+                hasExistingAxleImage || !sourceAxleObjectName
+                  ? undefined
+                  : sourceAxleDateFolder || undefined,
+              minio_image_object:
+                hasExistingAxleImage || !sourceAxleObjectName
+                  ? undefined
+                  : sourceAxleObjectName,
+              updated_by: "00000000-0000-0000-0000-000000000000",
+              updated_date: new Date().toISOString(),
+            },
+          },
+        });
+      } else if (sourcePlateNo || sourceTotalAxle) {
+        const inserted = await insertAxleCapture({
+          variables: {
+            object: {
+              plate_no: sourcePlateNo || null,
+              captured_at: vehicle.created_date,
+              total_axles: sourceTotalAxle ? parseInt(sourceTotalAxle) : null,
+              minio_bucket: sourceAxleBucket || null,
+              minio_date_folder: sourceAxleDateFolder || null,
+              minio_image_object: sourceAxleObjectName || null,
+              site_id: vehicle.site_id,
+              is_active: true,
+              is_deleted: false,
+              created_by: "00000000-0000-0000-0000-000000000000",
+              created_date: new Date().toISOString(),
+            },
+          },
+        });
+        sourceAxleId =
+          inserted.data?.insert_transact_axle_capture_one?.id || null;
+      }
+
+      if (sourceWeighingId) {
+        await updateWeighing({
+          variables: {
+            id: sourceWeighingId,
+            set: {
+              total_axle: sourceTotalAxle ? parseInt(sourceTotalAxle) : null,
+              total_weight: sourceWeightKg ? parseFloat(sourceWeightKg) : null,
+              updated_by: "00000000-0000-0000-0000-000000000000",
+              updated_date: new Date().toISOString(),
+            },
+          },
+        });
+      } else if (sourceTotalAxle || sourceWeightKg) {
+        const inserted = await insertWeighing({
+          variables: {
+            object: {
+              total_axle: sourceTotalAxle ? parseInt(sourceTotalAxle) : null,
+              total_weight: sourceWeightKg ? parseFloat(sourceWeightKg) : null,
+              site_id: vehicle.site_id,
+              is_active: true,
+              is_deleted: false,
+              created_by: "00000000-0000-0000-0000-000000000000",
+              created_date: new Date().toISOString(),
+            },
+          },
+        });
+        sourceWeighingId =
+          inserted.data?.insert_transact_weighing_one?.id || null;
+      }
+
+      if (sourceDimensionId) {
+        await updateDimension({
+          variables: {
+            id: sourceDimensionId,
+            set: {
+              length: sourceLength ? parseFloat(sourceLength) : null,
+              width: sourceWidth ? parseFloat(sourceWidth) : null,
+              height: sourceHeight ? parseFloat(sourceHeight) : null,
+              updated_by: "00000000-0000-0000-0000-000000000000",
+              updated_date: new Date().toISOString(),
+            },
+          },
+        });
+      } else if (sourceLength || sourceWidth || sourceHeight) {
+        const inserted = await insertDimension({
+          variables: {
+            object: {
+              anpr_id: sourceAnprId,
+              length: sourceLength ? parseFloat(sourceLength) : null,
+              width: sourceWidth ? parseFloat(sourceWidth) : null,
+              height: sourceHeight ? parseFloat(sourceHeight) : null,
+              site_id: vehicle.site_id,
+              is_active: true,
+              is_deleted: false,
+              created_by: "00000000-0000-0000-0000-000000000000",
+              created_date: new Date().toISOString(),
+            },
+          },
+        });
+        sourceDimensionId =
+          inserted.data?.insert_transact_dimension_one?.id || null;
+      }
+
+      if (sourceCctvId) {
+        if (!hasExistingCctvPath && sourceCctvPath) {
+          await updateCctv({
+            variables: {
+              id: sourceCctvId,
+              set: {
+                filepath: sourceCctvPath,
+                filename: sourceCctvPath.split("/").pop() || "cctv.jpg",
+                updated_by: "00000000-0000-0000-0000-000000000000",
+                updated_date: new Date().toISOString(),
+              },
+            },
+          });
+        }
+      } else if (sourceCctvPath) {
+        const inserted = await insertCctv({
+          variables: {
+            object: {
+              filepath: sourceCctvPath,
+              filename: sourceCctvPath.split("/").pop() || "cctv.jpg",
+              site_id: vehicle.site_id,
+              is_active: true,
+              is_deleted: false,
+              created_by: "00000000-0000-0000-0000-000000000000",
+              created_date: new Date().toISOString(),
+            },
+          },
+        });
+        sourceCctvId = inserted.data?.insert_transact_cctv_one?.id || null;
+      }
+
       await updateVehicleActual({
         variables: {
           id,
           set: {
+            anpr_id: sourceAnprId,
+            axle_id: sourceAxleId,
+            transact_weighing_id: sourceWeighingId,
+            transact_dimension_id: sourceDimensionId,
+            transact_cctv_id: sourceCctvId,
             actual_plat_no: actualPlatNo || null,
             actual_length: actualLength ? parseFloat(actualLength) : null,
             actual_width: actualWidth ? parseFloat(actualWidth) : null,
@@ -446,11 +861,11 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             {statusToSave === "verified"
               ? "Data berhasil diverifikasi"
               : statusToSave === "rejected"
-              ? "Data ditolak"
-              : "Data berhasil disimpan sebagai draf"}
+                ? "Data ditolak"
+                : "Data berhasil disimpan sebagai draf"}
           </ToastTitle>
         </Toast>,
-        { intent: "success" }
+        { intent: "success" },
       );
 
       setDialogOpen(false);
@@ -461,7 +876,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         <Toast>
           <ToastTitle>Gagal menyimpan verifikasi</ToastTitle>
         </Toast>,
-        { intent: "error" }
+        { intent: "error" },
       );
     }
   };
@@ -523,17 +938,50 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
   const anprImageUrl = vehicle.transact_anpr_capture
     ? getMinioImageUrl(
         vehicle.transact_anpr_capture.minio_bucket,
-        vehicle.transact_anpr_capture.minio_full_image_object
+        vehicle.transact_anpr_capture.minio_full_image_object,
       )
     : "";
   const axleImageUrl = vehicle.transact_axle_capture
     ? getMinioImageUrl(
         vehicle.transact_axle_capture.minio_bucket,
-        vehicle.transact_axle_capture.minio_image_object
+        vehicle.transact_axle_capture.minio_image_object,
       )
     : "";
   const cctv = (vehicle as any)?.transact_cctv;
   const cctvVideoUrl = cctv?.filepath ? getImageUrl(cctv.filepath) : "";
+
+  const sourceSectionMissing = {
+    anpr:
+      !vehicle.transact_anpr_capture?.id ||
+      !sourcePlateNo ||
+      !(
+        vehicle.transact_anpr_capture?.minio_full_image_object ||
+        sourceAnprImagePath
+      ),
+    axle:
+      !vehicle.transact_axle_capture?.id ||
+      !sourceTotalAxle ||
+      !(
+        vehicle.transact_axle_capture?.minio_image_object || sourceAxleImagePath
+      ),
+    wim: !vehicle.transact_weighing?.id || !sourceTotalAxle || !sourceWeightKg,
+    dimension: !vehicle.transact_dimension?.id || !sourceWidth || !sourceHeight,
+    cctv:
+      !vehicle.transact_cctv?.id ||
+      !(vehicle.transact_cctv?.filepath || sourceCctvPath),
+  };
+
+  const sourceTabs = (
+    [
+      { key: "anpr", label: "ANPR" },
+      { key: "axle", label: "AXLE" },
+      { key: "wim", label: "WIM" },
+      { key: "dimension", label: "DIMENSI" },
+      { key: "cctv", label: "CCTV" },
+    ] as const
+  ).filter((item) => sourceSectionMissing[item.key]);
+
+  const hasIncompleteSourceData = sourceTabs.length > 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -574,34 +1022,48 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                 matchingVehicleClass
                   ? "bg-blue-50 border border-blue-200"
                   : actualTotalAxle
-                  ? "bg-yellow-50 border border-yellow-200"
-                  : "bg-gray-50 border border-gray-200"
+                    ? "bg-yellow-50 border border-yellow-200"
+                    : "bg-gray-50 border border-gray-200"
               }
             >
               <div className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Info24Regular
-                    className={
-                      matchingVehicleClass
-                        ? "text-blue-600"
-                        : actualTotalAxle
-                        ? "text-yellow-600"
-                        : "text-gray-600"
-                    }
-                  />
-                  <h3
-                    className={
-                      matchingVehicleClass
-                        ? "font-semibold text-blue-900"
-                        : actualTotalAxle
-                        ? "font-semibold text-yellow-900"
-                        : "font-semibold text-gray-900"
-                    }
-                  >
-                    Informasi Kelas Kendaraan -{" "}
-                    {matchingVehicleClass?.type ||
-                      (actualTotalAxle ? "Tidak Ditemukan" : "Belum Diisi")}
-                  </h3>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Info24Regular
+                      className={
+                        matchingVehicleClass
+                          ? "text-blue-600"
+                          : actualTotalAxle
+                            ? "text-yellow-600"
+                            : "text-gray-600"
+                      }
+                    />
+                    <h3
+                      className={
+                        matchingVehicleClass
+                          ? "font-semibold text-blue-900"
+                          : actualTotalAxle
+                            ? "font-semibold text-yellow-900"
+                            : "font-semibold text-gray-900"
+                      }
+                    >
+                      Informasi Kelas Kendaraan -{" "}
+                      {matchingVehicleClass?.type ||
+                        (actualTotalAxle ? "Tidak Ditemukan" : "Belum Diisi")}
+                    </h3>
+                  </div>
+                  {hasIncompleteSourceData && (
+                    <Button
+                      appearance="outline"
+                      size="small"
+                      onClick={() => {
+                        setSourceActiveTab(sourceTabs[0]?.key || "anpr");
+                        setSourceDialogOpen(true);
+                      }}
+                    >
+                      Lengkapi Data
+                    </Button>
+                  )}
                 </div>
                 {!actualTotalAxle ? (
                   <p className="text-gray-600 text-sm mb-3">
@@ -621,8 +1083,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         matchingVehicleClass
                           ? "text-blue-600 font-medium mb-1"
                           : actualTotalAxle
-                          ? "text-yellow-600 font-medium mb-1"
-                          : "text-gray-600 font-medium mb-1"
+                            ? "text-yellow-600 font-medium mb-1"
+                            : "text-gray-600 font-medium mb-1"
                       }
                     >
                       Berat Maks (Kelas III)
@@ -632,8 +1094,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         matchingVehicleClass
                           ? "text-blue-900 font-semibold"
                           : actualTotalAxle
-                          ? "text-yellow-900 font-semibold"
-                          : "text-gray-900 font-semibold"
+                            ? "text-yellow-900 font-semibold"
+                            : "text-gray-900 font-semibold"
                       }
                     >
                       {class3WeightTon !== null
@@ -648,8 +1110,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         matchingVehicleClass
                           ? "text-blue-600 font-medium mb-1"
                           : actualTotalAxle
-                          ? "text-yellow-600 font-medium mb-1"
-                          : "text-gray-600 font-medium mb-1"
+                            ? "text-yellow-600 font-medium mb-1"
+                            : "text-gray-600 font-medium mb-1"
                       }
                     >
                       Panjang Maks
@@ -659,8 +1121,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         matchingVehicleClass
                           ? "text-blue-900 font-semibold"
                           : actualTotalAxle
-                          ? "text-yellow-900 font-semibold"
-                          : "text-gray-900 font-semibold"
+                            ? "text-yellow-900 font-semibold"
+                            : "text-gray-900 font-semibold"
                       }
                     >
                       {matchingVehicleClass?.length || "-"}{" "}
@@ -673,8 +1135,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         matchingVehicleClass
                           ? "text-blue-600 font-medium mb-1"
                           : actualTotalAxle
-                          ? "text-yellow-600 font-medium mb-1"
-                          : "text-gray-600 font-medium mb-1"
+                            ? "text-yellow-600 font-medium mb-1"
+                            : "text-gray-600 font-medium mb-1"
                       }
                     >
                       Lebar Maks
@@ -684,8 +1146,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         matchingVehicleClass
                           ? "text-blue-900 font-semibold"
                           : actualTotalAxle
-                          ? "text-yellow-900 font-semibold"
-                          : "text-gray-900 font-semibold"
+                            ? "text-yellow-900 font-semibold"
+                            : "text-gray-900 font-semibold"
                       }
                     >
                       {matchingVehicleClass?.width || "-"}{" "}
@@ -698,8 +1160,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         matchingVehicleClass
                           ? "text-blue-600 font-medium mb-1"
                           : actualTotalAxle
-                          ? "text-yellow-600 font-medium mb-1"
-                          : "text-gray-600 font-medium mb-1"
+                            ? "text-yellow-600 font-medium mb-1"
+                            : "text-gray-600 font-medium mb-1"
                       }
                     >
                       Tinggi Maks
@@ -709,8 +1171,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         matchingVehicleClass
                           ? "text-blue-900 font-semibold"
                           : actualTotalAxle
-                          ? "text-yellow-900 font-semibold"
-                          : "text-gray-900 font-semibold"
+                            ? "text-yellow-900 font-semibold"
+                            : "text-gray-900 font-semibold"
                       }
                     >
                       {matchingVehicleClass?.height || "-"}{" "}
@@ -728,7 +1190,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                     <Input
                       value={formatDateTime(
                         vehicle.transact_anpr_capture?.captured_at ||
-                          vehicle.created_date
+                          vehicle.created_date,
                       )}
                       readOnly
                       disabled
@@ -752,7 +1214,9 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       <option value="Normal">Normal</option>
                       <option value="Over Loading">Over Loading</option>
                       <option value="Over Dimension">Over Dimension</option>
-                      <option value="Over Dimension & Over Loading">Over Dimension & Over Loading</option>
+                      <option value="Over Dimension & Over Loading">
+                        Over Dimension & Over Loading
+                      </option>
                     </Select>
                   </Field>
                   <Field label="Berat (TON)">
@@ -919,8 +1383,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                                   exceeds
                                     ? "text-red-600"
                                     : isChanged
-                                    ? "text-yellow-700"
-                                    : "text-gray-900"
+                                      ? "text-yellow-700"
+                                      : "text-gray-900"
                                 }`}
                               >
                                 {newVal || "-"}
@@ -1067,7 +1531,6 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             </Card>
           </div>
         </div>
-
       </div>
 
       {/* Fixed Footer */}
@@ -1164,6 +1627,174 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                   {submitting ? "Menyimpan..." : "Simpan"}
                 </Button>
               )}
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      <Dialog
+        open={sourceDialogOpen}
+        onOpenChange={(_, data) => setSourceDialogOpen(data.open)}
+      >
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Lengkapi Data Source</DialogTitle>
+            <DialogContent>
+              <div className="space-y-4">
+                <div className="flex gap-2 flex-wrap">
+                  {sourceTabs.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setSourceActiveTab(tab.key)}
+                      className={`px-3 py-1.5 text-xs rounded-full border ${
+                        sourceActiveTab === tab.key
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-slate-600 border-slate-300"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {sourceActiveTab === "anpr" && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <Field label="Source Plate Number">
+                      <Input
+                        value={sourcePlateNo}
+                        onChange={(e) =>
+                          setSourcePlateNo(e.target.value.toUpperCase())
+                        }
+                        placeholder="Plat dari source"
+                      />
+                    </Field>
+                    <Field label="Source ANPR Image">
+                      <Input
+                        value={sourceAnprImagePath}
+                        readOnly
+                        placeholder="Belum ada gambar ANPR"
+                      />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSourceImageUpload("anpr")}
+                        disabled={
+                          !!vehicle.transact_anpr_capture
+                            ?.minio_full_image_object ||
+                          uploadingSourceImage !== null
+                        }
+                        className="mt-2 block w-full text-xs text-neutral-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700 disabled:opacity-60"
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {sourceActiveTab === "axle" && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <Field label="Source Total Axle">
+                      <Input
+                        type="number"
+                        value={sourceTotalAxle}
+                        onChange={(e) => setSourceTotalAxle(e.target.value)}
+                        placeholder="Jumlah as dari source"
+                      />
+                    </Field>
+                    <Field label="Source Axle Image">
+                      <Input
+                        value={sourceAxleImagePath}
+                        readOnly
+                        placeholder="Belum ada gambar AXLE"
+                      />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSourceImageUpload("axle")}
+                        disabled={
+                          !!vehicle.transact_axle_capture?.minio_image_object ||
+                          uploadingSourceImage !== null
+                        }
+                        className="mt-2 block w-full text-xs text-neutral-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700 disabled:opacity-60"
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {sourceActiveTab === "wim" && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <Field label="Source Total Axle (WIM)">
+                      <Input
+                        type="number"
+                        value={sourceTotalAxle}
+                        onChange={(e) => setSourceTotalAxle(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Source Weight (KG)">
+                      <Input
+                        type="number"
+                        value={sourceWeightKg}
+                        onChange={(e) => setSourceWeightKg(e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {sourceActiveTab === "dimension" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Field label="Source Length (m)">
+                      <Input
+                        type="number"
+                        value={sourceLength}
+                        onChange={(e) => setSourceLength(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Source Width (m)">
+                      <Input
+                        type="number"
+                        value={sourceWidth}
+                        onChange={(e) => setSourceWidth(e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Source Height (m)">
+                      <Input
+                        type="number"
+                        value={sourceHeight}
+                        onChange={(e) => setSourceHeight(e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {sourceActiveTab === "cctv" && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <Field label="Source CCTV Video">
+                      <Input
+                        value={sourceCctvPath}
+                        readOnly
+                        placeholder="Belum ada video CCTV"
+                      />
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={handleSourceImageUpload("cctv")}
+                        disabled={
+                          !!vehicle.transact_cctv?.filepath ||
+                          uploadingSourceImage !== null
+                        }
+                        className="mt-2 block w-full text-xs text-neutral-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700 disabled:opacity-60"
+                      />
+                    </Field>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                appearance="primary"
+                onClick={() => setSourceDialogOpen(false)}
+              >
+                Selesai
+              </Button>
             </DialogActions>
           </DialogBody>
         </DialogSurface>

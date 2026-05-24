@@ -129,7 +129,13 @@ func (dh *DimensionHandler) ProcessANPRImage(imagePath string, plateNumber strin
 }
 
 func (dh *DimensionHandler) ProcessANPRImageWithSession(imagePath string, plateNumber string, externalID string, sessionID *uuid.UUID) (*DimensionResult, error) {
-	if dh.DummyEnabled {
+	return dh.ProcessANPRImageWithSessionMode(imagePath, plateNumber, externalID, sessionID, dh.DummyEnabled)
+}
+
+// ProcessANPRImageWithSessionMode processes dimension using explicit per-session dummy mode.
+// This is used by session-driven watchers so behavior follows session.is_dummy.
+func (dh *DimensionHandler) ProcessANPRImageWithSessionMode(imagePath string, plateNumber string, externalID string, sessionID *uuid.UUID, sessionIsDummy bool) (*DimensionResult, error) {
+	if sessionIsDummy {
 		return dh.processDummyDimension(imagePath, plateNumber, externalID, sessionID)
 	}
 

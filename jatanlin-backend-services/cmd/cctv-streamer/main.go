@@ -93,18 +93,15 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dummyEnabled := getEnvBool("CCTV_TRIGGER_DUMMY", false)
 	sessionService := handler.NewSessionService(cfg.DB, cfg.SiteUUID, cfg.SessionWindowSeconds)
 	rtspURL := ""
-	if !dummyEnabled {
-		var err error
-		rtspURL, err = resolveRTSPURL(ctx)
-		if err != nil {
-			log.Fatal("[CCTV] Failed to resolve RTSP URL:", err)
-		}
+	rtspResolved := false
+	if resolvedURL, err := resolveRTSPURL(ctx); err == nil {
+		rtspURL = resolvedURL
+		rtspResolved = true
 		log.Printf("[CCTV] Stream URL: %s", redactRTSP(rtspURL))
 	} else {
-		log.Println("[CCTV] Dummy mode enabled: skipping RTSP connection")
+		log.Printf("[CCTV] RTSP unavailable, live session capture will be skipped until configured: %v", err)
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -128,7 +125,7 @@ func main() {
 		}
 	}()
 
-	if !dummyEnabled && getEnvBool("RECORD_ON_START", false) {
+	if rtspResolved && getEnvBool("RECORD_ON_START", false) {
 		go func() {
 			if _, err := service.recordUploadInsert(ctx, rtspURL, 0, "", ""); err != nil {
 				log.Printf("[CCTV] Record failed: %v", err)
@@ -145,57 +142,55 @@ func main() {
 		}()
 	}
 
-	if dummyEnabled {
-		go func() {
-			interval := time.Duration(getEnvInt("CCTV_DUMMY_INTERVAL_SEC", 5)) * time.Second
-			if interval <= 0 {
-				interval = 5 * time.Second
-			}
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
+	go func() {
+		interval := time.Duration(getEnvInt("CCTV_DUMMY_INTERVAL_SEC", 5)) * time.Second
+		if interval <= 0 {
+			interval = 5 * time.Second
+		}
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-			if err := service.processDummySession(ctx, sessionService); err != nil {
-				log.Printf("[CCTV] Initial dummy session processing failed: %v", err)
-			}
+		if err := service.processDummySession(ctx, sessionService); err != nil {
+			log.Printf("[CCTV] Initial dummy session processing failed: %v", err)
+		}
 
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					if err := service.processDummySession(ctx, sessionService); err != nil {
-						log.Printf("[CCTV] Dummy session processing failed: %v", err)
-					}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := service.processDummySession(ctx, sessionService); err != nil {
+					log.Printf("[CCTV] Dummy session processing failed: %v", err)
 				}
 			}
-		}()
-	} else {
-		go func() {
-			interval := time.Duration(getEnvInt("CCTV_SESSION_INTERVAL_SEC", 5)) * time.Second
-			if interval <= 0 {
-				interval = 5 * time.Second
-			}
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
+		}
+	}()
 
-			if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
-				log.Printf("[CCTV] Initial live session processing failed: %v", err)
-			}
+	go func() {
+		interval := time.Duration(getEnvInt("CCTV_SESSION_INTERVAL_SEC", 5)) * time.Second
+		if interval <= 0 {
+			interval = 5 * time.Second
+		}
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
-						log.Printf("[CCTV] Live session processing failed: %v", err)
-					}
+		if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
+			log.Printf("[CCTV] Initial live session processing failed: %v", err)
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := service.processLiveSession(ctx, sessionService, rtspURL); err != nil {
+					log.Printf("[CCTV] Live session processing failed: %v", err)
 				}
 			}
-		}()
-	}
+		}
+	}()
 
-	if !dummyEnabled {
+	if rtspResolved {
 		if err := runRTSP(ctx, rtspURL); err != nil && !errors.Is(err, context.Canceled) {
 			log.Printf("[CCTV] Stream ended: %v", err)
 		}
@@ -730,6 +725,9 @@ func (s *cctvService) processDummySession(ctx context.Context, sessionService *h
 		log.Println("[CCTV_DUMMY] No active IN_PROGRESS session found")
 		return nil
 	}
+	if !session.IsDummy {
+		return nil
+	}
 
 	filename := fmt.Sprintf("dummy-cctv-%s.mp4", session.ID.String())
 	filepath := fmt.Sprintf("dummy-cctv/%s.mp4", session.ID.String())
@@ -785,7 +783,7 @@ func (s *cctvService) processLiveSession(ctx context.Context, sessionService *ha
 		return fmt.Errorf("session service not configured")
 	}
 	if strings.TrimSpace(rtspURL) == "" {
-		return fmt.Errorf("rtsp url is empty")
+		return nil
 	}
 
 	session, err := sessionService.GetActiveSession()
@@ -793,6 +791,9 @@ func (s *cctvService) processLiveSession(ctx context.Context, sessionService *ha
 		return fmt.Errorf("active session check failed: %w", err)
 	}
 	if session == nil {
+		return nil
+	}
+	if session.IsDummy {
 		return nil
 	}
 

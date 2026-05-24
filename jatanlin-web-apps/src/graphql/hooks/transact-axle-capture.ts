@@ -64,7 +64,7 @@ export type SubscribeLatestAxleCaptureSubscriptionVariables = Types.Exact<{
 }>;
 
 
-export type SubscribeLatestAxleCaptureSubscription = { transact_axle_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_image_object?: string | null, site_id?: any | null, created_date?: any | null, updated_date?: any | null }> };
+export type SubscribeLatestAxleCaptureSubscription = { transact_axle_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, captured_at?: any | null, camera_id?: string | null, length_mm?: number | null, total_wheels?: number | null, total_axles?: number | null, vehicle_category?: string | null, vehicle_body_type?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_image_object?: string | null, updated_date?: any | null, site_id?: any | null, created_date?: any | null }> };
 
 
 export const GetAxleCapturesDocument = gql`
@@ -413,9 +413,9 @@ export const SubscribeLatestAxleCaptureDocument = gql`
     minio_bucket
     minio_date_folder
     minio_image_object
+    updated_date
     site_id
     created_date
-    updated_date
   }
 }
     `;

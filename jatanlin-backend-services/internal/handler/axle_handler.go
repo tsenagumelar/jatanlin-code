@@ -165,6 +165,10 @@ func (p *AxleProcessor) HandleNewFileAXLE(ctx context.Context, c *ftp.ServerConn
 		log.Println("[AXLE] No active IN_PROGRESS session found, skipping file:", name)
 		return true
 	}
+	if session.IsDummy {
+		log.Printf("[AXLE] Active session %s is in dummy mode, skipping FTP ingest", session.Code)
+		return true
+	}
 
 	log.Printf("[AXLE] Active session found: %s (Window: %ds)", session.Code, p.SessionService.SessionWindowSeconds)
 
@@ -187,6 +191,9 @@ func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
 	}
 	if session == nil {
 		log.Println("[AXLE_DUMMY] No active IN_PROGRESS session found")
+		return nil
+	}
+	if !session.IsDummy {
 		return nil
 	}
 

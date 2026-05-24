@@ -69,7 +69,7 @@ func main() {
 	log.Printf("  FTP Host:     %s", cfg.AxleFTPHost)
 	log.Printf("  FTP Dir:      %s", cfg.AxleFTPDir)
 	log.Printf("  Interval:     %v", cfg.AxleFTPInterval)
-	log.Printf("  Dummy Mode:   %v", cfg.AxleDummyEnabled)
+	log.Printf("  Dummy Mode:   session-based (transact_wim_session.is_dummy)")
 	log.Printf("  MinIO:        %s", cfg.AxleMinIOEndpoint)
 	log.Printf("  Bucket:       %s", cfg.AxleMinIOBucket)
 	log.Printf("  Session Window: %d seconds", cfg.SessionWindowSeconds)
@@ -89,34 +89,55 @@ func main() {
 		cancel()
 	}()
 
-	if cfg.AxleDummyEnabled {
-		log.Println("[AXLE] Starting dummy session listener...")
-		ticker := time.NewTicker(cfg.AxleFTPInterval)
-		defer ticker.Stop()
+	// Start session-aware loop:
+	// - If active session is_dummy=true: process dummy AXLE.
+	// - If active session is_dummy=false: ingest AXLE from FTP.
+	// - If no active session: skip current cycle.
+	log.Println("[AXLE] Starting session-aware watcher loop...")
+	ticker := time.NewTicker(cfg.AxleFTPInterval)
+	defer ticker.Stop()
 
-		if err := axleProcessor.ProcessDummySession(ctx); err != nil {
-			log.Printf("[AXLE] Initial dummy session processing failed: %v", err)
+	runCycle := func() {
+		session, err := sessionService.GetActiveSession()
+		if err != nil {
+			log.Printf("[AXLE] Active session check failed: %v", err)
+			return
 		}
+		if session == nil {
+			log.Println("[AXLE] No active IN_PROGRESS session found")
+			return
+		}
+		log.Printf(
+			"[AXLE] Active session found: id=%s code=%s is_dummy=%v site_id=%s",
+			session.ID.String(),
+			session.Code,
+			session.IsDummy,
+			session.SiteID.String(),
+		)
 
-		for {
-			select {
-			case <-ctx.Done():
-				log.Println("[AXLE] Dummy listener stopped")
-				log.Println("[AXLE] Shutdown complete. Goodbye!")
-				return
-			case <-ticker.C:
-				if err := axleProcessor.ProcessDummySession(ctx); err != nil {
-					log.Printf("[AXLE] Dummy session processing failed: %v", err)
-				}
+		if session.IsDummy {
+			if err := axleProcessor.ProcessDummySession(ctx); err != nil {
+				log.Printf("[AXLE] Dummy session processing failed: %v", err)
 			}
+			return
+		}
+
+		if err := axleWatcher.PollOnce(ctx); err != nil {
+			log.Printf("[AXLE] FTP polling failed: %v", err)
 		}
 	}
 
-	// Start watcher
-	log.Println("[AXLE] Starting FTP watcher...")
-	if err := axleWatcher.Start(ctx); err != nil {
-		log.Printf("[AXLE] Watcher stopped: %v", err)
-	}
+	// Run first cycle immediately.
+	runCycle()
 
-	log.Println("[AXLE] Shutdown complete. Goodbye!")
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("[AXLE] Watcher stopped")
+			log.Println("[AXLE] Shutdown complete. Goodbye!")
+			return
+		case <-ticker.C:
+			runCycle()
+		}
+	}
 }

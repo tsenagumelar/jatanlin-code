@@ -8,7 +8,7 @@ export type InsertTransactWimSessionMutationVariables = Types.Exact<{
 }>;
 
 
-export type InsertTransactWimSessionMutation = { insert_transact_wim_session_one?: { id: any, session_name?: string | null, status: string, started_at: any, site_id: any } | null };
+export type InsertTransactWimSessionMutation = { insert_transact_wim_session_one?: { id: any, session_name?: string | null, status: string, started_at: any, site_id: any, is_dummy?: boolean | null } | null };
 
 export type UpdateTransactWimSessionMutationVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
@@ -27,6 +27,7 @@ export const InsertTransactWimSessionDocument = gql`
     status
     started_at
     site_id
+    is_dummy
   }
 }
     `;

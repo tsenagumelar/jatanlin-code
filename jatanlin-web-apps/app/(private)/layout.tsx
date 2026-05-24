@@ -12,10 +12,10 @@ export default function PrivateLayout({
   return (
     <FluentProvider theme={webLightTheme}>
       <SidebarProvider>
-        <div className="h-screen flex flex-col bg-[#F3F2F1]">
-          <Navbar />
-          <div className="flex flex-1 overflow-hidden">
-            <Sidebar />
+        <div className="h-screen flex overflow-hidden bg-[#F3F2F1]">
+          <Sidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Navbar />
             <main className="flex-1 overflow-hidden bg-[#F3F2F1] flex flex-col">
               {children}
             </main>

@@ -46,7 +46,7 @@ interface DataProcessingProps {
 export const DataProcessing: React.FC<DataProcessingProps> = ({
   variant = "full",
 }) => {
-  const STEP_MIN_DURATION_MS = 3_000;
+  const STEP_MIN_DURATION_MS = 10_000;
   const FINAL_WAIT_IDLE_TIMEOUT_MS = 60_000;
 
   const router = useRouter();
@@ -486,7 +486,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     }
   }, [dimensionSubscriptionData, dimensionData, sessionId, setDimensionData]);
 
-  // Step 2-5: each step must stay at least 5s before moving.
+  // Step 2-5: each step must stay at least 13s before moving.
   const currentStepHasData = useMemo(() => {
     if (currentStepId === 2) return !!anprData;
     if (currentStepId === 3) return !!weightData;
@@ -1134,8 +1134,12 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
             <CheckmarkCircle24Filled className="text-white w-4 h-4" />
           </div>
           <div>
-            <span className="text-sm font-semibold text-gray-900 leading-none">Proses Pengecekan ODOL</span>
-            <span className="ml-2 text-xs text-gray-400 hidden sm:inline">Monitoring penimbangan &amp; deteksi kendaraan waktu nyata</span>
+            <span className="text-sm font-semibold text-gray-900 leading-none">
+              Proses Pengecekan ODOL
+            </span>
+            <span className="ml-2 text-xs text-gray-400 hidden sm:inline">
+              Monitoring penimbangan &amp; deteksi kendaraan waktu nyata
+            </span>
           </div>
         </div>
         <Button appearance="subtle" size="small" onClick={handleClickerMode}>
@@ -1150,7 +1154,9 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
           <div className="absolute inset-y-1/2 left-4 right-4 h-px bg-gray-200 -translate-y-1/2" />
           <div
             className="absolute inset-y-1/2 left-4 h-px bg-blue-500 transition-all duration-500 -translate-y-1/2"
-            style={{ width: `calc(${((currentStepId - 1) / (displaySteps.length - 1)) * 100}% - 2rem)` }}
+            style={{
+              width: `calc(${((currentStepId - 1) / (displaySteps.length - 1)) * 100}% - 2rem)`,
+            }}
           />
           <div className="relative flex w-full justify-between">
             {displaySteps.map((step) => {
@@ -1166,19 +1172,21 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                 >
                   <div
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-200 border-2
-                      ${step.status === "completed"
-                        ? isSelected
-                          ? "bg-blue-600 border-blue-600 text-white ring-2 ring-blue-300"
-                          : "bg-green-600 border-green-600 text-white hover:bg-green-500"
-                        : step.status === "active"
-                          ? "bg-blue-600 border-blue-600 text-white animate-pulse"
-                          : "bg-white border-gray-300 text-gray-400"
+                      ${
+                        step.status === "completed"
+                          ? isSelected
+                            ? "bg-blue-600 border-blue-600 text-white ring-2 ring-blue-300"
+                            : "bg-green-600 border-green-600 text-white hover:bg-green-500"
+                          : step.status === "active"
+                            ? "bg-blue-600 border-blue-600 text-white animate-pulse"
+                            : "bg-white border-gray-300 text-gray-400"
                       }`}
                   >
-                    {step.status === "completed"
-                      ? <CheckmarkCircle24Filled className="w-3.5 h-3.5" />
-                      : <span>{step.id}</span>
-                    }
+                    {step.status === "completed" ? (
+                      <CheckmarkCircle24Filled className="w-3.5 h-3.5" />
+                    ) : (
+                      <span>{step.id}</span>
+                    )}
                   </div>
                   <span
                     className={`text-[10px] font-medium leading-tight max-w-[4.5rem] text-center truncate

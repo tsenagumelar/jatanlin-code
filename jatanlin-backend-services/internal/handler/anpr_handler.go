@@ -185,6 +185,10 @@ func (p *FileProcessor) HandleNewFile(ctx context.Context, c *ftp.ServerConn, na
 		log.Println("[ANPR] No active IN_PROGRESS session found")
 		return true // Skip file but don't error
 	}
+	if session.IsDummy {
+		log.Printf("[ANPR] Active session %s is in dummy mode, skipping FTP ingest", session.Code)
+		return true
+	}
 	log.Printf("[ANPR] Active session found: %s", session.Code)
 
 	// Process batch of files while session is still active.
@@ -207,6 +211,9 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 	}
 	if session == nil {
 		log.Println("[ANPR_DUMMY] No active IN_PROGRESS session found")
+		return nil
+	}
+	if !session.IsDummy {
 		return nil
 	}
 
@@ -242,7 +249,7 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 	}
 
 	if p.DimensionHandler != nil {
-		if _, err := p.DimensionHandler.ProcessANPRImageWithSession("", meta.Plate, meta.ID, &session.ID); err != nil {
+		if _, err := p.DimensionHandler.ProcessANPRImageWithSessionMode("", meta.Plate, meta.ID, &session.ID, session.IsDummy); err != nil {
 			log.Printf("[ANPR_DUMMY] Dummy dimension failed for session=%s external_id=%s: %v", session.ID, meta.ID, err)
 		}
 	}
@@ -549,9 +556,9 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 		}
 		log.Printf("[ANPR] Enqueued insert: plate=%s id=%s session=%s", plateNo, file.metadata.ID, session.ID)
 
-		// Dimension remains explicitly dependent on ANPR image availability.
-		if p.DimensionHandler != nil && (file.fullImg != "" || p.DimensionHandler.DummyEnabled) {
-			if err := p.processDimensionsFromFTP(ctx, c, file.metadata, &session.ID, file.fullImg, fullImgUploaded, fullObj); err != nil {
+		// For session-driven flow, dimension mode follows session.is_dummy.
+		if p.DimensionHandler != nil && (file.fullImg != "" || session.IsDummy) {
+			if err := p.processDimensionsFromFTP(ctx, c, file.metadata, &session.ID, file.fullImg, fullImgUploaded, fullObj, session.IsDummy); err != nil {
 				_ = err
 			}
 		}
@@ -659,7 +666,7 @@ func (p *FileProcessor) processFileWithoutSession(ctx context.Context, c *ftp.Se
 
 	// Process vehicle dimensions if handler is set.
 	if p.DimensionHandler != nil && (fullImg != "" || p.DimensionHandler.DummyEnabled) {
-		if err := p.processDimensionsFromFTP(ctx, c, meta, nil, fullImg, fullImgUploaded, fullObj); err != nil {
+		if err := p.processDimensionsFromFTP(ctx, c, meta, nil, fullImg, fullImgUploaded, fullObj, p.DimensionHandler.DummyEnabled); err != nil {
 			_ = err
 		}
 	}
@@ -926,12 +933,12 @@ func (p *FileProcessor) processDimensions(ctx context.Context, meta *ANPRMetadat
 }
 
 // processDimensionsFromFTP processes dimensions directly from FTP or MinIO
-func (p *FileProcessor) processDimensionsFromFTP(ctx context.Context, c *ftp.ServerConn, meta *ANPRMetadata, sessionID *uuid.UUID, fullImgName string, uploaded bool, minioObject string) error {
+func (p *FileProcessor) processDimensionsFromFTP(ctx context.Context, c *ftp.ServerConn, meta *ANPRMetadata, sessionID *uuid.UUID, fullImgName string, uploaded bool, minioObject string, sessionIsDummy bool) error {
 	tmpFile := fmt.Sprintf("/tmp/anpr_%s.jpg", meta.ID)
 	defer os.Remove(tmpFile)
 
-	if p.DimensionHandler != nil && p.DimensionHandler.DummyEnabled {
-		_, err := p.DimensionHandler.ProcessANPRImageWithSession("", meta.Plate, meta.ID, sessionID)
+	if sessionIsDummy {
+		_, err := p.DimensionHandler.ProcessANPRImageWithSessionMode("", meta.Plate, meta.ID, sessionID, true)
 		if err != nil {
 			return fmt.Errorf("process dummy dimensions: %w", err)
 		}
@@ -975,7 +982,7 @@ func (p *FileProcessor) processDimensionsFromFTP(ctx context.Context, c *ftp.Ser
 	}
 
 	// Process dimensions
-	_, err := p.DimensionHandler.ProcessANPRImageWithSession(tmpFile, meta.Plate, meta.ID, sessionID)
+	_, err := p.DimensionHandler.ProcessANPRImageWithSessionMode(tmpFile, meta.Plate, meta.ID, sessionID, false)
 	if err != nil {
 		return fmt.Errorf("process dimensions: %w", err)
 	}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Button,
   Card,
+  Switch,
   Spinner,
 } from "@fluentui/react-components";
 import {
@@ -49,7 +50,7 @@ const initialDevices: Omit<Device, "status">[] = [
 ];
 
 interface SystemInitializationProps {
-  onComplete: () => void;
+  onComplete: (isDummyMode: boolean) => void;
   variant?: "full" | "simple";
 }
 
@@ -68,6 +69,7 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isChecking, setIsChecking] = useState(true);
+  const [isDummyMode, setIsDummyMode] = useState(systemMode === "DEMO");
 
   const buildDeviceUrl = useCallback((ipOrUrl?: string) => {
     if (!ipOrUrl) return null;
@@ -186,9 +188,9 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
     }
 
     if (allConnected) {
-      onComplete();
+      onComplete(isDummyMode);
     }
-  }, [allConnected, hasError, isChecking, onComplete]);
+  }, [allConnected, hasError, isChecking, isDummyMode, onComplete]);
 
   useEffect(() => {
     if (variant !== "simple") return;
@@ -252,6 +254,13 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
                 </Button>
               </div>
             )}
+          </div>
+          <div className="mb-4">
+            <Switch
+              checked={isDummyMode}
+              onChange={(_, data) => setIsDummyMode(Boolean(data.checked))}
+              label={isDummyMode ? "Dummy Mode Aktif" : "Dummy Mode Nonaktif"}
+            />
           </div>
 
           {/* Status Summary */}
@@ -430,7 +439,7 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
 
             <Button
               appearance="primary"
-              onClick={onComplete}
+              onClick={() => onComplete(isDummyMode)}
               disabled={isChecking || hasError}
               size={isClicker ? "large" : "medium"}
               className={isClicker ? "text-2xl px-8 py-6" : undefined}

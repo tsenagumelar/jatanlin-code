@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 )
@@ -254,12 +255,25 @@ func Load() (*Config, error) {
 	cfg.DB = db
 	log.Printf("[CONFIG] Database connection established for Site: %s (%s)", cfg.SiteCode, cfg.SiteName)
 
-	// Lookup site UUID from master_site table based on code
-	if err := cfg.loadSiteUUID(); err != nil {
-		log.Printf("[CONFIG] WARNING: Failed to lookup site UUID: %v", err)
-		log.Printf("[CONFIG] Make sure site code '%s' exists in master_site table", cfg.SiteCode)
+	// Resolve site UUID:
+	// 1) Prefer explicit SITE_ID from env (same UUID style used by web NEXT_PUBLIC_SITE_ID)
+	// 2) Fallback to lookup by SITE_CODE from master_site
+	explicitSiteID := getEnv("SITE_ID", "")
+	if explicitSiteID == "" {
+		explicitSiteID = getEnv("NEXT_PUBLIC_SITE_ID", "")
+	}
+
+	if explicitSiteID != "" {
+		if _, err := uuid.Parse(explicitSiteID); err != nil {
+			return nil, fmt.Errorf("invalid SITE_ID/NEXT_PUBLIC_SITE_ID '%s': %w", explicitSiteID, err)
+		}
+		cfg.SiteUUID = explicitSiteID
+		log.Printf("[CONFIG] Site UUID loaded from env SITE_ID: %s", cfg.SiteUUID)
 	} else {
-		log.Printf("[CONFIG] Site UUID loaded: %s", cfg.SiteUUID)
+		if err := cfg.loadSiteUUID(); err != nil {
+			return nil, fmt.Errorf("failed to resolve site UUID for SITE_CODE='%s': %w", cfg.SiteCode, err)
+		}
+		log.Printf("[CONFIG] Site UUID loaded from SITE_CODE lookup: %s", cfg.SiteUUID)
 	}
 
 	// Initialize central database connection if sync is enabled

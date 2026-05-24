@@ -119,7 +119,7 @@ func main() {
 	log.Printf("  FTP Host:         %s", cfg.ANPRFTPHost)
 	log.Printf("  FTP Dir:          %s", cfg.ANPRFTPDir)
 	log.Printf("  Interval:         %v", cfg.ANPRFTPInterval)
-	log.Printf("  Dummy Mode:       %v", cfg.ANPRDummyEnabled)
+	log.Printf("  Dummy Mode:       session-based (transact_wim_session.is_dummy)")
 	log.Printf("  MinIO:            %s", cfg.ANPRMinIOEndpoint)
 	log.Printf("  Bucket:           %s", cfg.ANPRMinIOBucket)
 	log.Printf("  Session Window:   %d seconds", cfg.SessionWindowSeconds)
@@ -145,34 +145,55 @@ func main() {
 		cancel()
 	}()
 
-	if cfg.ANPRDummyEnabled {
-		log.Println("[ANPR] Starting dummy session listener...")
-		ticker := time.NewTicker(cfg.ANPRFTPInterval)
-		defer ticker.Stop()
+	// Start session-aware loop:
+	// - If active session is_dummy=true: process dummy ANPR.
+	// - If active session is_dummy=false: ingest ANPR from FTP.
+	// - If no active session: skip current cycle.
+	log.Println("[ANPR] Starting session-aware watcher loop...")
+	ticker := time.NewTicker(cfg.ANPRFTPInterval)
+	defer ticker.Stop()
 
-		if err := anprProcessor.ProcessDummySession(ctx); err != nil {
-			log.Printf("[ANPR] Initial dummy session processing failed: %v", err)
+	runCycle := func() {
+		session, err := sessionService.GetActiveSession()
+		if err != nil {
+			log.Printf("[ANPR] Active session check failed: %v", err)
+			return
 		}
+		if session == nil {
+			log.Println("[ANPR] No active IN_PROGRESS session found")
+			return
+		}
+		log.Printf(
+			"[ANPR] Active session found: id=%s code=%s is_dummy=%v site_id=%s",
+			session.ID.String(),
+			session.Code,
+			session.IsDummy,
+			session.SiteID.String(),
+		)
 
-		for {
-			select {
-			case <-ctx.Done():
-				log.Println("[ANPR] Dummy listener stopped")
-				log.Println("[ANPR] Shutdown complete. Goodbye!")
-				return
-			case <-ticker.C:
-				if err := anprProcessor.ProcessDummySession(ctx); err != nil {
-					log.Printf("[ANPR] Dummy session processing failed: %v", err)
-				}
+		if session.IsDummy {
+			if err := anprProcessor.ProcessDummySession(ctx); err != nil {
+				log.Printf("[ANPR] Dummy session processing failed: %v", err)
 			}
+			return
+		}
+
+		if err := anprWatcher.PollOnce(ctx); err != nil {
+			log.Printf("[ANPR] FTP polling failed: %v", err)
 		}
 	}
 
-	// Start watcher
-	log.Println("[ANPR] Starting FTP watcher...")
-	if err := anprWatcher.Start(ctx); err != nil {
-		log.Printf("[ANPR] Watcher stopped: %v", err)
-	}
+	// Run first cycle immediately.
+	runCycle()
 
-	log.Println("[ANPR] Shutdown complete. Goodbye!")
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("[ANPR] Watcher stopped")
+			log.Println("[ANPR] Shutdown complete. Goodbye!")
+			return
+		case <-ticker.C:
+			runCycle()
+		}
+	}
 }

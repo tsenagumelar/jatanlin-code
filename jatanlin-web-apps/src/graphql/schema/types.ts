@@ -8940,6 +8940,7 @@ export type Transact_Wim_Session = {
   id: Scalars['uuid']['output'];
   is_active?: Maybe<Scalars['Boolean']['output']>;
   is_deleted?: Maybe<Scalars['Boolean']['output']>;
+  is_dummy?: Maybe<Scalars['Boolean']['output']>;
   /** An object relationship */
   masterUserByStartedBy?: Maybe<Master_User>;
   /** An object relationship */
@@ -9212,6 +9213,7 @@ export type Transact_Wim_Session_Bool_Exp = {
   id?: InputMaybe<Uuid_Comparison_Exp>;
   is_active?: InputMaybe<Boolean_Comparison_Exp>;
   is_deleted?: InputMaybe<Boolean_Comparison_Exp>;
+  is_dummy?: InputMaybe<Boolean_Comparison_Exp>;
   masterUserByStartedBy?: InputMaybe<Master_User_Bool_Exp>;
   master_site?: InputMaybe<Master_Site_Bool_Exp>;
   master_user?: InputMaybe<Master_User_Bool_Exp>;
@@ -9267,6 +9269,7 @@ export type Transact_Wim_Session_Insert_Input = {
   id?: InputMaybe<Scalars['uuid']['input']>;
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
+  is_dummy?: InputMaybe<Scalars['Boolean']['input']>;
   masterUserByStartedBy?: InputMaybe<Master_User_Obj_Rel_Insert_Input>;
   master_site?: InputMaybe<Master_Site_Obj_Rel_Insert_Input>;
   master_user?: InputMaybe<Master_User_Obj_Rel_Insert_Input>;
@@ -9428,6 +9431,7 @@ export type Transact_Wim_Session_Order_By = {
   id?: InputMaybe<Order_By>;
   is_active?: InputMaybe<Order_By>;
   is_deleted?: InputMaybe<Order_By>;
+  is_dummy?: InputMaybe<Order_By>;
   masterUserByStartedBy?: InputMaybe<Master_User_Order_By>;
   master_site?: InputMaybe<Master_Site_Order_By>;
   master_user?: InputMaybe<Master_User_Order_By>;
@@ -9473,6 +9477,8 @@ export enum Transact_Wim_Session_Select_Column {
   /** column name */
   IsDeleted = 'is_deleted',
   /** column name */
+  IsDummy = 'is_dummy',
+  /** column name */
   Notes = 'notes',
   /** column name */
   ProcessedVehicles = 'processed_vehicles',
@@ -9499,7 +9505,9 @@ export enum Transact_Wim_Session_Select_Column_Transact_Wim_Session_Aggregate_Bo
   /** column name */
   IsActive = 'is_active',
   /** column name */
-  IsDeleted = 'is_deleted'
+  IsDeleted = 'is_deleted',
+  /** column name */
+  IsDummy = 'is_dummy'
 }
 
 /** select "transact_wim_session_aggregate_bool_exp_bool_or_arguments_columns" columns of table "transact_wim_session" */
@@ -9507,7 +9515,9 @@ export enum Transact_Wim_Session_Select_Column_Transact_Wim_Session_Aggregate_Bo
   /** column name */
   IsActive = 'is_active',
   /** column name */
-  IsDeleted = 'is_deleted'
+  IsDeleted = 'is_deleted',
+  /** column name */
+  IsDummy = 'is_dummy'
 }
 
 /** input type for updating data in table "transact_wim_session" */
@@ -9522,6 +9532,7 @@ export type Transact_Wim_Session_Set_Input = {
   id?: InputMaybe<Scalars['uuid']['input']>;
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
+  is_dummy?: InputMaybe<Scalars['Boolean']['input']>;
   notes?: InputMaybe<Scalars['String']['input']>;
   /** Number of vehicles processed so far */
   processed_vehicles?: InputMaybe<Scalars['Int']['input']>;
@@ -9606,6 +9617,7 @@ export type Transact_Wim_Session_Stream_Cursor_Value_Input = {
   id?: InputMaybe<Scalars['uuid']['input']>;
   is_active?: InputMaybe<Scalars['Boolean']['input']>;
   is_deleted?: InputMaybe<Scalars['Boolean']['input']>;
+  is_dummy?: InputMaybe<Scalars['Boolean']['input']>;
   notes?: InputMaybe<Scalars['String']['input']>;
   /** Number of vehicles processed so far */
   processed_vehicles?: InputMaybe<Scalars['Int']['input']>;
@@ -9656,6 +9668,8 @@ export enum Transact_Wim_Session_Update_Column {
   IsActive = 'is_active',
   /** column name */
   IsDeleted = 'is_deleted',
+  /** column name */
+  IsDummy = 'is_dummy',
   /** column name */
   Notes = 'notes',
   /** column name */

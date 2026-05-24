@@ -6,6 +6,7 @@ mutation InsertTransactWimSession($object: transact_wim_session_insert_input!) {
     status
     started_at
     site_id
+    is_dummy
   }
 }
 

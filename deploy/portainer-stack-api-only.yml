@@ -28,19 +28,19 @@ services:
       AXLE_FTP_DIR: /axle
       AXLE_FTP_INTERVAL_SEC: "5"
 
-      ANPR_MINIO_ENDPOINT: "host.docker.internal:9000"
+      ANPR_MINIO_ENDPOINT: "51.79.173.213:9000"
       ANPR_MINIO_ACCESS_KEY: minioadmin
       ANPR_MINIO_SECRET_KEY: minioadmin123
       ANPR_MINIO_BUCKET: anpr
       ANPR_MINIO_USE_SSL: "false"
 
-      AXLE_MINIO_ENDPOINT: "host.docker.internal:9000"
+      AXLE_MINIO_ENDPOINT: "51.79.173.213:9000"
       AXLE_MINIO_ACCESS_KEY: minioadmin
       AXLE_MINIO_SECRET_KEY: minioadmin123
       AXLE_MINIO_BUCKET: axle
       AXLE_MINIO_USE_SSL: "false"
 
-      ATTACHMENT_MINIO_ENDPOINT: "host.docker.internal:9000"
+      ATTACHMENT_MINIO_ENDPOINT: "51.79.173.213:9000"
       ATTACHMENT_MINIO_ACCESS_KEY: minioadmin
       ATTACHMENT_MINIO_SECRET_KEY: minioadmin123
       ATTACHMENT_MINIO_BUCKET: attachment

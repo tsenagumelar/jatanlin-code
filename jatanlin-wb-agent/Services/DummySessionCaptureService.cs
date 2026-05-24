@@ -14,7 +14,6 @@ public sealed class DummySessionCaptureService : BackgroundService
     private readonly string? _siteCode;
     private Guid _siteId;
     private readonly bool _enabled;
-    private readonly bool _dummyEnabled;
     private readonly TimeSpan _interval;
     private readonly int _timeoutSeconds;
     private readonly string _direction;
@@ -35,8 +34,7 @@ public sealed class DummySessionCaptureService : BackgroundService
         _connectionString = NormalizePostgresConnectionString(
             config.GetConnectionString("PostgresDatabase")
             ?? Environment.GetEnvironmentVariable("DATABASE_URL"));
-        _dummyEnabled = GetBool(config, "WB_DUMMY_ENABLED", options.DummyEnabled);
-        _enabled = GetBool(config, "WB_SESSION_LISTENER_ENABLED", options.SessionListenerEnabled) || _dummyEnabled;
+        _enabled = GetBool(config, "WB_SESSION_LISTENER_ENABLED", options.SessionListenerEnabled);
         _interval = TimeSpan.FromSeconds(GetInt(config, "WB_SESSION_INTERVAL_SEC", options.SessionIntervalSec));
         _timeoutSeconds = NormalizeTimeout(GetInt(config, "WB_CAPTURE_TIMEOUT_SEC", options.CaptureTimeoutSec));
         _direction = NormalizeDirection(
@@ -92,10 +90,9 @@ public sealed class DummySessionCaptureService : BackgroundService
                 if (_siteId != Guid.Empty && !loggedReady)
                 {
                     _logger.LogInformation(
-                        "WB session listener enabled for site {SiteId} siteCode={SiteCode}. dummy={DummyEnabled} timeout={TimeoutSeconds}s direction={Direction}",
+                        "WB session listener enabled for site {SiteId} siteCode={SiteCode}. dummy=session-based(transact_wim_session.is_dummy) timeout={TimeoutSeconds}s direction={Direction}",
                         _siteId,
                         _siteCode,
-                        _dummyEnabled,
                         _timeoutSeconds,
                         _direction);
                     loggedReady = true;
@@ -156,7 +153,7 @@ public sealed class DummySessionCaptureService : BackgroundService
 
         try
         {
-            if (_dummyEnabled)
+            if (session.Value.IsDummy)
             {
                 await InsertDummyCaptureAsync(session.Value.Id, session.Value.SiteId, ct);
                 return;
@@ -305,10 +302,10 @@ public sealed class DummySessionCaptureService : BackgroundService
         return vehicle;
     }
 
-    private static async Task<(Guid Id, Guid SiteId)?> GetActiveSessionAsync(NpgsqlConnection conn, Guid siteId, CancellationToken ct)
+    private static async Task<(Guid Id, Guid SiteId, bool IsDummy)?> GetActiveSessionAsync(NpgsqlConnection conn, Guid siteId, CancellationToken ct)
     {
         const string sql = @"
-            SELECT id, site_id
+            SELECT id, site_id, COALESCE(is_dummy, false)
             FROM public.transact_wim_session
             WHERE site_id = @site_id
               AND status = 'IN_PROGRESS'
@@ -326,7 +323,7 @@ public sealed class DummySessionCaptureService : BackgroundService
             return null;
         }
 
-        return (reader.GetGuid(0), reader.GetGuid(1));
+        return (reader.GetGuid(0), reader.GetGuid(1), reader.GetBoolean(2));
     }
 
     private static async Task<bool> WeighingExistsAsync(NpgsqlConnection conn, Guid sessionId, CancellationToken ct)
