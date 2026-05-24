@@ -17,6 +17,7 @@ type Server struct {
 	AuthService       *auth.AuthService
 	AuthHandler       *AuthHandler
 	AttachmentHandler *handler.AttachmentHandler
+	VeamHandler       *handler.VeamHandler
 	AuthEnabled       bool
 }
 
@@ -41,6 +42,7 @@ func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *handler.Attachme
 		AuthService:       authService,
 		AuthHandler:       authHandler,
 		AttachmentHandler: attachmentHandler,
+		VeamHandler:       handler.NewVeamHandler(),
 		AuthEnabled:       authEnabled,
 	}
 
@@ -80,6 +82,10 @@ func (s *Server) setupRoutes() {
 		attachment.Use(JWTMiddleware(s.AuthService))
 	}
 	attachment.Post("/upload", s.AttachmentHandler.UploadImage)
+
+	// VEAM routes (no auth required — license scan is local operation)
+	veam := s.App.Group("/veam")
+	veam.Get("/scan-license", s.VeamHandler.ScanLicense)
 
 	// Note: WIM Session management is handled via Hasura GraphQL
 	// No REST API endpoints needed here

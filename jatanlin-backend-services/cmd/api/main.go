@@ -45,6 +45,7 @@ func main() {
 	log.Println("Public Endpoints:")
 	log.Printf("  - Health Check:  GET  /health")
 	log.Printf("  - Login:         POST /api/auth/login")
+	log.Printf("  - VEAM Scan USB: GET  /veam/scan-license")
 	log.Println("")
 	if cfg.AuthEnabled {
 		log.Println("Protected Endpoints (Require JWT Token):")
