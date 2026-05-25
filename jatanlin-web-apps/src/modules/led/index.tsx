@@ -236,6 +236,10 @@ export default function LedDisplay({
   onExitFullscreen,
 }: LedDisplayProps) {
   const styles = useStyles();
+  const formatDecimal = (value: unknown, fractionDigits = 1) =>
+    typeof value === "number" ? value.toFixed(fractionDigits) : "-";
+  const formatWeight = (value: unknown) =>
+    typeof value === "number" ? value.toLocaleString("id-ID") : "-";
 
   // Use Processing Context to get all data from processing page
   const {
@@ -294,7 +298,7 @@ export default function LedDisplay({
         }
         return {
           title: anprData.plate_no,
-          subtitle: `Akurasi: ${anprData.confidence.toFixed(1)}%`,
+          subtitle: `Akurasi: ${formatDecimal(anprData.confidence)}%`,
           icon: (
             <CheckmarkCircle24Filled
               style={{ fontSize: "128px", color: "#34d399" }}
@@ -320,7 +324,7 @@ export default function LedDisplay({
           };
         }
         return {
-          title: `${weightData.total_weight.toLocaleString("id-ID")} KG`,
+          title: `${formatWeight(weightData.total_weight)} KG`,
           subtitle: weightData.total_axle ? `Jumlah Sumbu: ${weightData.total_axle}` : "Berat Total Kendaraan",
           icon: (
             <CheckmarkCircle24Filled
@@ -374,14 +378,10 @@ export default function LedDisplay({
           };
         }
         return {
-          title: `P: ${dimensionData.length.toFixed(
-            1
-          )}m L: ${dimensionData.width.toFixed(
-            1
-          )}m T: ${dimensionData.height.toFixed(1)}m`,
-          subtitle: `Berat Total: ${weightData?.total_weight.toLocaleString(
-            "id-ID"
-          )} kg`,
+          title: `P: ${formatDecimal(dimensionData.length)}m L: ${formatDecimal(
+            dimensionData.width
+          )}m T: ${formatDecimal(dimensionData.height)}m`,
+          subtitle: `Berat Total: ${formatWeight(weightData?.total_weight)} kg`,
           icon: (
             <CheckmarkCircle24Filled
               style={{ fontSize: "128px", color: "#34d399" }}

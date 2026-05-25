@@ -18,7 +18,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	onvif "github.com/0x524a/onvif-go"
@@ -115,23 +114,23 @@ func main() {
 	rtsp.Set("")
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1)
+	signal.Notify(sigChan, signalSet()...)
 	go func() {
 		for sig := range sigChan {
-			switch sig {
-			case syscall.SIGUSR1:
-				// Trigger recording on demand: kill -USR1 <pid>
+			if isManualRecordSignal(sig) {
+				// Trigger recording on demand (unix: kill -USR1 <pid>)
 				go func() {
 					if _, err := service.recordUploadInsert(ctx, rtsp.Get(), 0, "", ""); err != nil {
 						log.Printf("[CCTV] Record failed: %v", err)
 					}
 				}()
-			default:
-				log.Println("")
-				log.Println("[CCTV] Shutting down...")
-				cancel()
-				return
+				continue
 			}
+
+			log.Println("")
+			log.Println("[CCTV] Shutting down...")
+			cancel()
+			return
 		}
 	}()
 
