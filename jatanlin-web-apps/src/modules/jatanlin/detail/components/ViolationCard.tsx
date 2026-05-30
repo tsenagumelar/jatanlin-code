@@ -55,30 +55,33 @@ export const ViolationCard: React.FC<ViolationCardProps> = ({ vehicle }) => {
 <title>Sticker ODOL</title>
 <style>
 * { box-sizing: border-box; }
-body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
+@page { size: 62mm 100mm; margin: 0; }
+html, body { margin: 0; padding: 0; width: 62mm; font-family: Arial, Helvetica, sans-serif; }
 .sticker, body {
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-.page { width: 280mm; height: 120mm; padding: 10mm; }
+.page { width: 62mm; min-height: 100mm; padding: 2.5mm; }
 .sticker {
   width: 100%; height: 100%;
   background: #d90429;
-  border: 8px solid #2b2d42;
-  border-radius: 6px; color: #fff; position: relative;
+  border: 2mm solid #2b2d42;
+  border-radius: 2mm; color: #fff; position: relative;
   display: flex; flex-direction: column; justify-content: center; align-items: center;
-  text-align: center;
+  text-align: center; padding: 13mm 2.5mm 9mm;
 }
-.title { font-size: 56px; font-weight: 900; letter-spacing: 2px; margin: 6mm 0 2mm; }
-.subtitle { font-size: 34px; font-weight: 800; color: #ffea00; text-shadow: 0 1px 0 rgba(0,0,0,.25); }
+.title { font-size: 7mm; line-height: 1; font-weight: 900; letter-spacing: .2mm; margin: 1.5mm 0; }
+.subtitle { font-size: 4mm; line-height: 1.2; font-weight: 800; color: #ffea00; text-shadow: 0 1px 0 rgba(0,0,0,.25); }
 .subtitle small { color: #ffe066; font-weight: 800; }
-.meta { position: absolute; top: 8mm; right: 8mm; background: #ffcc99; color: #111; padding: 4mm 5mm; border-radius: 4px; font-weight: 700; font-size: 14px; }
-.footer { position: absolute; bottom: 6mm; left: 6mm; right: 6mm; color: #fff; opacity: .95; font-size: 12px; display:flex; justify-content:space-between; align-items:center }
-.badge { display:inline-block; padding: 6px 10px; border-radius: 999px; font-weight:800; }
+.meta { position: absolute; top: 2.5mm; left: 2.5mm; right: 2.5mm; background: #ffcc99; color: #111; padding: 1.2mm 1.5mm; border-radius: 1mm; font-weight: 700; font-size: 2.5mm; text-align: left; line-height: 1.25; }
+.footer { position: absolute; bottom: 2.5mm; left: 2.5mm; right: 2.5mm; color: #fff; opacity: .95; font-size: 2.3mm; line-height: 1.2; display:flex; justify-content:space-between; align-items:flex-end; gap: 1.5mm; }
+.footer-text { max-width: 37mm; text-align: left; }
+.badge { display:inline-block; padding: 1mm 1.8mm; border-radius: 999px; font-weight:800; font-size: 2.6mm; white-space: nowrap; }
 .badge-violation { background:#ffd60a; color:#9a031e; }
 .badge-ok { background:#34d399; color:#064e3b; }
 @media print {
-  body { background: #fff; }
+  body { background: #fff; width: 62mm; }
+  html, body, .page { overflow: hidden; }
   .sticker { background: #d90429 !important; }
 }
 </style>
@@ -98,7 +101,7 @@ body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
         }>OVER LOADING</span>
       </div>
       <div class="footer">
-        <div>OPERASI PENERTIBAN KENDARAAN OVER DIMENSION &amp; OVER LOADING</div>
+        <div class="footer-text">OPERASI PENERTIBAN KENDARAAN OVER DIMENSION &amp; OVER LOADING</div>
         <div class="${
           isViolation ? "badge badge-violation" : "badge badge-ok"
         }">${activeText}</div>
