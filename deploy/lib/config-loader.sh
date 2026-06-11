@@ -78,7 +78,7 @@ load_config() {
   : "${AXLE_MINIO_BUCKET:=axle}"
   : "${ATTACHMENT_MINIO_BUCKET:=attachment}"
 
-  : "${ANPR_FTP_DIR:=/anpr}"
+  : "${ANPR_FTP_DIR:=/ftp/ftpuser/anpr/}"
   : "${ANPR_FTP_USER:=ftpuser}"
   : "${ANPR_FTP_PASS:=ftppass}"
   : "${ANPR_FTP_INTERVAL_SEC:=5}"

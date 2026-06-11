@@ -371,7 +371,27 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
     console.log("✅ Weight Data Received/Updated:", nextWeightData);
     setWeightData(nextWeightData);
-  }, [weightSubscriptionData, weightData, sessionId, setWeightData]);
+
+    const axleCount = weight.total_axle ?? null;
+    const vehicleClass =
+      axleCount != null ? findClosestVehicleClass(axleCount) : null;
+    if (vehicleClass) {
+      console.log(
+        "✅ Vehicle Class Found (WIM Axle: " + axleCount + "):",
+        vehicleClass,
+      );
+      setVehicleClassData(vehicleClass);
+    } else {
+      console.warn("⚠️ No vehicle class found for WIM axle count:", axleCount);
+    }
+  }, [
+    weightSubscriptionData,
+    weightData,
+    findClosestVehicleClass,
+    sessionId,
+    setWeightData,
+    setVehicleClassData,
+  ]);
 
   // Handle Axle Data (always listen in background after countdown)
   useEffect(() => {
@@ -404,26 +424,11 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
     console.log("✅ Axle Data Received/Updated:", nextAxleData);
     setAxleData(nextAxleData);
-
-    const axleCount = axle.total_axles ?? null;
-    const vehicleClass =
-      axleCount != null ? findClosestVehicleClass(axleCount) : null;
-    if (vehicleClass) {
-      console.log(
-        "✅ Vehicle Class Found (Axle: " + axleCount + "):",
-        vehicleClass,
-      );
-      setVehicleClassData(vehicleClass);
-    } else {
-      console.warn("⚠️ No vehicle class found for axle count:", axleCount);
-    }
   }, [
     axleSubscriptionData,
     axleData,
-    findClosestVehicleClass,
     sessionId,
     setAxleData,
-    setVehicleClassData,
   ]);
 
   // Handle CCTV Data (always listen in background after countdown)
@@ -490,10 +495,10 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
   const currentStepHasData = useMemo(() => {
     if (currentStepId === 2) return !!anprData;
     if (currentStepId === 3) return !!weightData;
-    if (currentStepId === 4) return !!axleData;
+    if (currentStepId === 4) return weightData?.total_axle != null;
     if (currentStepId === 5) return !!dimensionData;
     return false;
-  }, [currentStepId, anprData, weightData, axleData, dimensionData]);
+  }, [currentStepId, anprData, weightData, dimensionData]);
 
   useEffect(() => {
     currentStepHasDataRef.current = currentStepHasData;
@@ -521,11 +526,11 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
     () => ({
       anpr: !!anprData,
       weight: !!weightData,
-      axle: !!axleData,
+      axle: weightData?.total_axle != null,
       dimension: !!dimensionData,
       cctv: !!cctvData,
     }),
-    [anprData, weightData, axleData, dimensionData, cctvData],
+    [anprData, weightData, dimensionData, cctvData],
   );
 
   const isFinalDataComplete = Object.values(finalDataPresence).every(Boolean);
@@ -549,15 +554,11 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
         session_id: sessionId,
         site_id: siteId,
         actual_width: dimensionData?.width ?? null,
-        actual_length:
-          axleData?.length_mm != null
-            ? axleData.length_mm / 1000
-            : (axleData?.length ?? dimensionData?.length ?? null),
+        actual_length: dimensionData?.length ?? null,
         actual_height: dimensionData?.height ?? null,
         actual_weight: weightData?.total_weight ?? null,
         actual_plat_no: anprData?.plate_no ?? null,
-        actual_total_axle:
-          weightData?.total_axle ?? axleData?.total_axles ?? null,
+        actual_total_axle: weightData?.total_axle ?? null,
         is_active: true,
         is_deleted: false,
         created_by: "00000000-0000-0000-0000-000000000000",
@@ -737,9 +738,9 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
   useEffect(() => {
     const hasAnalysisData =
       weightData?.total_weight != null &&
+      dimensionData?.length != null &&
       dimensionData?.width != null &&
       dimensionData?.height != null &&
-      (axleData?.length != null || dimensionData?.length != null) &&
       vehicleClassData;
 
     if (hasAnalysisData && !contextViolationResult) {
@@ -748,7 +749,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
       // So we need to convert KG to TON for comparison
       const actual: VehicleActual = {
         total_weight: weightData.total_weight / 1000, // Convert KG to TON
-        length: axleData?.length ?? dimensionData.length,
+        length: dimensionData.length,
         width: dimensionData.width,
         height: dimensionData.height,
       };
@@ -774,8 +775,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
         class_3_weight: class3WeightTon.toString(),
       };
       const tolerances = getOdolTolerances(configData?.master_config);
-      const axleCount =
-        axleData?.total_axles || vehicleClassData?.total_axle || 0;
+      const axleCount = weightData?.total_axle || vehicleClassData?.total_axle || 0;
       const result = checkOdolViolation(actual, limit, {
         axleCount,
         toleranceWeightPercent: tolerances.weightPercent,
@@ -795,7 +795,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
         actual: {
           weight_kg: weightData.total_weight,
           weight_ton: weightData.total_weight / 1000,
-          length: axleData?.length ?? dimensionData.length,
+          length: dimensionData.length,
           width: dimensionData.width,
           height: dimensionData.height,
         },
@@ -815,12 +815,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
   ]);
 
   const violationResult = contextViolationResult;
-  const dimensionLengthValue =
-    axleData?.length_mm != null
-      ? axleData.length_mm / 1000
-      : axleData?.length != null
-        ? axleData.length
-        : (dimensionData?.length ?? 0);
+  const dimensionLengthValue = dimensionData?.length ?? 0;
   const formatNumber = (value: number | null | undefined, fallback = "-") =>
     value != null ? value.toLocaleString("id-ID") : fallback;
   const formatFixed = (
@@ -1008,14 +1003,14 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
 
                   {(currentStepId === 4 || effectiveDetailStepId === 4) && (
                     <div className="space-y-4">
-                      {!axleData ? (
+                      {weightData?.total_axle == null ? (
                         <p className="text-3xl text-blue-200">
                           Menunggu data sumbu...
                         </p>
                       ) : (
                         <div className="space-y-3">
                           <p className="text-8xl font-black text-emerald-200">
-                            {axleData.total_axles} SUMBU
+                            {weightData.total_axle} SUMBU
                           </p>
                         </div>
                       )}
@@ -1444,7 +1439,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                   Deteksi Konfigurasi Sumbu
                 </h2>
 
-                {!axleData ? (
+                {weightData?.total_axle == null ? (
                   <div className="text-center py-10">
                     <Spinner size="extra-large" className="mb-3" />
                     <p className="text-lg font-semibold text-gray-700 mt-3">
@@ -1455,7 +1450,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                     <p className="text-sm text-gray-500 mt-1">
                       {timedOutSteps.includes(4)
                         ? "Sistem lanjut ke step berikutnya, listener tetap berjalan di background"
-                        : "Menunggu hasil kamera sumbu"}
+                        : "Menunggu total sumbu dari WIM"}
                     </p>
                   </div>
                 ) : (
@@ -1471,7 +1466,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                             Total Sumbu
                           </p>
                           <p className="text-4xl font-black text-gray-900 font-mono">
-                            {axleData.total_axles}
+                            {weightData.total_axle}
                           </p>
                         </div>
                         <div className="bg-white rounded-lg px-6 py-4 shadow-sm border-2 border-gray-300">
@@ -1479,7 +1474,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                             Total Roda
                           </p>
                           <p className="text-4xl font-black text-gray-900 font-mono">
-                            {axleData.total_wheels}
+                            {axleData?.total_wheels ?? "-"}
                           </p>
                         </div>
                         <div className="bg-white rounded-lg px-6 py-4 shadow-sm border-2 border-gray-300">
@@ -1496,7 +1491,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                     {/* Image and Details Grid */}
                     <div className="grid grid-cols-2 gap-4">
                       {/* Image */}
-                      {axleData.minio_bucket && axleData.minio_image_object && (
+                      {axleData?.minio_bucket && axleData?.minio_image_object && (
                         <div className="relative h-full rounded-lg overflow-hidden border border-gray-200 bg-gray-900 shadow-sm">
                           <Image
                             src={getMinioImageUrl(
@@ -1530,7 +1525,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                             Waktu Deteksi
                           </p>
                           <p className="text-sm font-semibold text-gray-900">
-                            {axleData.created_date
+                            {axleData?.created_date
                               ? new Date(axleData.created_date).toLocaleString(
                                   "id-ID",
                                   {
@@ -1551,7 +1546,7 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                             ID Ref
                           </p>
                           <p className="text-xs font-mono text-gray-700 break-all">
-                            {axleData.id}
+                            {axleData?.id ?? "-"}
                           </p>
                         </div>
                       </div>
@@ -1769,11 +1764,11 @@ export const DataProcessing: React.FC<DataProcessingProps> = ({
                       </p>
                       <p className="mt-2 text-sm text-gray-600">Konfigurasi</p>
                       <p className="text-2xl font-black text-gray-900">
-                        {axleData ? `${axleData.total_axles} Sumbu` : "-"}
+                        {weightData?.total_axle != null ? `${weightData.total_axle} Sumbu` : "-"}
                       </p>
                       <p className="mt-2 text-xs text-gray-600">
-                        {axleData
-                          ? `${axleData.total_wheels} roda`
+                        {weightData?.total_axle != null
+                          ? (axleData?.total_wheels != null ? `${axleData.total_wheels} roda` : "Dari data WIM")
                           : timedOutSteps.includes(4)
                             ? "Timeout 10 detik"
                             : "Menunggu data"}

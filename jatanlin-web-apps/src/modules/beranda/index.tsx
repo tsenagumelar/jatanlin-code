@@ -157,8 +157,8 @@ export const BerandaModule: React.FC = () => {
 
       statsData.totalVehicles++;
       const axleCount =
+        vehicle.transact_weighing?.total_axle ||
         vehicle.actual_total_axle ||
-        vehicle.transact_axle_capture?.total_axles ||
         0;
       const vehicleClass = findVehicleClass(axleCount);
       const latestStatus = vehicle.transact_vehicle_statuses?.[0];

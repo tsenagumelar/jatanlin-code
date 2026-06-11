@@ -182,14 +182,14 @@ POST /ws/mode/wim?direction=RIGHT
 
 #### 4. Auto Capture (Legacy - SQLite)
 ```http
-POST /ws/wim/capture?direction=RIGHT&timeoutSeconds=45
+POST /ws/wim/capture?direction=RIGHT&timeoutSeconds=60
 ```
 
 **Parameters:**
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | direction | string | RIGHT | Arah kendaraan (LEFT/RIGHT) |
-| timeoutSeconds | int | 45 | Timeout menunggu kendaraan |
+| timeoutSeconds | int | 60 | Timeout menunggu kendaraan |
 
 **Flow:**
 1. Start WIM mode
@@ -442,9 +442,9 @@ Mendapatkan recent messages (ring buffer).
 Selama proses capture, device mengirim update progress setiap detik:
 
 ```
-#MSG MODE:5;DISPLAY: DIR:1 AXLE:0 LOAD:0 OVERLOAD:0 LASTWEIGHT:0 TOTAL:0 TIMEOUT:45;
-#MSG MODE:5;DISPLAY: DIR:1 AXLE:0 LOAD:0 OVERLOAD:0 LASTWEIGHT:0 TOTAL:0 TIMEOUT:44;
-#MSG MODE:5;DISPLAY: DIR:1 AXLE:0 LOAD:0 OVERLOAD:0 LASTWEIGHT:0 TOTAL:0 TIMEOUT:43;
+#MSG MODE:5;DISPLAY: DIR:1 AXLE:0 LOAD:0 OVERLOAD:0 LASTWEIGHT:0 TOTAL:0 TIMEOUT:60;
+#MSG MODE:5;DISPLAY: DIR:1 AXLE:0 LOAD:0 OVERLOAD:0 LASTWEIGHT:0 TOTAL:0 TIMEOUT:59;
+#MSG MODE:5;DISPLAY: DIR:1 AXLE:0 LOAD:0 OVERLOAD:0 LASTWEIGHT:0 TOTAL:0 TIMEOUT:58;
 ...
 #MSG MODE:5;DISPLAY: DIR:1 AXLE:0 LOAD:0 OVERLOAD:0 LASTWEIGHT:0 TOTAL:0 TIMEOUT:1;
 #MSG MODE:5;DISPLAY: DIR:1 AXLE:0 LOAD:0 OVERLOAD:0 LASTWEIGHT:0 TOTAL:0 TIMEOUT:0;
@@ -660,7 +660,7 @@ dotnet run --project WServerApi.csproj
 - **Timezone**: Timestamp dikonversi ke UTC
 - **Audit Trail**: Raw message disimpan untuk keperluan audit
 - **Concurrent Captures**: Hindari multiple capture bersamaan, gunakan queue system
-- **Timeout**: Default 45 detik, bisa disesuaikan per request
+- **Timeout**: Default 60 detik, bisa disesuaikan per request
 
 ---
 

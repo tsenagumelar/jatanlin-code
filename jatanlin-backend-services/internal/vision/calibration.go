@@ -29,8 +29,10 @@ type CameraCalibration struct {
 	PixelToMeterRatio float64 // Conversion ratio at reference distance
 
 	// Empirical profile for operational measurement
+	LengthScaleMetersPerPixel float64
 	WidthScaleMetersPerPixel  float64
 	HeightScaleMetersPerPixel float64
+	LengthOffsetMeters        float64
 	WidthOffsetMeters         float64
 	HeightOffsetMeters        float64
 	MinConfidence             float64
@@ -52,8 +54,10 @@ func NewCameraCalibration() *CameraCalibration {
 		ReferencePixelLength:      200,
 		ReferenceRealLength:       5.0,
 		ReferenceDistanceM:        25.0,
-		WidthScaleMetersPerPixel:  0.0046,
-		HeightScaleMetersPerPixel: 0.0092,
+		LengthScaleMetersPerPixel: 0.009535,
+		WidthScaleMetersPerPixel:  0.003522,
+		HeightScaleMetersPerPixel: 0.003603,
+		LengthOffsetMeters:        0.0,
 		WidthOffsetMeters:         0.0,
 		HeightOffsetMeters:        0.0,
 		MinConfidence:             0.45,
@@ -90,10 +94,13 @@ func (cc *CameraCalibration) ComputePixelToMeterRatio() {
 	}
 }
 
-// ConfigureEmpiricalProfile sets empirical width/height conversion parameters.
-func (cc *CameraCalibration) ConfigureEmpiricalProfile(profileName string, widthScale, heightScale, widthOffset, heightOffset, minConfidence float64, enablePoseFilter bool) {
+// ConfigureEmpiricalProfile sets empirical length/width/height conversion parameters.
+func (cc *CameraCalibration) ConfigureEmpiricalProfile(profileName string, lengthScale, widthScale, heightScale, lengthOffset, widthOffset, heightOffset, minConfidence float64, enablePoseFilter bool) {
 	if profileName != "" {
 		cc.ProfileName = profileName
+	}
+	if lengthScale > 0 {
+		cc.LengthScaleMetersPerPixel = lengthScale
 	}
 	if widthScale > 0 {
 		cc.WidthScaleMetersPerPixel = widthScale
@@ -101,6 +108,10 @@ func (cc *CameraCalibration) ConfigureEmpiricalProfile(profileName string, width
 	if heightScale > 0 {
 		cc.HeightScaleMetersPerPixel = heightScale
 	}
+	if cc.LengthScaleMetersPerPixel <= 0 {
+		cc.LengthScaleMetersPerPixel = cc.HeightScaleMetersPerPixel
+	}
+	cc.LengthOffsetMeters = lengthOffset
 	cc.WidthOffsetMeters = widthOffset
 	cc.HeightOffsetMeters = heightOffset
 	if minConfidence > 0 {
@@ -199,7 +210,7 @@ func (cc *CameraCalibration) calculateMeasurementConfidence(bbox BoundingBox) fl
 	return confidence
 }
 
-// CalculateGroundDimensions calculates width/height screening measurements from a bounding box.
+// CalculateGroundDimensions calculates length/width/height screening measurements from a bounding box.
 func (cc *CameraCalibration) CalculateGroundDimensions(bbox BoundingBox) (*VehicleDimensions, error) {
 	if bbox.Width <= 0 || bbox.Height <= 0 {
 		return nil, fmt.Errorf("invalid bounding box size")
@@ -209,11 +220,20 @@ func (cc *CameraCalibration) CalculateGroundDimensions(bbox BoundingBox) (*Vehic
 	centerX := bbox.X + bbox.Width/2
 	centerY := bbox.Y + bbox.Height/2
 
+	lengthScale := cc.LengthScaleMetersPerPixel
+	if bbox.Height >= 650 && bbox.Width >= 520 {
+		lengthScale *= 1.2
+	}
+
+	length := float64(bbox.Height)*lengthScale + cc.LengthOffsetMeters
 	width := float64(bbox.Width)*cc.WidthScaleMetersPerPixel + cc.WidthOffsetMeters
 	height := float64(bbox.Height)*cc.HeightScaleMetersPerPixel + cc.HeightOffsetMeters
 	distance := cc.EstimateDistance(bottomY)
 	confidence := cc.calculateMeasurementConfidence(bbox)
 
+	if length < 0 {
+		length = 0
+	}
 	if width < 0 {
 		width = 0
 	}
@@ -222,7 +242,7 @@ func (cc *CameraCalibration) CalculateGroundDimensions(bbox BoundingBox) (*Vehic
 	}
 
 	return &VehicleDimensions{
-		LengthMeters:   0,
+		LengthMeters:   length,
 		WidthMeters:    width,
 		HeightMeters:   height,
 		DistanceMeters: distance,
@@ -258,6 +278,9 @@ func (cc *CameraCalibration) Validate() error {
 	if cc.HeightScaleMetersPerPixel <= 0 {
 		return fmt.Errorf("height scale must be positive")
 	}
+	if cc.LengthScaleMetersPerPixel <= 0 {
+		return fmt.Errorf("length scale must be positive")
+	}
 
 	return nil
 }
@@ -273,6 +296,7 @@ func (cc *CameraCalibration) GetCalibrationInfo() string {
 			"  Profile: %s\n"+
 			"  Reference: %d pixels = %.2f m at %.2f m distance\n"+
 			"  Pixel-to-Meter Ratio: %.6f m/pixel\n"+
+			"  Length Scale: %.6f m/pixel\n"+
 			"  Width Scale: %.6f m/pixel\n"+
 			"  Height Scale: %.6f m/pixel",
 		cc.ImageWidth, cc.ImageHeight,
@@ -282,6 +306,7 @@ func (cc *CameraCalibration) GetCalibrationInfo() string {
 		cc.ProfileName,
 		cc.ReferencePixelLength, cc.ReferenceRealLength, cc.ReferenceDistanceM,
 		cc.PixelToMeterRatio,
+		cc.LengthScaleMetersPerPixel,
 		cc.WidthScaleMetersPerPixel,
 		cc.HeightScaleMetersPerPixel,
 	)

@@ -190,7 +190,7 @@ SITE_NAME="Lokasi Site 1"
 ANPR_FTP_HOST="192.168.1.100:21"
 ANPR_FTP_USER="ftpuser"
 ANPR_FTP_PASS="ftppass"
-ANPR_FTP_DIR="/anpr/"
+ANPR_FTP_DIR="/ftp/ftpuser/anpr/"
 ANPR_FTP_INTERVAL_SEC=5
 
 # AXLE FTP
@@ -982,7 +982,7 @@ SITE_NAME="Development Site"
 ANPR_FTP_HOST="192.168.1.100:21"
 ANPR_FTP_USER="ftpuser"
 ANPR_FTP_PASS="ftppass"
-ANPR_FTP_DIR="/anpr/"
+ANPR_FTP_DIR="/ftp/ftpuser/anpr/"
 ANPR_FTP_INTERVAL_SEC=5
 
 AXLE_FTP_HOST="192.168.1.100:21"

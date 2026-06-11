@@ -14,7 +14,7 @@ interface VehicleClassCardProps {
 export const VehicleClassCard: React.FC<VehicleClassCardProps> = ({
   vehicle,
 }) => {
-  const actualAxle = vehicle.actual_total_axle || 0;
+  const actualAxle = vehicle.transact_weighing?.total_axle || vehicle.actual_total_axle || 0;
 
   // Fetch vehicle classes
   const { data, loading } = useGetVehicleClassesQuery({

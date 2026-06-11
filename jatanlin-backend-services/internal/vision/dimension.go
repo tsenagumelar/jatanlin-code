@@ -68,8 +68,8 @@ func (ds *DimensionService) ProcessImage(imagePath string) ([]VehicleDimensions,
 
 		results = append(results, *dims)
 
-		log.Printf("[DIMENSION] Vehicle %d dimensions: profile=%s width=%.2fm height=%.2fm px=(w:%d h:%d) confidence=%.2f",
-			i+1, dims.ProfileName, dims.WidthMeters, dims.HeightMeters, dims.WidthPixels, dims.HeightPixels, dims.Confidence)
+		log.Printf("[DIMENSION] Vehicle %d dimensions: profile=%s length=%.2fm width=%.2fm height=%.2fm px=(w:%d h:%d) confidence=%.2f",
+			i+1, dims.ProfileName, dims.LengthMeters, dims.WidthMeters, dims.HeightMeters, dims.WidthPixels, dims.HeightPixels, dims.Confidence)
 	}
 
 	return results, nil

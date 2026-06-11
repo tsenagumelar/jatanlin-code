@@ -5,9 +5,9 @@ using WServerApi.Models.Domain;
 
 namespace WServerApi.Services;
 
-public sealed class DummySessionCaptureService : BackgroundService
+public sealed class SessionCaptureService : BackgroundService
 {
-    private readonly ILogger<DummySessionCaptureService> _logger;
+    private readonly ILogger<SessionCaptureService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly WsClient _wsClient;
     private readonly string? _connectionString;
@@ -20,8 +20,8 @@ public sealed class DummySessionCaptureService : BackgroundService
     private readonly string? _locationCode;
     private readonly SemaphoreSlim _captureLock = new(1, 1);
 
-    public DummySessionCaptureService(
-        ILogger<DummySessionCaptureService> logger,
+    public SessionCaptureService(
+        ILogger<SessionCaptureService> logger,
         IServiceScopeFactory scopeFactory,
         WsClient wsClient,
         IOptions<WbOptions> wbOptions,
@@ -90,7 +90,7 @@ public sealed class DummySessionCaptureService : BackgroundService
                 if (_siteId != Guid.Empty && !loggedReady)
                 {
                     _logger.LogInformation(
-                        "WB session listener enabled for site {SiteId} siteCode={SiteCode}. dummy=session-based(transact_wim_session.is_dummy) timeout={TimeoutSeconds}s direction={Direction}",
+                        "WB session listener enabled for site {SiteId} siteCode={SiteCode}. mode=session-based(real or dummy by transact_wim_session.is_dummy) timeout={TimeoutSeconds}s direction={Direction}",
                         _siteId,
                         _siteCode,
                         _timeoutSeconds,
@@ -182,45 +182,69 @@ public sealed class DummySessionCaptureService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IVehicleRepository>();
 
-        Vehicle? capturedVehicle = null;
         var captureComplete = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var axleWeights = new Dictionary<int, int>();
+        int? lastTimeout = null;
+        int? lastTotalWeight = null;
+        int? lastDirection = null;
+        string? lastRaw = null;
+        bool started = false;
+        bool ended = false;
 
-        void HandleVehicleRaw(string raw)
+        void HandleWimStreamRaw(string raw)
         {
-            if (!raw.Contains("OBJECT:VEHICLE", StringComparison.OrdinalIgnoreCase))
+            if (!raw.Contains("MODE:5", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
 
-            try
+            lastRaw = raw;
+            var timeoutVal = ParseIntField(raw, "TIMEOUT");
+            if (timeoutVal is null)
             {
-                var msgFrame = ProtocolParser.ParseMsg(raw);
-                var vehicle = VehicleMessageParser.ParseVehicleMessage(msgFrame);
-                if (vehicle == null)
-                {
-                    return;
-                }
-
-                vehicle.SiteId = siteId;
-                vehicle.SessionId = sessionId;
-                if (!string.IsNullOrWhiteSpace(_locationCode))
-                {
-                    vehicle.LocationCode = _locationCode;
-                }
-
-                capturedVehicle = vehicle;
-                captureComplete.TrySetResult(true);
+                return;
             }
-            catch (Exception ex)
+
+            if (!started)
             {
-                _logger.LogWarning(ex, "Failed to parse WB vehicle payload for session {SessionId}", sessionId);
+                started = true;
+                _logger.LogInformation("WB live stream MODE:5 detected for session {SessionId}", sessionId);
+            }
+
+            lastTimeout = timeoutVal.Value;
+
+            var totalVal = ParseIntField(raw, "TOTAL");
+            if (totalVal is not null && totalVal > 0)
+            {
+                lastTotalWeight = totalVal;
+            }
+
+            var directionVal = ParseIntField(raw, "DIR");
+            if (directionVal is not null)
+            {
+                lastDirection = directionVal;
+            }
+
+            var axleNo = ParseIntField(raw, "AXLE");
+            var weightVal = ParseIntField(raw, "LASTWEIGHT");
+            if (axleNo is not null && axleNo > 0 && weightVal is not null && weightVal > 0)
+            {
+                axleWeights[axleNo.Value] = weightVal.Value;
+            }
+
+            if (started && timeoutVal.Value <= 0)
+            {
+                if (!ended)
+                {
+                    ended = true;
+                    _logger.LogInformation("WB live stream timeout reached for session {SessionId}", sessionId);
+                }
+                captureComplete.TrySetResult(true);
             }
         }
 
-        void OnVehicleRes(ResFrame r) => HandleVehicleRaw(r.Raw);
-        void OnVehicleMsg(MsgFrame m) => HandleVehicleRaw(m.Raw);
+        void OnVehicleMsg(MsgFrame m) => HandleWimStreamRaw(m.Raw);
 
-        _wsClient.OnRes += OnVehicleRes;
         _wsClient.OnMsg += OnVehicleMsg;
 
         try
@@ -258,26 +282,67 @@ public sealed class DummySessionCaptureService : BackgroundService
                 _logger.LogWarning(ex, "Failed to restore WB static mode after session {SessionId}", sessionId);
             }
 
-            if (capturedVehicle == null)
+            var ordered = axleWeights.OrderBy(k => k.Key).ToList();
+            var totalWeight = lastTotalWeight ?? ordered.Sum(a => a.Value);
+
+            if (ordered.Count == 0)
             {
                 _logger.LogInformation(
-                    "WB live capture timed out for session {SessionId} after {TimeoutSeconds}s",
+                    "WB live capture timed out for session {SessionId} after {TimeoutSeconds}s lastTimeout={LastTimeout}",
                     sessionId,
-                    _timeoutSeconds);
+                    _timeoutSeconds,
+                    lastTimeout);
                 return;
             }
 
-            await repo.AddVehicleAsync(capturedVehicle, ct);
+            var vehicle = new Vehicle
+            {
+                RecordId = 0,
+                Timestamp = DateTime.UtcNow,
+                Direction = lastDirection == 1 ? VehicleDirection.Right :
+                            lastDirection == 2 ? VehicleDirection.Left : VehicleDirection.Unknown,
+                TotalWeight = totalWeight,
+                AxleCount = ordered.Count,
+                RawMessage = lastRaw ?? "",
+                SiteId = siteId,
+                SessionId = sessionId
+            };
+            if (!string.IsNullOrWhiteSpace(_locationCode))
+            {
+                vehicle.LocationCode = _locationCode;
+            }
+            foreach (var a in ordered)
+            {
+                vehicle.Axles.Add(new Axle
+                {
+                    AxleNumber = a.Key,
+                    Weight = a.Value,
+                    GrossWeight = a.Value
+                });
+            }
+
+            await repo.AddVehicleAsync(vehicle, ct);
             _logger.LogInformation(
-                "WB live capture saved for session {SessionId} recordId={RecordId}",
+                "WB live capture saved for session {SessionId} axles={AxleCount} total={TotalWeight}",
                 sessionId,
-                capturedVehicle.RecordId);
+                ordered.Count,
+                totalWeight);
         }
         finally
         {
-            _wsClient.OnRes -= OnVehicleRes;
             _wsClient.OnMsg -= OnVehicleMsg;
         }
+    }
+
+    private static int? ParseIntField(string raw, string key)
+    {
+        var idx = raw.IndexOf(key + ":", StringComparison.Ordinal);
+        if (idx < 0) return null;
+        idx += key.Length + 1;
+        var end = raw.IndexOfAny(new[] { ';', ' ', '\r', '\n' }, idx);
+        if (end < 0) end = raw.Length;
+        var slice = raw[idx..end];
+        return int.TryParse(slice, out var val) ? val : null;
     }
 
     private static Vehicle BuildDummyVehicle(Guid sessionId, Guid siteId)
@@ -377,7 +442,7 @@ public sealed class DummySessionCaptureService : BackgroundService
 
     private static int NormalizeTimeout(int value)
     {
-        return value <= 0 ? 45 : value;
+        return value <= 0 ? 60 : value;
     }
 
     private static string NormalizeDirection(string? raw)

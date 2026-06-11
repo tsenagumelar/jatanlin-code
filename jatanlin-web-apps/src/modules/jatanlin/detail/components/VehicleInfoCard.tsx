@@ -54,8 +54,8 @@ export const VehicleInfoCard: React.FC<VehicleInfoCardProps> = ({
                 Total Sumbu
               </p>
               <p className="text-2xl font-bold text-gray-900">
-                {vehicle.actual_total_axle || "-"}
-                {vehicle.actual_total_axle && (
+                {vehicle.transact_weighing?.total_axle || vehicle.actual_total_axle || "-"}
+                {(vehicle.transact_weighing?.total_axle || vehicle.actual_total_axle) && (
                   <span className="text-base text-gray-500 ml-1">sumbu</span>
                 )}
               </p>

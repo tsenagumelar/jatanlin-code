@@ -78,8 +78,10 @@ type Config struct {
 	DimensionModelPath            string  // Path to detection model (if using ML model)
 	DimensionThreshold            float64 // Detection confidence threshold
 	DimensionProfileName          string
+	DimensionLengthScale          float64
 	DimensionWidthScale           float64
 	DimensionHeightScale          float64
+	DimensionLengthOffset         float64
 	DimensionWidthOffset          float64
 	DimensionHeightOffset         float64
 	DimensionMinConfidence        float64
@@ -188,8 +190,10 @@ func Load() (*Config, error) {
 		DimensionModelPath:            getEnv("DIMENSION_MODEL_PATH", ""),
 		DimensionThreshold:            getEnvFloat("DIMENSION_THRESHOLD", 0.5),
 		DimensionProfileName:          getEnv("DIMENSION_PROFILE_NAME", "anpr-empirical-profile"),
-		DimensionWidthScale:           getEnvFloat("DIMENSION_WIDTH_SCALE_M_PER_PX", 0.0046),
-		DimensionHeightScale:          getEnvFloat("DIMENSION_HEIGHT_SCALE_M_PER_PX", 0.0092),
+		DimensionLengthScale:          getEnvFloat("DIMENSION_LENGTH_SCALE_M_PER_PX", 0.009535),
+		DimensionWidthScale:           getEnvFloat("DIMENSION_WIDTH_SCALE_M_PER_PX", 0.003522),
+		DimensionHeightScale:          getEnvFloat("DIMENSION_HEIGHT_SCALE_M_PER_PX", 0.003603),
+		DimensionLengthOffset:         getEnvFloat("DIMENSION_LENGTH_OFFSET_M", 0.0),
 		DimensionWidthOffset:          getEnvFloat("DIMENSION_WIDTH_OFFSET_M", 0.0),
 		DimensionHeightOffset:         getEnvFloat("DIMENSION_HEIGHT_OFFSET_M", 0.0),
 		DimensionMinConfidence:        getEnvFloat("DIMENSION_MIN_CONFIDENCE", 0.45),

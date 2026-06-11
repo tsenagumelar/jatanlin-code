@@ -18,8 +18,10 @@ func (c *Config) GetCameraCalibration() *vision.CameraCalibration {
 	)
 	calibration.ConfigureEmpiricalProfile(
 		c.DimensionProfileName,
+		c.DimensionLengthScale,
 		c.DimensionWidthScale,
 		c.DimensionHeightScale,
+		c.DimensionLengthOffset,
 		c.DimensionWidthOffset,
 		c.DimensionHeightOffset,
 		c.DimensionMinConfidence,

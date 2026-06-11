@@ -96,7 +96,7 @@ export const V2JatanlinModule: React.FC = () => {
       const dbResult = row.transact_vehicle_statuses?.[0]?.result;
       if (dbResult) return { ...row, violationType: dbResult as string };
 
-      const axleCount = row.actual_total_axle ?? 0;
+      const axleCount = row.transact_weighing?.total_axle ?? row.actual_total_axle ?? 0;
       const w = row.actual_weight;
       const l = row.actual_length;
       const wi = row.actual_width;
@@ -283,15 +283,15 @@ export const V2JatanlinModule: React.FC = () => {
               <tbody>
                 {paged.map((row, i) => {
                   const anpr = row.transact_anpr_capture;
-                  const axle = row.transact_axle_capture;
                   const plate = row.actual_plat_no ?? anpr?.plate_no ?? "—";
                   const weight =
                     row.actual_weight != null
                       ? `${(parseFloat(row.actual_weight) / 1000).toFixed(2)} ton`
                       : "—";
-                  const axleCount = row.actual_total_axle ?? axle?.total_axles ?? "—";
+                  const axleCount =
+                    row.transact_weighing?.total_axle ?? row.actual_total_axle ?? "—";
                   const len =
-                    row.actual_length ?? (axle?.length_mm != null ? axle.length_mm / 1000 : null);
+                    row.actual_length ?? row.transact_dimension?.length ?? null;
                   const wid = row.actual_width;
                   const ht = row.actual_height;
                   const dim =

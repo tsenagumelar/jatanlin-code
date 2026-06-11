@@ -15,9 +15,13 @@ func main() {
 	log.Println("  WIM DIMENSION SAMPLE")
 	log.Println("========================================")
 
-	imagePaths, err := findSampleImages(".")
-	if err != nil {
-		log.Fatal("[DIMENSION_SAMPLE] Failed to find images:", err)
+	imagePaths := os.Args[1:]
+	if len(imagePaths) == 0 {
+		var err error
+		imagePaths, err = findSampleImages(".")
+		if err != nil {
+			log.Fatal("[DIMENSION_SAMPLE] Failed to find images:", err)
+		}
 	}
 	if len(imagePaths) == 0 {
 		log.Fatal("[DIMENSION_SAMPLE] No *_car.(jpg|jpeg|png) images found in repo root")
@@ -40,8 +44,10 @@ func main() {
 	)
 	calibration.ConfigureEmpiricalProfile(
 		getEnv("DIMENSION_PROFILE_NAME", "anpr-empirical-profile"),
-		getEnvFloat("DIMENSION_WIDTH_SCALE_M_PER_PX", 0.0046),
-		getEnvFloat("DIMENSION_HEIGHT_SCALE_M_PER_PX", 0.0092),
+		getEnvFloat("DIMENSION_LENGTH_SCALE_M_PER_PX", 0.009535),
+		getEnvFloat("DIMENSION_WIDTH_SCALE_M_PER_PX", 0.003522),
+		getEnvFloat("DIMENSION_HEIGHT_SCALE_M_PER_PX", 0.003603),
+		getEnvFloat("DIMENSION_LENGTH_OFFSET_M", 0.0),
 		getEnvFloat("DIMENSION_WIDTH_OFFSET_M", 0.0),
 		getEnvFloat("DIMENSION_HEIGHT_OFFSET_M", 0.0),
 		getEnvFloat("DIMENSION_MIN_CONFIDENCE", 0.45),

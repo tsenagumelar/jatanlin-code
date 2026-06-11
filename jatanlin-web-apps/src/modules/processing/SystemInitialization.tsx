@@ -69,7 +69,7 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isChecking, setIsChecking] = useState(true);
-  const [isDummyMode, setIsDummyMode] = useState(systemMode === "DEMO");
+  const [isDummyMode, setIsDummyMode] = useState(false);
 
   const buildDeviceUrl = useCallback((ipOrUrl?: string) => {
     if (!ipOrUrl) return null;
@@ -142,7 +142,7 @@ export const SystemInitialization: React.FC<SystemInitializationProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isChecking, pingDevice]);
+  }, [effectiveProdMode, isChecking, pingDevice]);
 
   const allConnected = devices.every((d) => d.status === "connected");
   const hasError = devices.some((d) => d.status === "error");

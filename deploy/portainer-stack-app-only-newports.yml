@@ -44,7 +44,7 @@ services:
       ANPR_FTP_HOST: "51.79.173.213:21"
       ANPR_FTP_USER: ftpuser
       ANPR_FTP_PASS: ftpsecret123
-      ANPR_FTP_DIR: /home/ftpuser/anpr/
+      ANPR_FTP_DIR: /ftp/ftpuser/anpr/
       ANPR_FTP_INTERVAL_SEC: "5"
 
       AXLE_FTP_HOST: "51.79.173.213:21"
@@ -106,7 +106,7 @@ services:
       ANPR_FTP_HOST: "51.79.173.213:21"
       ANPR_FTP_USER: ftpuser
       ANPR_FTP_PASS: ftpsecret123
-      ANPR_FTP_DIR: /home/ftpuser/anpr/
+      ANPR_FTP_DIR: /ftp/ftpuser/anpr/
       ANPR_FTP_INTERVAL_SEC: "5"
       ANPR_DUMMY_ENABLED: "true"
 

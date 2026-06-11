@@ -326,7 +326,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         weight: vehicle.actual_weight
           ? (vehicle.actual_weight / 1000).toString()
           : "",
-        totalAxle: vehicle.actual_total_axle?.toString() || "",
+        totalAxle:
+          vehicle.transact_weighing?.total_axle?.toString() ||
+          vehicle.actual_total_axle?.toString() ||
+          "",
       };
       setInitialValues(initial);
       setActualPlatNo(initial.plate);
@@ -341,8 +344,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
           "",
       );
       setSourceTotalAxle(
-        vehicle.transact_axle_capture?.total_axles?.toString() ||
-          vehicle.transact_weighing?.total_axle?.toString() ||
+        vehicle.transact_weighing?.total_axle?.toString() ||
           "",
       );
       setSourceWeightKg(

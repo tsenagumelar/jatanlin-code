@@ -19,7 +19,7 @@ services:
       ANPR_FTP_HOST: "host.docker.internal:21"
       ANPR_FTP_USER: ftpuser
       ANPR_FTP_PASS: ftppass
-      ANPR_FTP_DIR: /anpr
+      ANPR_FTP_DIR: /ftp/ftpuser/anpr/
       ANPR_FTP_INTERVAL_SEC: "5"
 
       AXLE_FTP_HOST: "host.docker.internal:21"

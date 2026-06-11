@@ -197,7 +197,11 @@ export const VehicleActualTable: React.FC<VehicleActualTableProps> = ({
       key: "axle",
       header: "Jumlah Sumbu",
       width: "120px",
-      render: (vehicle) => <span>{vehicle.actual_total_axle || "-"}</span>,
+      render: (vehicle) => (
+        <span>
+          {vehicle.transact_weighing?.total_axle || vehicle.actual_total_axle || "-"}
+        </span>
+      ),
     },
     {
       key: "violation",

@@ -61,7 +61,8 @@ func (vd *VehicleDetector) DetectVehicle(imagePath string) ([]BoundingBox, error
 // detectWithMock performs mock vehicle detection for testing
 func (vd *VehicleDetector) detectWithMock(imagePath string) ([]BoundingBox, error) {
 	// Verify image file exists
-	if _, err := loadImage(imagePath); err != nil {
+	img, err := loadImage(imagePath)
+	if err != nil {
 		return nil, fmt.Errorf("failed to load image: %w", err)
 	}
 
@@ -168,7 +169,13 @@ func (vd *VehicleDetector) detectWithMock(imagePath string) ([]BoundingBox, erro
 			},
 		}
 	} else {
-		// Default mock for other images.
+		// Default fallback for other images. Estimate from the frame instead of
+		// returning a fixed bbox, otherwise every unknown ANPR image produces the
+		// same physical dimensions.
+		if box, ok := estimateVehicleBoxFromImage(img); ok {
+			return []BoundingBox{box}, nil
+		}
+
 		mockBoxes = []BoundingBox{
 			{
 				X:      320,
@@ -182,6 +189,140 @@ func (vd *VehicleDetector) detectWithMock(imagePath string) ([]BoundingBox, erro
 	}
 
 	return mockBoxes, nil
+}
+
+func estimateVehicleBoxFromImage(img image.Image) (BoundingBox, bool) {
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+	if width <= 0 || height <= 0 {
+		return BoundingBox{}, false
+	}
+
+	roiMaxX := int(float64(width) * 0.75)
+	roiMaxY := int(float64(height) * 0.82)
+	if roiMaxX <= 0 || roiMaxY <= 0 {
+		return BoundingBox{}, false
+	}
+
+	step := 4
+	colCounts := make([]int, roiMaxX)
+	rowCounts := make([]int, roiMaxY)
+
+	for y := 0; y < roiMaxY; y += step {
+		for x := 0; x < roiMaxX; x += step {
+			r16, g16, b16, _ := img.At(bounds.Min.X+x, bounds.Min.Y+y).RGBA()
+			r := int(r16 >> 8)
+			g := int(g16 >> 8)
+			b := int(b16 >> 8)
+			maxRGB := maxInt(r, maxInt(g, b))
+			minRGB := minInt(r, minInt(g, b))
+			luma := (299*r + 587*g + 114*b) / 1000
+			saturation := maxRGB - minRGB
+
+			// Vehicle fronts/tarps tend to be brighter, darker, or more saturated
+			// than the road surface. This is a lightweight fallback, not a YOLO
+			// replacement.
+			if luma < 80 || luma > 175 || saturation > 45 {
+				colCounts[x]++
+				rowCounts[y]++
+			}
+		}
+	}
+
+	minX, maxX := activeRange(colCounts, 10)
+	minY, maxY := activeRange(rowCounts, 10)
+	if maxX <= minX || maxY <= minY {
+		return BoundingBox{}, false
+	}
+
+	boxWidth := maxX - minX
+	boxHeight := maxY - minY
+
+	// ANPR front-view frames often include roadside/background structures in the
+	// rough foreground mask. Clamp to the vehicle-front area used by calibration.
+	maxBoxWidth := int(float64(width) * 0.24)
+	maxBoxHeight := int(float64(height) * 0.335)
+	minBoxWidth := int(float64(width) * 0.18)
+	minBoxHeight := int(float64(height) * 0.28)
+
+	if boxWidth > maxBoxWidth {
+		boxWidth = maxBoxWidth
+	}
+	if boxHeight > maxBoxHeight {
+		boxHeight = maxBoxHeight
+	}
+	if boxWidth < minBoxWidth {
+		boxWidth = minBoxWidth
+	}
+	if boxHeight < minBoxHeight {
+		boxHeight = minBoxHeight
+	}
+
+	x := clampInt(minX, 0, width-boxWidth)
+	y := clampInt(maxY-boxHeight, 0, height-boxHeight)
+
+	return BoundingBox{
+		X:      x,
+		Y:      y,
+		Width:  boxWidth,
+		Height: boxHeight,
+		Label:  "vehicle",
+		Score:  0.82,
+	}, true
+}
+
+func activeRange(counts []int, thresholdFloor int) (int, int) {
+	maxCount := 0
+	for _, count := range counts {
+		if count > maxCount {
+			maxCount = count
+		}
+	}
+	if maxCount == 0 {
+		return 0, 0
+	}
+
+	threshold := maxInt(thresholdFloor, int(float64(maxCount)*0.08))
+	minIdx := -1
+	maxIdx := -1
+	for i, count := range counts {
+		if count < threshold {
+			continue
+		}
+		if minIdx < 0 {
+			minIdx = i
+		}
+		maxIdx = i
+	}
+	if minIdx < 0 || maxIdx < 0 {
+		return 0, 0
+	}
+	return minIdx, maxIdx
+}
+
+func clampInt(value, minValue, maxValue int) int {
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // detectWithYOLO performs real YOLO vehicle detection

@@ -116,7 +116,7 @@ export const JatanlinModule: React.FC = () => {
         vehicle.actual_width || "-"
       } × ${vehicle.actual_height || "-"}`,
       weight: vehicle.actual_weight || "-",
-      axle: vehicle.actual_total_axle || "-",
+      axle: vehicle.transact_weighing?.total_axle || vehicle.actual_total_axle || "-",
       violation: getViolationType(vehicle.transact_vehicle_statuses),
       status: getStatusLabel(getLatestStatus(vehicle.transact_vehicle_statuses)),
     }));
@@ -154,7 +154,7 @@ export const JatanlinModule: React.FC = () => {
         vehicle.actual_width || "-"
       } × ${vehicle.actual_height || "-"}`,
       weight: vehicle.actual_weight || "-",
-      axle: vehicle.actual_total_axle || "-",
+      axle: vehicle.transact_weighing?.total_axle || vehicle.actual_total_axle || "-",
       violation: getViolationType(vehicle.transact_vehicle_statuses),
       status: getStatusLabel(getLatestStatus(vehicle.transact_vehicle_statuses)),
     }));
