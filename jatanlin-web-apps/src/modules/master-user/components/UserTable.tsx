@@ -2,7 +2,7 @@
 
 import React from "react";
 import moment from "moment";
-import { Button, Badge, Tooltip, Avatar } from "@fluentui/react-components";
+import { Avatar, Tooltip } from "@fluentui/react-components";
 import {
   Edit24Regular,
   Delete24Regular,
@@ -85,9 +85,9 @@ export const UserTable: React.FC<UserTableProps> = ({
       header: "Peran",
       width: "180px",
       render: (user) => (
-        <Badge appearance="tint" color="informative" size="large">
+        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
           {user.master_role.role_name}
-        </Badge>
+        </span>
       ),
     },
     {
@@ -96,23 +96,15 @@ export const UserTable: React.FC<UserTableProps> = ({
       width: "130px",
       render: (user) =>
         user.is_active ? (
-          <Badge
-            appearance="tint"
-            color="success"
-            icon={<CheckmarkCircle24Filled />}
-            size="extra-large"
-          >
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">
+            <CheckmarkCircle24Filled className="w-3.5 h-3.5" />
             Aktif
-          </Badge>
+          </span>
         ) : (
-          <Badge
-            appearance="tint"
-            color="danger"
-            icon={<DismissCircle24Filled />}
-            size="extra-large"
-          >
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 whitespace-nowrap">
+            <DismissCircle24Filled className="w-3.5 h-3.5" />
             Tidak Aktif
-          </Badge>
+          </span>
         ),
     },
     {
@@ -134,37 +126,40 @@ export const UserTable: React.FC<UserTableProps> = ({
       render: (user) => (
         <div className="flex gap-2">
           <Tooltip content="Lihat Detail" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<Eye24Regular />}
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onView(user);
               }}
-              size="small"
-            />
+              className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+            >
+              <Eye24Regular className="w-4 h-4" />
+            </button>
           </Tooltip>
           <Tooltip content="Ubah" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<Edit24Regular />}
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(user);
               }}
-              size="small"
-            />
+              className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+            >
+              <Edit24Regular className="w-4 h-4" />
+            </button>
           </Tooltip>
           <Tooltip content="Hapus" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<Delete24Regular />}
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(user.id as string);
               }}
-              size="small"
-            />
+              className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+            >
+              <Delete24Regular className="w-4 h-4" />
+            </button>
           </Tooltip>
         </div>
       ),

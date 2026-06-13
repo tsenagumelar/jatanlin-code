@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button, Badge } from '@fluentui/react-components';
 import { Edit24Regular, Eye24Regular } from '@fluentui/react-icons';
 import { DataTable, Column } from '@/src/components/organisms/DataTable';
 import type { ConfigData } from '../types';
@@ -54,13 +53,13 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
       width: '120px',
       render: (config) =>
         config.is_active ? (
-          <Badge appearance="filled" color="success" size="large">
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 whitespace-nowrap">
             Aktif
-          </Badge>
+          </span>
         ) : (
-          <Badge appearance="filled" color="danger" size="large">
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 whitespace-nowrap">
             Tidak Aktif
-          </Badge>
+          </span>
         ),
     },
     {
@@ -69,16 +68,20 @@ export const ConfigTable: React.FC<ConfigTableProps> = ({
       width: '120px',
       render: (config) => (
         <div className="flex gap-2">
-          <Button
-            icon={<Eye24Regular />}
-            size="small"
+          <button
+            type="button"
             onClick={() => onView(config)}
-          />
-          <Button
-            icon={<Edit24Regular />}
-            size="small"
+            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+          >
+            <Eye24Regular className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
             onClick={() => onEdit(config)}
-          />
+            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+          >
+            <Edit24Regular className="w-4 h-4" />
+          </button>
         </div>
       ),
     },

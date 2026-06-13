@@ -67,8 +67,8 @@ export const useLogin = () => {
         // Set auth cookie
         setAuthCookie(true);
 
-        // Navigate to home page
-        router.push('/beranda');
+        // Navigate to main v2 dashboard
+        router.push('/v2/dashboard');
       } else {
         dispatch(setError('Email/nama pengguna atau kata sandi salah'));
       }
@@ -91,7 +91,7 @@ export const useLogin = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/beranda');
+      router.push('/v2/dashboard');
     }
   }, [isAuthenticated, router]);
 

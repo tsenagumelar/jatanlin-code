@@ -9,9 +9,6 @@ export function middleware(request: NextRequest) {
   const isAuthenticated =
     request.cookies.get("isAuthenticated")?.value === "true";
 
-  // Public routes that don't require authentication
-  const isPublicRoute = pathname.startsWith("/login") || pathname === "/";
-
   // Private routes that require authentication
   const isPrivateRoute =
     pathname.startsWith("/beranda") || pathname.startsWith("/(private)") || pathname.startsWith("/v2");
@@ -24,7 +21,7 @@ export function middleware(request: NextRequest) {
 
   if (isAuthenticated && pathname === "/login") {
     // User is authenticated but trying to access login page
-    return NextResponse.redirect(new URL("/beranda", request.url));
+    return NextResponse.redirect(new URL("/v2/dashboard", request.url));
   }
 
   return NextResponse.next();

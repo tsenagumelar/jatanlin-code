@@ -9,9 +9,6 @@ import {
   DialogActions,
   DialogContent,
   Button,
-  Field,
-  Input,
-  Select,
   Switch,
   Spinner,
 } from '@fluentui/react-components';
@@ -25,6 +22,9 @@ interface UserFormProps {
   onSuccess: () => void;
   editUser?: UserData | null;
 }
+
+const labelClass = 'block text-xs font-semibold text-slate-500 mb-1.5';
+const inputClass = 'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 disabled:bg-slate-50 disabled:text-slate-400';
 
 export const UserForm: React.FC<UserFormProps> = ({
   open,
@@ -92,23 +92,27 @@ export const UserForm: React.FC<UserFormProps> = ({
                 </div>
               )}
 
-              <Field label="Nama Pengguna" required>
-                <Input
+              <label className="block">
+                <span className={labelClass}>Nama Pengguna <span className="text-red-500">*</span></span>
+                <input
+                  className={inputClass}
                   value={formData.username}
                   onChange={(e) => handleChange('username', e.target.value)}
                   disabled={isSubmitting || !!editUser}
                   placeholder="Masukkan nama pengguna"
                 />
-              </Field>
+              </label>
 
-              <Field label="Nama Lengkap" required>
-                <Input
+              <label className="block">
+                <span className={labelClass}>Nama Lengkap <span className="text-red-500">*</span></span>
+                <input
+                  className={inputClass}
                   value={formData.full_name}
                   onChange={(e) => handleChange('full_name', e.target.value)}
                   disabled={isSubmitting}
                   placeholder="Masukkan nama lengkap"
                 />
-              </Field>
+              </label>
 
               <ImageUpload
                 value={formData.profile_picture || null}
@@ -118,36 +122,44 @@ export const UserForm: React.FC<UserFormProps> = ({
                 disabled={isSubmitting}
               />
 
-              <Field label="No. Lencana">
-                <Input
+              <label className="block">
+                <span className={labelClass}>No. Lencana</span>
+                <input
+                  className={inputClass}
                   value={formData.badge_no}
                   onChange={(e) => handleChange('badge_no', e.target.value)}
                   disabled={isSubmitting}
                   placeholder="Masukkan nomor lencana"
                 />
-              </Field>
+              </label>
 
-              <Field label="Email">
-                <Input
+              <label className="block">
+                <span className={labelClass}>Email</span>
+                <input
+                  className={inputClass}
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   disabled={isSubmitting}
                   placeholder="nama@example.com"
                 />
-              </Field>
+              </label>
 
-              <Field label="No. Telepon">
-                <Input
+              <label className="block">
+                <span className={labelClass}>No. Telepon</span>
+                <input
+                  className={inputClass}
                   value={formData.phone_number}
                   onChange={(e) => handleChange('phone_number', e.target.value)}
                   disabled={isSubmitting}
                   placeholder="+62xxx"
                 />
-              </Field>
+              </label>
 
-              <Field label="Peran" required>
-                <Select
+              <label className="block">
+                <span className={labelClass}>Peran <span className="text-red-500">*</span></span>
+                <select
+                  className={inputClass}
                   value={formData.role_id}
                   onChange={(e) => handleChange('role_id', e.target.value)}
                   disabled={isSubmitting || rolesLoading}
@@ -158,18 +170,16 @@ export const UserForm: React.FC<UserFormProps> = ({
                       {role.role_name}
                     </option>
                   ))}
-                </Select>
-              </Field>
+                </select>
+              </label>
 
-              <Field
-                label={
-                  editUser
-                    ? 'Kata Sandi Baru (kosongkan jika tidak diubah)'
-                    : 'Kata Sandi'
-                }
-                required={!editUser}
-              >
-                <Input
+              <label className="block">
+                <span className={labelClass}>
+                  {editUser ? 'Kata Sandi Baru (kosongkan jika tidak diubah)' : 'Kata Sandi'}
+                  {!editUser && <span className="text-red-500"> *</span>}
+                </span>
+                <input
+                  className={inputClass}
                   type="password"
                   value={formData.password_hash}
                   onChange={(e) => handleChange('password_hash', e.target.value)}
@@ -180,16 +190,17 @@ export const UserForm: React.FC<UserFormProps> = ({
                       : 'Masukkan kata sandi'
                   }
                 />
-              </Field>
+              </label>
 
-              <Field label="Status Aktif">
+              <div>
+                <span className={labelClass}>Status Aktif</span>
                 <Switch
                   checked={formData.is_active}
                   onChange={(e) => handleChange('is_active', e.currentTarget.checked)}
                   disabled={isSubmitting}
                   label={formData.is_active ? 'Aktif' : 'Tidak Aktif'}
                 />
-              </Field>
+              </div>
             </div>
           </DialogContent>
           <DialogActions>

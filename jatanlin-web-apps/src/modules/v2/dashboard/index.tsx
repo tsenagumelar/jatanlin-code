@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useQuery, gql } from "@apollo/client";
 import {
   LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,25 +17,15 @@ import {
   Scales24Regular, Ruler20Regular,
   People24Regular,
 } from "@fluentui/react-icons";
-
-// ── Mock data (7-day window) ──────────────────────────────────────────────────
-const TREND_7DAYS = [
-  { date: "14 Mei", value: 5 },
-  { date: "15 Mei", value: 6 },
-  { date: "16 Mei", value: 7 },
-  { date: "17 Mei", value: 10 },
-  { date: "18 Mei", value: 11 },
-  { date: "19 Mei", value: 14 },
-  { date: "20 Mei", value: 28 },
-];
-
-const LOCATION_DATA = [
-  { name: "Tol Cawang",      value: 12, pct: 42.9 },
-  { name: "Tol Tj. Priok",   value: 7,  pct: 25.0 },
-  { name: "Tol Dalam Kota",  value: 5,  pct: 17.9 },
-  { name: "Tol Jagorawi",    value: 3,  pct: 10.7 },
-  { name: "Tol JORR",        value: 1,  pct: 3.6  },
-];
+import { useGetVehicleActualsQuery } from "@/src/graphql/hooks/transact-vehicle-actual";
+import { useGetVehicleClassesQuery } from "@/src/graphql/hooks/master-vehicle-class";
+import { useGetConfigsQuery } from "@/src/graphql/hooks/configuration";
+import {
+  checkOdolViolation,
+  getOdolTolerances,
+  VehicleActual,
+  VehicleClassLimit,
+} from "@/src/utils/odol";
 
 const TOP_OFFICERS = [
   { rank: 1, name: "Bripka Agus Setiawan",   count: 11, pct: 39.3 },
@@ -46,31 +35,29 @@ const TOP_OFFICERS = [
   { rank: 5, name: "Briptu Fajar Nugroho",   count: 2,  pct: 7.1  },
 ];
 
-const VIOLATION_TYPE_DATA = [
-  { name: "Pasal 277", label: "Kelebihan Dimensi",         value: 14, pct: 50.0, color: "#ef4444" },
-  { name: "Pasal 278", label: "Kelebihan Muatan",          value: 9,  pct: 32.1, color: "#f97316" },
-  { name: "Pasal 285", label: "Tidak Memenuhi Ketentuan",  value: 4,  pct: 14.3, color: "#3b82f6" },
-  { name: "Lainnya",   label: "",                          value: 1,  pct: 3.6,  color: "#22c55e" },
-];
+function pct(value: number, total: number) {
+  return total > 0 ? Number(((value / total) * 100).toFixed(1)) : 0;
+}
 
-const RECENT_VIOLATIONS = [
-  { no: 1, time: "20/05 20:00", plate: "B 4710 DMY", location: "Tol Cawang",     type: "Over Dimension", pasal: "Pasal 277", officer: "Bripka Agus S.", status: "Diproses" },
-  { no: 2, time: "20/05 19:43", plate: "B 18F2 DMY", location: "Tol Tj. Priok",  type: "Over Loading",   pasal: "Pasal 278", officer: "Briptu Rini W.", status: "Diproses" },
-  { no: 3, time: "20/05 17:50", plate: "B 1234 CD",  location: "Tol Dalam Kota", type: "Over Dimension", pasal: "Pasal 277", officer: "Bripda Dwi P.",  status: "Selesai"  },
-  { no: 4, time: "20/05 15:01", plate: "B 78FD DMY", location: "Tol Jagorawi",   type: "Over Loading",   pasal: "Pasal 278", officer: "Bripka Andi K.", status: "Selesai"  },
-  { no: 5, time: "20/05 13:21", plate: "B 5678 EF",  location: "Tol JORR",       type: "Over Dimension", pasal: "Pasal 277", officer: "Briptu Fajar N.", status: "Diproses" },
-];
+function formatShortDate(date: Date) {
+  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
+}
 
-// ── Queries ───────────────────────────────────────────────────────────────────
-const TODAY_AGG = gql`
-  query V2DashTodayAgg($start: timestamptz!) {
-    transact_vehicle_actual_aggregate(where:{is_deleted:{_eq:false},created_date:{_gte:$start}}) {
-      aggregate { count }
-    }
-  }
-`;
+function formatShortDateTime(dateString?: string | null) {
+  if (!dateString) return "-";
+  return new Date(dateString).toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d.toISOString(); }
+function statusLabel(status?: string | null) {
+  if (status === "verified") return "Selesai";
+  if (status === "rejected") return "Ditolak";
+  return "Diproses";
+}
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
 function StatCard({
@@ -125,15 +112,191 @@ function HighlightCard({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export const V2DashboardModule: React.FC = () => {
-  const [_dateFilter] = useState("7 Hari Terakhir");
-
-  const { data: aggData } = useQuery(TODAY_AGG, {
-    variables: { start: startOfToday() },
-    pollInterval: 60_000,
+  const { data: vehicleData } = useGetVehicleActualsQuery({
+    variables: { limit: 500, offset: 0 },
     fetchPolicy: "network-only",
+    pollInterval: 60_000,
+  });
+  const { data: vehicleClassesData } = useGetVehicleClassesQuery({
+    variables: { limit: 100, offset: 0 },
+    fetchPolicy: "cache-and-network",
+  });
+  const { data: configData } = useGetConfigsQuery({
+    variables: {
+      limit: 10,
+      offset: 0,
+      where: { config_key: { _in: ["TOLERANCE_WEIGHT", "TOLERANCE_DIM"] } },
+    },
+    fetchPolicy: "cache-and-network",
   });
 
-  const totalToday = aggData?.transact_vehicle_actual_aggregate?.aggregate?.count ?? 124;
+  const dashboard = useMemo(() => {
+    const vehicles = vehicleData?.transact_vehicle_actual ?? [];
+    const vehicleClasses = vehicleClassesData?.master_vehicle_class ?? [];
+    const tolerances = getOdolTolerances(configData?.master_config);
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 6);
+    startDate.setHours(0, 0, 0, 0);
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+
+    const trendMap = new Map<string, { date: string; value: number }>();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      trendMap.set(d.toISOString().split("T")[0], {
+        date: formatShortDate(d),
+        value: 0,
+      });
+    }
+
+    const stats = {
+      totalVehicles: 0,
+      totalViolations: 0,
+      todayViolations: 0,
+      normal: 0,
+      overweight: 0,
+      overdimension: 0,
+    };
+    const locations = new Map<string, number>();
+    const violations: Array<{
+      id: string;
+      no: number;
+      time: string;
+      plate: string;
+      location: string;
+      type: string;
+      pasal: string;
+      officer: string;
+      status: string;
+    }> = [];
+    let heaviest = { weight: 0, plate: "-" };
+    let largest = { volume: 0, dimensions: "-", plate: "-" };
+
+    vehicles.forEach((vehicle) => {
+      const createdDate = vehicle.created_date ? new Date(vehicle.created_date) : null;
+      if (!createdDate || createdDate < startDate || createdDate > endDate) return;
+
+      const axleCount = vehicle.transact_weighing?.total_axle || vehicle.actual_total_axle || 0;
+      const vehicleClass = vehicleClasses.find((vc) => vc.total_axle === axleCount);
+      const latestStatus = vehicle.transact_vehicle_statuses?.[0];
+      const verificationStatus = latestStatus?.status || "pending";
+      const actualWeight = Number(vehicle.actual_weight || 0);
+      const actualLength = Number(vehicle.actual_length || vehicle.transact_dimension?.length || 0);
+      const actualWidth = Number(vehicle.actual_width || vehicle.transact_dimension?.width || 0);
+      const actualHeight = Number(vehicle.actual_height || vehicle.transact_dimension?.height || 0);
+      const plate = vehicle.actual_plat_no || vehicle.transact_anpr_capture?.plate_no || "-";
+
+      const actual: VehicleActual = {
+        total_weight: actualWeight / 1000,
+        length: actualLength,
+        width: actualWidth,
+        height: actualHeight,
+      };
+
+      let violationType = "Normal";
+      if (vehicleClass) {
+        const class2Weight = Number(vehicleClass.class_2_weight || 0);
+        const class3Weight = Number(vehicleClass.class_3_weight || 0);
+        const limit: VehicleClassLimit = {
+          ...vehicleClass,
+          class_2_weight: class2Weight / 1000,
+          class_3_weight: class3Weight / 1000,
+        };
+        violationType = checkOdolViolation(actual, limit, {
+          axleCount,
+          toleranceWeightPercent: tolerances.weightPercent,
+          toleranceDimPercent: tolerances.dimPercent,
+        });
+      }
+
+      const verifiedResult = verificationStatus === "verified" ? latestStatus?.result : null;
+      const effectiveViolationType =
+        verificationStatus === "rejected" ? "Normal" : verifiedResult || violationType;
+
+      stats.totalVehicles++;
+      if (effectiveViolationType === "Normal") {
+        stats.normal++;
+      } else {
+        stats.totalViolations++;
+        if (createdDate >= todayStart) stats.todayViolations++;
+        if (effectiveViolationType.includes("Loading")) stats.overweight++;
+        if (effectiveViolationType.includes("Dimension")) stats.overdimension++;
+
+        const dateKey = createdDate.toISOString().split("T")[0];
+        const trend = trendMap.get(dateKey);
+        if (trend) trend.value++;
+
+        const location = vehicle.location_address || vehicle.transact_anpr_capture?.location_code || "-";
+        locations.set(location, (locations.get(location) ?? 0) + 1);
+        violations.push({
+          id: String(vehicle.id),
+          no: 0,
+          time: formatShortDateTime(vehicle.created_date),
+          plate,
+          location,
+          type: effectiveViolationType,
+          pasal: effectiveViolationType.includes("Dimension") ? "Pasal 277" : "Pasal 278",
+          officer: "-",
+          status: statusLabel(verificationStatus),
+        });
+      }
+
+      if (actualWeight > heaviest.weight) {
+        heaviest = { weight: actualWeight, plate };
+      }
+      const volume = actualLength * actualWidth * actualHeight;
+      if (volume > largest.volume) {
+        largest = {
+          volume,
+          dimensions: `${actualLength || 0} x ${actualWidth || 0} x ${actualHeight || 0} m`,
+          plate,
+        };
+      }
+    });
+
+    const locationData = Array.from(locations.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, value]) => ({ name, value, pct: pct(value, stats.totalViolations) }));
+
+    const violationTypeData = [
+      {
+        name: "Pasal 277",
+        label: "Kelebihan Dimensi",
+        value: stats.overdimension,
+        pct: pct(stats.overdimension, stats.totalViolations),
+        color: "#ef4444",
+      },
+      {
+        name: "Pasal 278",
+        label: "Kelebihan Muatan",
+        value: stats.overweight,
+        pct: pct(stats.overweight, stats.totalViolations),
+        color: "#f97316",
+      },
+      {
+        name: "Normal",
+        label: "Tidak Melanggar",
+        value: stats.normal,
+        pct: pct(stats.normal, stats.totalVehicles),
+        color: "#22c55e",
+      },
+    ];
+
+    return {
+      stats,
+      trendData: Array.from(trendMap.values()),
+      locationData,
+      violationTypeData,
+      recentViolations: violations.slice(0, 5).map((row, index) => ({ ...row, no: index + 1 })),
+      heaviest,
+      largest,
+    };
+  }, [vehicleData, vehicleClassesData, configData]);
 
   const now = new Date();
   const dateStr = now.toLocaleDateString("id-ID", {
@@ -169,22 +332,22 @@ export const V2DashboardModule: React.FC = () => {
           <StatCard
             iconBg="bg-red-50"
             icon={<Warning24Regular className="w-5 h-5 text-red-600" />}
-            label="Total Penindakan" value={28} trend={21.7} trendLabel="dari 7 hari lalu"
+            label="Total Penindakan" value={dashboard.stats.totalViolations} trendLabel="7 hari terakhir"
           />
           <StatCard
             iconBg="bg-amber-50"
             icon={<Warning24Regular className="w-5 h-5 text-amber-500" />}
-            label="Pelanggaran Hari Ini" value={4} trend={33.3} trendLabel="dari kemarin"
+            label="Pelanggaran Hari Ini" value={dashboard.stats.todayViolations} trendLabel="hari ini"
           />
           <StatCard
             iconBg="bg-green-50"
             icon={<CheckmarkCircle24Regular className="w-5 h-5 text-green-600" />}
-            label="Kendaraan Normal" value={96} trend={12.5} trendLabel="dari 7 hari lalu"
+            label="Kendaraan Normal" value={dashboard.stats.normal} trendLabel="7 hari terakhir"
           />
           <StatCard
             iconBg="bg-blue-50"
             icon={<VehicleTruck24Regular className="w-5 h-5 text-blue-600" />}
-            label="Total Kendaraan" value={totalToday} trend={15.3} trendLabel="dari 7 hari lalu"
+            label="Total Kendaraan" value={dashboard.stats.totalVehicles} trendLabel="7 hari terakhir"
           />
         </div>
 
@@ -195,7 +358,7 @@ export const V2DashboardModule: React.FC = () => {
           <div className="col-span-12 xl:col-span-5 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <h2 className="text-sm font-bold text-slate-800 mb-4">Trend Penindakan 7 Hari Terakhir</h2>
             <ResponsiveContainer width="100%" height={190}>
-              <LineChart data={TREND_7DAYS} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={dashboard.trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis
                   dataKey="date"
@@ -228,7 +391,7 @@ export const V2DashboardModule: React.FC = () => {
               </span>
             </div>
             <div className="space-y-3.5">
-              {LOCATION_DATA.map((loc) => (
+              {(dashboard.locationData.length > 0 ? dashboard.locationData : [{ name: "Belum ada data", value: 0, pct: 0 }]).map((loc) => (
                 <div key={loc.name}>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-slate-700 font-medium truncate flex-1 mr-3">{loc.name}</span>
@@ -273,27 +436,31 @@ export const V2DashboardModule: React.FC = () => {
           <HighlightCard
             iconBg="bg-indigo-50"
             icon={<Scales24Regular className="w-5 h-5 text-indigo-600" />}
-            label="Berat Terberat" primary="42.500 kg" sub="Truk Trailer - B 1234 CD"
+            label="Berat Terberat"
+            primary={`${dashboard.heaviest.weight.toLocaleString("id-ID")} kg`}
+            sub={dashboard.heaviest.plate}
           />
           <HighlightCard
             iconBg="bg-violet-50"
             icon={<Ruler20Regular className="w-5 h-5 text-violet-600" />}
-            label="Dimensi Terbesar" primary="17.10 x 3.10 x 4.50 m" sub="Truk Trailer - B 5678 EF"
+            label="Dimensi Terbesar" primary={dashboard.largest.dimensions} sub={dashboard.largest.plate}
           />
           <HighlightCard
             iconBg="bg-orange-50"
             icon={<Warning24Regular className="w-5 h-5 text-orange-600" />}
-            label="Pelanggaran Terbanyak" primary="Pasal 277" sub="Kelebihan Dimensi"
+            label="Pelanggaran Terbanyak"
+            primary={dashboard.stats.overdimension >= dashboard.stats.overweight ? "Pasal 277" : "Pasal 278"}
+            sub={dashboard.stats.overdimension >= dashboard.stats.overweight ? "Kelebihan Dimensi" : "Kelebihan Muatan"}
           />
           <HighlightCard
             iconBg="bg-teal-50"
             icon={<VehicleTruck24Regular className="w-5 h-5 text-teal-600" />}
-            label="Kelas Pelanggar Terbanyak" primary="Truk 3 Sumbu" sub="14 kasus (50.0%)"
+            label="Over Loading" primary={`${dashboard.stats.overweight} kasus`} sub="7 hari terakhir"
           />
           <HighlightCard
             iconBg="bg-green-50"
             icon={<VehicleCar24Regular className="w-5 h-5 text-green-600" />}
-            label="Kendaraan Normal Terbanyak" primary="Mobil Pribadi" sub="52 kendaraan (54.2%)"
+            label="Kendaraan Normal" primary={`${dashboard.stats.normal} kendaraan`} sub="7 hari terakhir"
           />
         </div>
 
@@ -321,8 +488,8 @@ export const V2DashboardModule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {RECENT_VIOLATIONS.map((row) => (
-                    <tr key={row.no} className="hover:bg-slate-50/70 transition-colors">
+                  {dashboard.recentViolations.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-4 py-3 text-slate-400 font-medium">{row.no}</td>
                       <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{row.time}</td>
                       <td className="px-4 py-3 font-extrabold text-slate-800 font-mono tracking-wide">{row.plate}</td>
@@ -366,11 +533,20 @@ export const V2DashboardModule: React.FC = () => {
                       </td>
                     </tr>
                   ))}
+                  {dashboard.recentViolations.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                        Belum ada pelanggaran dalam 7 hari terakhir.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
             <div className="px-5 py-3 border-t border-slate-50 flex items-center justify-between">
-              <p className="text-xs text-slate-400">Menampilkan 5 dari 28 penindakan</p>
+              <p className="text-xs text-slate-400">
+                Menampilkan {dashboard.recentViolations.length} dari {dashboard.stats.totalViolations} penindakan
+              </p>
               <Link href="/v2/jatanlin"
                 className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 font-semibold">
                 Lihat Semua <ArrowRight16Regular />
@@ -390,13 +566,13 @@ export const V2DashboardModule: React.FC = () => {
             <ResponsiveContainer width="100%" height={160}>
               <PieChart>
                 <Pie
-                  data={VIOLATION_TYPE_DATA}
+                  data={dashboard.violationTypeData}
                   cx="50%" cy="50%"
                   innerRadius={46} outerRadius={68}
                   dataKey="value"
                   paddingAngle={2}
                 >
-                  {VIOLATION_TYPE_DATA.map((entry, i) => (
+                  {dashboard.violationTypeData.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
@@ -407,7 +583,7 @@ export const V2DashboardModule: React.FC = () => {
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-2.5 mt-1">
-              {VIOLATION_TYPE_DATA.map((item) => (
+              {dashboard.violationTypeData.map((item) => (
                 <div key={item.name} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: item.color }} />

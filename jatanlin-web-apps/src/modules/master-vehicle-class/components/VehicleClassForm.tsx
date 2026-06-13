@@ -9,9 +9,6 @@ import {
   DialogActions,
   DialogContent,
   Button,
-  Field,
-  Input,
-  Textarea,
   Switch,
 } from '@fluentui/react-components';
 import { ImageUpload } from '@/src/components/molecules';
@@ -24,6 +21,9 @@ interface VehicleClassFormProps {
   onSuccess: () => void;
   editVehicleClass?: VehicleClassData | null;
 }
+
+const labelClass = 'block text-xs font-semibold text-slate-500 mb-1.5';
+const inputClass = 'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 disabled:bg-slate-50 disabled:text-slate-400';
 
 export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
   open,
@@ -86,24 +86,28 @@ export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
               {editVehicleClass ? 'Edit Kelas Kendaraan' : 'Tambah Kelas Kendaraan'}
             </DialogTitle>
             <DialogContent className="space-y-4">
-              <Field label="Tipe Kendaraan" required>
-                <Input
+              <label className="block">
+                <span className={labelClass}>Tipe Kendaraan <span className="text-red-500">*</span></span>
+                <input
+                  className={inputClass}
                   value={formData?.type || ''}
                   onChange={(e) => handleChange('type', e.target.value)}
                   disabled={isSubmitting}
                   placeholder="Contoh: Mobil Penumpang"
                 />
-              </Field>
+              </label>
 
-              <Field label="Deskripsi" required>
-                <Textarea
+              <label className="block">
+                <span className={labelClass}>Deskripsi <span className="text-red-500">*</span></span>
+                <textarea
+                  className={inputClass}
                   value={formData?.description || ''}
                   onChange={(e) => handleChange('description', e.target.value)}
                   disabled={isSubmitting}
                   placeholder="Masukkan deskripsi kelas kendaraan"
                   rows={3}
                 />
-              </Field>
+              </label>
 
               <ImageUpload
                 value={formData?.image || null}
@@ -113,8 +117,10 @@ export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
                 disabled={isSubmitting}
               />
 
-              <Field label="Jumlah Sumbu" required>
-                <Input
+              <label className="block">
+                <span className={labelClass}>Jumlah Sumbu <span className="text-red-500">*</span></span>
+                <input
+                  className={inputClass}
                   type="number"
                   value={formData?.total_axle?.toString() || '0'}
                   onChange={(e) =>
@@ -123,11 +129,13 @@ export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
                   disabled={isSubmitting}
                   placeholder="Contoh: 2"
                 />
-              </Field>
+              </label>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Berat Minimum (kg)" required>
-                  <Input
+                <label className="block">
+                  <span className={labelClass}>Berat Minimum (kg) <span className="text-red-500">*</span></span>
+                  <input
+                    className={inputClass}
                     type="number"
                     value={formData?.class_2_weight?.toString() || '0'}
                     onChange={(e) =>
@@ -136,9 +144,11 @@ export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
                     disabled={isSubmitting}
                     placeholder="Contoh: 10000"
                   />
-                </Field>
-                <Field label="Berat Maksimum (kg)" required>
-                  <Input
+                </label>
+                <label className="block">
+                  <span className={labelClass}>Berat Maksimum (kg) <span className="text-red-500">*</span></span>
+                  <input
+                    className={inputClass}
                     type="number"
                     value={formData?.class_3_weight?.toString() || '0'}
                     onChange={(e) =>
@@ -147,12 +157,14 @@ export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
                     disabled={isSubmitting}
                     placeholder="Contoh: 20000"
                   />
-                </Field>
+                </label>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <Field label="Panjang (m)" required>
-                  <Input
+                <label className="block">
+                  <span className={labelClass}>Panjang (m) <span className="text-red-500">*</span></span>
+                  <input
+                    className={inputClass}
                     type="number"
                     value={formData?.length?.toString() || '0'}
                     onChange={(e) =>
@@ -161,10 +173,12 @@ export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
                     disabled={isSubmitting}
                     placeholder="Contoh: 4.5"
                   />
-                </Field>
+                </label>
 
-                <Field label="Lebar (m)" required>
-                  <Input
+                <label className="block">
+                  <span className={labelClass}>Lebar (m) <span className="text-red-500">*</span></span>
+                  <input
+                    className={inputClass}
                     type="number"
                     value={formData?.width?.toString() || '0'}
                     onChange={(e) =>
@@ -173,10 +187,12 @@ export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
                     disabled={isSubmitting}
                     placeholder="Contoh: 1.8"
                   />
-                </Field>
+                </label>
 
-                <Field label="Tinggi (m)" required>
-                  <Input
+                <label className="block">
+                  <span className={labelClass}>Tinggi (m) <span className="text-red-500">*</span></span>
+                  <input
+                    className={inputClass}
                     type="number"
                     value={formData?.height?.toString() || '0'}
                     onChange={(e) =>
@@ -185,17 +201,18 @@ export const VehicleClassForm: React.FC<VehicleClassFormProps> = ({
                     disabled={isSubmitting}
                     placeholder="Contoh: 1.5"
                   />
-                </Field>
+                </label>
               </div>
 
-              <Field label="Status">
+              <div>
+                <span className={labelClass}>Status</span>
                 <Switch
                   checked={formData?.is_active ?? true}
                   onChange={(e) => handleChange('is_active', e.currentTarget.checked)}
                   label={formData?.is_active ? 'Aktif' : 'Tidak Aktif'}
                   disabled={isSubmitting}
                 />
-              </Field>
+              </div>
 
               {formError && (
                 <div className="text-red-600 text-sm">{formError}</div>

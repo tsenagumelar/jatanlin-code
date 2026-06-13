@@ -33,7 +33,7 @@ export const DataTable = <T extends Record<string, any>>({
 }: DataTableProps<T>) => {
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex items-center justify-center h-96 text-slate-400">
         <Spinner label="Memuat data..." />
       </div>
     );
@@ -41,7 +41,7 @@ export const DataTable = <T extends Record<string, any>>({
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-96 text-gray-500">
+      <div className="flex items-center justify-center h-96 text-sm text-slate-400">
         {emptyMessage}
       </div>
     );
@@ -53,13 +53,13 @@ export const DataTable = <T extends Record<string, any>>({
         className={`overflow-auto ${maxHeight === "none" ? "flex-1" : ""}`}
         style={maxHeight !== "none" ? { maxHeight } : undefined}
       >
-        <table className="w-full">
-          <thead className={stickyHeader ? "sticky top-0 z-10 bg-gray-50" : ""}>
-            <tr className="border-b border-gray-200">
+        <table className="w-full text-sm">
+          <thead className={stickyHeader ? "sticky top-0 z-10 bg-slate-50/80" : ""}>
+            <tr className="border-b border-slate-100 bg-slate-50/80">
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3 text-left font-semibold text-sm bg-gray-50 border-b border-gray-200 ${column.className || ""}`}
+                  className={`px-5 py-3 text-left text-[11px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap ${column.className || ""}`}
                   style={{ width: column.width }}
                 >
                   {column.header}
@@ -77,14 +77,14 @@ export const DataTable = <T extends Record<string, any>>({
                 <tr
                   key={key}
                   onClick={() => onRowClick?.(row)}
-                  className={`border-b border-gray-200 ${
-                    onRowClick ? "cursor-pointer hover:bg-gray-50" : ""
+                  className={`border-b border-slate-50 hover:bg-blue-50/30 transition-colors ${
+                    onRowClick ? "cursor-pointer" : ""
                   }`}
                 >
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={`px-4 py-3 text-sm ${column.className || ""}`}
+                      className={`px-5 py-3.5 text-sm text-slate-600 ${column.className || ""}`}
                     >
                       {column.render ? column.render(row) : row[column.key]}
                     </td>

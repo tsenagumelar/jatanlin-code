@@ -205,17 +205,17 @@ export const MasterUserModule: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full p-6">
+    <div className="flex flex-col h-full p-6 overflow-auto bg-slate-50">
       <Toaster toasterId={toasterId} />
 
       {/* Header */}
       <div className="mb-4 shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-slate-800">
               Master Data Pengguna
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-slate-400 mt-0.5">
               Kelola data pengguna sistem
             </p>
           </div>
@@ -252,7 +252,7 @@ export const MasterUserModule: React.FC = () => {
       </div>
 
       {/* Table Container - Takes remaining space */}
-      <div className="flex-1 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden min-h-0">
         <div className="flex-1 flex flex-col min-h-0">
           <UserTable
             users={users}

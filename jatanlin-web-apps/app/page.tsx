@@ -12,7 +12,7 @@ export default function Home() {
   useEffect(() => {
     // Redirect based on authentication status
     if (isAuthenticated) {
-      router.push("/beranda");
+      router.push("/v2/dashboard");
     } else {
       router.push("/login");
     }

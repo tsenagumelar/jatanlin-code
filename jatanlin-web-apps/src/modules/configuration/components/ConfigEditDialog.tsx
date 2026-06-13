@@ -9,8 +9,6 @@ import {
   DialogActions,
   DialogContent,
   Button,
-  Field,
-  Textarea,
 } from '@fluentui/react-components';
 import { useConfigEdit } from '../hooks';
 import type { ConfigData } from '../types';
@@ -21,6 +19,9 @@ interface ConfigEditDialogProps {
   onSuccess: () => void;
   editConfig?: ConfigData | null;
 }
+
+const labelClass = 'block text-xs font-semibold text-slate-500 mb-1.5';
+const textareaClass = 'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 disabled:bg-slate-50 disabled:text-slate-400';
 
 export const ConfigEditDialog: React.FC<ConfigEditDialogProps> = ({
   open,
@@ -69,38 +70,40 @@ export const ConfigEditDialog: React.FC<ConfigEditDialogProps> = ({
             <DialogTitle>Edit Konfigurasi</DialogTitle>
             <DialogContent className="space-y-4">
               {editConfig && (
-                <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                <div className="space-y-3 p-4 bg-slate-50 rounded-lg border border-slate-100">
                   <div>
-                    <p className="text-sm text-gray-600">Kode</p>
-                    <p className="font-medium">{editConfig.code}</p>
+                    <p className="text-xs font-semibold text-slate-500">Kode</p>
+                    <p className="text-sm font-semibold text-slate-800">{editConfig.code}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Tipe</p>
-                    <p className="font-medium">{editConfig.config_type}</p>
+                    <p className="text-xs font-semibold text-slate-500">Tipe</p>
+                    <p className="text-sm font-semibold text-slate-800">{editConfig.config_type}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Key</p>
-                    <p className="font-medium">{editConfig.config_key}</p>
+                    <p className="text-xs font-semibold text-slate-500">Key</p>
+                    <p className="text-sm font-semibold text-slate-800">{editConfig.config_key}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Deskripsi</p>
-                    <p className="text-sm">{editConfig.description}</p>
+                    <p className="text-xs font-semibold text-slate-500">Deskripsi</p>
+                    <p className="text-sm text-slate-600">{editConfig.description}</p>
                   </div>
                 </div>
               )}
 
-              <Field label="Nilai Konfigurasi" required>
-                <Textarea
+              <label className="block">
+                <span className={labelClass}>Nilai Konfigurasi <span className="text-red-500">*</span></span>
+                <textarea
+                  className={textareaClass}
                   value={formData?.config_value || ''}
                   onChange={(e) => handleChange(e.target.value)}
                   disabled={isSubmitting}
                   placeholder="Masukkan nilai konfigurasi"
                   rows={4}
                 />
-              </Field>
+              </label>
 
               {formError && (
-                <div className="text-red-600 text-sm">{formError}</div>
+                <div className="text-red-600 text-sm bg-red-50 border border-red-200 px-3 py-2 rounded-lg">{formError}</div>
               )}
             </DialogContent>
             <DialogActions>
