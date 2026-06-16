@@ -1,56 +1,91 @@
-# Web Apps General
+# General Web Specification
 
-## Lokasi
+## Objective
 
-`jatanlin-web-apps`
+Rebuild the Jatanlin Web Apps with a new design, clearer feature structure, and
+reusable components. The existing main process flow must be preserved,
+especially for monitoring, Jatanlin transactions, verification, and device
+integration.
 
-Folder ini berisi full code frontend lama dari `jatanlin-web`. Kode `wim-web` tidak dipakai dalam monorepo ini.
+## Scope
 
-## Ringkasan Area
+In scope:
 
-Frontend operator Jatanlin berbasis Next.js untuk autentikasi, dashboard, monitoring transaksi ODOL, proses session WIM/Jatanlin, master data, konfigurasi, LED display, preview, panduan, detail kendaraan, verifikasi, dan export laporan.
+- New routes and modules for Web Apps v3.
+- Public features: login, register, reset password.
+- Authenticated features: dashboard, monitoring, transaction, master data, system.
+- Tailwind CSS as the main styling system.
+- Atomic Design System for reusable components.
+- Redux as state management.
+- GraphQL for requests to Hasura.
+- REST API for requests to backend services other than Hasura.
 
-## Routes dan Halaman
+Out of initial scope:
 
-- `/`: redirect berdasarkan status auth ke `/beranda` atau `/login`.
-- `/login`: halaman login public.
-- `/beranda`: dashboard ringkasan, statistik, chart, dan daftar transaksi terbaru.
-- `/jatanlin`: list transaksi kendaraan aktual dengan filter, pagination, refresh, export, dan tombol mulai sistem.
-- `/jatanlin/[id]`: detail kendaraan/transaksi.
-- `/jatanlin/[id]/verify`: verifikasi transaksi dan status pelanggaran.
-- `/konfigurasi`: master konfigurasi aplikasi.
-- `/master-data/pengguna`: CRUD user.
-- `/master-data/kelas-kendaraan`: CRUD kelas kendaraan dan batas ODOL.
-- `/processing`: flow inisialisasi dan processing session.
-- `/processing/clicker`: mode processing clicker.
-- `/processing/clicker/fullscreen`: fullscreen clicker.
-- `/led`: LED display reguler.
-- `/led/fullscreen`: LED display fullscreen.
-- `/preview`: preview/tampilan data operasional.
-- `/panduan`: halaman panduan penggunaan.
+- Database schema changes without a feature need.
+- Full backend service replacement.
+- Removing legacy routes before v3 is ready.
+- Mobile-first implementation for all monitoring pages. Mobile must remain
+  usable, but the primary target is operational desktop/tablet usage.
 
-## Feature Summary
+## Target User
 
-- Autentikasi operator dan layout private/public.
-- Dashboard operasional ODOL.
-- List, detail, dan verifikasi transaksi Jatanlin.
-- Processing realtime untuk session WIM/Jatanlin.
-- Master pengguna, role, kelas kendaraan, dan konfigurasi.
-- LED display dan fullscreen display untuk status processing.
-- Export Excel/PDF.
-- GraphQL query/mutation/subscription berbasis Hasura.
+- Operator: monitors processing, live view, LED, and vehicle transactions.
+- Admin: manages users, vehicle classes, configuration, devices, and licenses.
+- Supervisor: monitors dashboard, data center, and transaction summaries.
 
-## Code Rules Web
+## Design Direction
 
-- Semua route baru harus berada di App Router `app/` dan modul UI/business logic diletakkan di `src/modules/<area>`.
-- GraphQL operation baru harus ditulis di `src/graphql/queries/*.graphql`, lalu jalankan `npm run codegen`.
-- Jangan edit file generated hooks/manual schema types kecuali output codegen.
-- Jangan memakai `NEXT_PUBLIC_HASURA_SECRET` untuk production browser build; gunakan JWT/Hasura role claim.
-- Query list besar wajib memakai `limit`, `offset`, `where`, dan aggregate count.
-- Semua list wajib punya loading, empty/error state, pagination, refresh, dan filter yang eksplisit.
-- Mutasi create/update/delete wajib menulis audit field jika schema membutuhkannya.
-- Soft delete lebih diprioritaskan daripada hard delete untuk master/transaction data.
-- State realtime processing harus melalui `ProcessingContext`; jangan buat state paralel yang tidak disinkronkan.
-- Perhitungan ODOL harus memakai util `src/utils/odol.ts` agar konsisten antara processing, detail, dan verify.
-- Export harus menyebut sumber data yang diexport: current page, filtered page, atau seluruh dataset.
-- Hindari `any` untuk fitur baru; beberapa kode lama masih memakai `any`, tetapi modul baru harus menambah type yang jelas.
+The Web Apps should feel like an operational application that is quick to read
+and easy to use. The UI must prioritize status, data, and actions over
+decoration.
+
+Principles:
+
+- Clear hierarchy.
+- Dense but readable.
+- Fast action.
+- Stable layout.
+- Consistent component behavior.
+- Explicit loading, empty, error, and offline states.
+
+## App Sections
+
+```text
+Public
+  Login
+  Register
+  Reset Password
+
+Private
+  Dashboard
+  Monitoring
+    Processing
+    Live View
+    LED Display
+  Transaction
+    Jatanlin
+    Data Center
+  Master Data
+    User
+    Vehicle Classes
+  System
+    Admin Setting
+    Configuration & Device Registration
+    License
+    Guideline
+```
+
+## Definition of Done
+
+A feature is considered complete when:
+
+- The route is available.
+- The UI follows the style guideline.
+- Components use the appropriate atomic design level.
+- Data requests follow GraphQL or REST rules.
+- Local and global state are clear.
+- Loading, empty, error, and unauthorized states are available.
+- Permissions and auth guards are applied for private features.
+- There is no direct coupling to legacy components except documented
+  transitional adapters.

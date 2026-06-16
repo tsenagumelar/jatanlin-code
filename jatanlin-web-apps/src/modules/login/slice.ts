@@ -3,6 +3,7 @@ import type { User } from './types';
 
 export interface LoginState {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -10,6 +11,7 @@ export interface LoginState {
 
 const initialState: LoginState = {
   user: null,
+  token: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -33,13 +35,17 @@ const loginSlice = createSlice({
       state.isAuthenticated = true;
       state.error = null;
     },
+    setToken: (state, action: PayloadAction<string | null>) => {
+      state.token = action.payload;
+    },
     logout: (state) => {
       state.user = null;
+      state.token = null;
       state.isAuthenticated = false;
       state.error = null;
     },
   },
 });
 
-export const { setLoading, setError, clearError, setUser, logout } = loginSlice.actions;
+export const { setLoading, setError, clearError, setUser, setToken, logout } = loginSlice.actions;
 export default loginSlice.reducer;

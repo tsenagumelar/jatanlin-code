@@ -6,7 +6,12 @@ import { setLoading, setError, clearError, setUser } from './slice';
 import { setAuthCookie } from '@/src/utils/auth';
 import type { LoginFormData, User } from './types';
 
-export const useLogin = () => {
+interface UseLoginOptions {
+  redirectTo?: string;
+}
+
+export const useLogin = (options: UseLoginOptions = {}) => {
+  const redirectTo = options.redirectTo ?? '/v2/dashboard';
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isLoading, error, isAuthenticated } = useAppSelector((state) => state.login);
@@ -67,8 +72,7 @@ export const useLogin = () => {
         // Set auth cookie
         setAuthCookie(true);
 
-        // Navigate to main v2 dashboard
-        router.push('/v2/dashboard');
+        router.push(redirectTo);
       } else {
         dispatch(setError('Email/nama pengguna atau kata sandi salah'));
       }
@@ -91,9 +95,9 @@ export const useLogin = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/v2/dashboard');
+      router.push(redirectTo);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, redirectTo, router]);
 
   return {
     formData,

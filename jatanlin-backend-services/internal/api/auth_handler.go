@@ -28,23 +28,28 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.Username == "" || req.Password == "" {
+	usernameOrEmail := strings.TrimSpace(req.Username)
+	if usernameOrEmail == "" {
+		usernameOrEmail = strings.TrimSpace(req.Email)
+	}
+
+	if usernameOrEmail == "" || req.Password == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
-			"message": "Username and password are required",
+			"message": "Username/email and password are required",
 		})
 	}
 
-	response, err := h.AuthService.Authenticate(req.Username, req.Password)
+	response, err := h.AuthService.Authenticate(usernameOrEmail, req.Password)
 	if err != nil {
-		log.Printf("[AUTH] Login failed for user: %s - %v", req.Username, err)
+		log.Printf("[AUTH] Login failed for user: %s - %v", usernameOrEmail, err)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"message": "Invalid username or password",
 		})
 	}
 
-	log.Printf("[AUTH] Login successful for user: %s", req.Username)
+	log.Printf("[AUTH] Login successful for user: %s", usernameOrEmail)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
@@ -54,7 +59,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) GetProfile(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(int)
+	userID, ok := c.Locals("userID").(string)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
@@ -62,7 +67,7 @@ func (h *AuthHandler) GetProfile(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := h.AuthService.GetUserByID(userID)
+	user, err := h.AuthService.GetUserByUUID(userID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,

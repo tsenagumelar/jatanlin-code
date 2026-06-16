@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Button,
   Spinner,
@@ -19,13 +18,19 @@ import { HistoriTab } from './components/HistoriTab';
 
 interface JatanlinDetailModuleProps {
   id: string;
+  hideHeader?: boolean;
 }
 
 export const JatanlinDetailModule: React.FC<JatanlinDetailModuleProps> = ({
   id,
+  hideHeader = false,
 }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const [selectedTab, setSelectedTab] = useState<string>('data-aktif');
+  const listPath = pathname.startsWith('/v3')
+    ? '/v3/transaction/jatanlin'
+    : '/jatanlin';
 
   const { data, loading, error } = useGetVehicleActualByIdQuery({
     variables: { id },
@@ -34,7 +39,7 @@ export const JatanlinDetailModule: React.FC<JatanlinDetailModuleProps> = ({
   const vehicle = data?.transact_vehicle_actual_by_pk;
 
   const handleBack = () => {
-    router.push('/jatanlin');
+    router.push(listPath);
   };
 
   // Debug logging
@@ -75,28 +80,30 @@ export const JatanlinDetailModule: React.FC<JatanlinDetailModuleProps> = ({
   const plateNo = vehicle.actual_plat_no || vehicle.transact_anpr_capture?.plate_no || '-';
 
   return (
-    <div className="flex flex-col h-full p-6">
+    <div className={`flex flex-col h-full ${hideHeader ? "" : "p-6"}`}>
       {/* Header */}
-      <div className="mb-4 shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Button
-              appearance="subtle"
-              icon={<ArrowLeft24Regular />}
-              onClick={handleBack}
-            >
-              Kembali
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Detail Transaksi Kendaraan
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                {plateNo}
-              </p>
+      <div className={`${hideHeader ? "mb-3" : "mb-4"} shrink-0`}>
+        {!hideHeader && (
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Button
+                appearance="subtle"
+                icon={<ArrowLeft24Regular />}
+                onClick={handleBack}
+              >
+                Kembali
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Detail Transaksi Kendaraan
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  {plateNo}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Tabs */}
         <TabList

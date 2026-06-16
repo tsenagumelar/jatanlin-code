@@ -11,7 +11,7 @@ services:
       SITE_REGION: Default
 
       DATABASE_URL: "postgres://jatanlin:SuperSecretPasswordBang123@51.79.173.213:5432/jatanlin?sslmode=disable"
-      JWT_SECRET: super-secret-jwt
+      JWT_SECRET: jatanlin-super-secret-jwt-key-2026
       NATS_URL: "nats://nats:natspass@51.79.173.213:4222"
 
       RTSP_URL: rtsp://admin:admin@192.168.1.18:554/live.sdp

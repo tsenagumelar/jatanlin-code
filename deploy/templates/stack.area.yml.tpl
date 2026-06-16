@@ -85,7 +85,7 @@ services:
     environment:
       NEXT_PUBLIC_HASURA_URL: http://localhost:${HASURA_PORT}/v1/graphql
       NEXT_PUBLIC_HASURA_WS_IP: ws://localhost:${HASURA_PORT}/v1/graphql
-      NEXT_PUBLIC_HASURA_SECRET: ${HASURA_GRAPHQL_ADMIN_SECRET}
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT}
     ports:
       - "${WEB_PORT}:3000"
     networks:

@@ -9,6 +9,7 @@ import (
 	"wim-service/internal/api"
 	"wim-service/internal/config"
 	"wim-service/internal/handler"
+	"wim-service/internal/license"
 )
 
 func main() {
@@ -35,8 +36,18 @@ func main() {
 		log.Fatal("[API] Failed to create attachment handler:", err)
 	}
 
+	licenseService, err := license.NewService(
+		cfg.VEAMLicensePath,
+		cfg.VEAMPublicKeyB64,
+		cfg.SiteUUID,
+		cfg.VEAMHardwareID,
+	)
+	if err != nil {
+		log.Fatal("[API] Failed to create VEAM license service:", err)
+	}
+
 	// Create API server
-	apiServer := api.NewServer(cfg.DB, cfg.JWTSecret, attachmentHandler, cfg.AuthEnabled)
+	apiServer := api.NewServer(cfg.DB, cfg.JWTSecret, attachmentHandler, licenseService, cfg.AuthEnabled)
 
 	log.Println("")
 	log.Println("API Endpoints:")
@@ -46,6 +57,8 @@ func main() {
 	log.Printf("  - Health Check:  GET  /health")
 	log.Printf("  - Login:         POST /api/auth/login")
 	log.Printf("  - VEAM Scan USB: GET  /veam/scan-license")
+	log.Printf("  - VEAM Status:   GET  /veam/status")
+	log.Printf("  - VEAM Activate: POST /veam/activate")
 	log.Println("")
 	if cfg.AuthEnabled {
 		log.Println("Protected Endpoints (Require JWT Token):")

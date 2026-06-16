@@ -12,7 +12,7 @@ services:
 
       DATABASE_URL: "postgres://jatanlin:SuperSecretPasswordBang123@51.79.173.213:5432/jatanlin?sslmode=disable"
       API_PORT: "4000"
-      JWT_SECRET: super-secret-jwt
+      JWT_SECRET: jatanlin-super-secret-jwt-key-2026
       AUTH_ENABLED: "true"
       NATS_URL: "nats://nats:natspass@host.docker.internal:4222"
 

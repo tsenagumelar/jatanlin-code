@@ -7,8 +7,7 @@ services:
       NEXT_PUBLIC_HASURA_URL: "http://51.79.173.213:8080/v1/graphql"
       NEXT_PUBLIC_HASURA_WS: "ws://hasura.activa.id/v1/graphql"
       NEXT_PUBLIC_HASURA_WS_IP: "ws://51.79.173.213:8080/v1/graphql"
-      NEXT_PUBLIC_HASURA_SECRET: devhasurasecret
-      NEXT_PUBLIC_API_URL: "http://localhost:4000"
+      NEXT_PUBLIC_API_URL: "http://51.79.173.213:24000"
       NEXT_PUBLIC_SITE_ID: "e1123daf-a4db-4ee1-88da-ba9bff382f45"
       NEXT_PUBLIC_SITE_CODE: "MST-25-00001"
       NEXT_PUBLIC_SITE_NAME: "Mampang"
@@ -36,8 +35,8 @@ services:
 
       DATABASE_URL: "postgres://jatanlin:SuperSecretPasswordBang123@51.79.173.213:5432/jatanlin?sslmode=disable"
       API_PORT: "4000"
-      JWT_SECRET: "wim-secret-key-change-in-production-2024"
-      AUTH_ENABLED: "false"
+      JWT_SECRET: "jatanlin-super-secret-jwt-key-2026"
+      AUTH_ENABLED: "true"
       NATS_URL: "nats://51.79.173.213:4222"
       SESSION_WINDOW_SECONDS: "600"
 
@@ -99,7 +98,7 @@ services:
       SITE_LOCATION: Central Office
       SITE_REGION: Default
       DATABASE_URL: "postgres://jatanlin:SuperSecretPasswordBang123@51.79.173.213:5432/jatanlin?sslmode=disable"
-      JWT_SECRET: "wim-secret-key-change-in-production-2024"
+      JWT_SECRET: "jatanlin-super-secret-jwt-key-2026"
       NATS_URL: "nats://51.79.173.213:4222"
       SESSION_WINDOW_SECONDS: "600"
 
@@ -138,7 +137,7 @@ services:
       SITE_LOCATION: Central Office
       SITE_REGION: Default
       DATABASE_URL: "postgres://jatanlin:SuperSecretPasswordBang123@51.79.173.213:5432/jatanlin?sslmode=disable"
-      JWT_SECRET: "wim-secret-key-change-in-production-2024"
+      JWT_SECRET: "jatanlin-super-secret-jwt-key-2026"
       NATS_URL: "nats://51.79.173.213:4222"
       SESSION_WINDOW_SECONDS: "600"
 
@@ -170,7 +169,7 @@ services:
       SITE_LOCATION: Jakarta Selatan
       SITE_REGION: JABODETABEK
       DATABASE_URL: "postgres://postgres:postgres@host.docker.internal:5432/jatanlin?sslmode=disable"
-      JWT_SECRET: super-secret-jwt
+      JWT_SECRET: jatanlin-super-secret-jwt-key-2026
       NATS_URL: "nats://nats:natspass@host.docker.internal:4222"
       RTSP_URL: rtsp://admin:admin@192.168.1.18:554/live.sdp
       CCTV_TRIGGER_DUMMY: "true"

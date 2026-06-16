@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,6 +35,11 @@ type Config struct {
 	APIPort     string
 	JWTSecret   string
 	AuthEnabled bool // Toggle auth header enforcement (temporary for FE readiness)
+
+	// VEAM License
+	VEAMLicensePath  string
+	VEAMPublicKeyB64 string
+	VEAMHardwareID   string
 
 	// ANPR FTP Config
 	ANPRFTPHost      string
@@ -147,6 +153,11 @@ func Load() (*Config, error) {
 		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-this-in-production"),
 		AuthEnabled: getEnvBool("AUTH_ENABLED", false),
 
+		// VEAM License
+		VEAMLicensePath:  getEnv("VEAM_LICENSE_PATH", "./data/license.veam"),
+		VEAMPublicKeyB64: getEnv("VEAM_PUBLIC_KEY_B64", ""),
+		VEAMHardwareID:   getEnv("VEAM_HARDWARE_ID", ""),
+
 		// ANPR FTP
 		ANPRFTPHost:      getEnv("ANPR_FTP_HOST", "51.79.173.213:21"),
 		ANPRFTPUser:      getEnv("ANPR_FTP_USER", "ftpuser"),
@@ -259,10 +270,17 @@ func Load() (*Config, error) {
 	cfg.DB = db
 	log.Printf("[CONFIG] Database connection established for Site: %s (%s)", cfg.SiteCode, cfg.SiteName)
 
+	if err := cfg.loadRuntimeOverrides(); err != nil {
+		log.Printf("[CONFIG] Runtime config override skipped: %v", err)
+	}
+
 	// Resolve site UUID:
 	// 1) Prefer explicit SITE_ID from env (same UUID style used by web NEXT_PUBLIC_SITE_ID)
 	// 2) Fallback to lookup by SITE_CODE from master_site
-	explicitSiteID := getEnv("SITE_ID", "")
+	explicitSiteID := cfg.SiteUUID
+	if explicitSiteID == "" {
+		explicitSiteID = getEnv("SITE_ID", "")
+	}
 	if explicitSiteID == "" {
 		explicitSiteID = getEnv("NEXT_PUBLIC_SITE_ID", "")
 	}
@@ -318,6 +336,148 @@ func (cfg *Config) loadSiteUUID() error {
 
 	cfg.SiteUUID = siteUUID
 	return nil
+}
+
+// loadRuntimeOverrides applies values maintained by v3 Configuration & Device.
+// DATABASE_URL cannot be overridden here because it is required before this query.
+func (cfg *Config) loadRuntimeOverrides() error {
+	rows, err := cfg.DB.Query(`
+		SELECT config_key, COALESCE(config_value, '')
+		FROM public.system_runtime_config
+		WHERE is_active = true AND is_deleted = false
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	values := map[string]string{}
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			return err
+		}
+		values[key] = strings.TrimSpace(value)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(values) == 0 {
+		return nil
+	}
+
+	cfg.SiteUUID = runtimeString(values, "SITE_ID", cfg.SiteUUID)
+	cfg.SiteCode = runtimeString(values, "SITE_CODE", cfg.SiteCode)
+	cfg.SiteName = runtimeString(values, "SITE_NAME", cfg.SiteName)
+	cfg.SiteLocation = runtimeString(values, "SITE_LOCATION", cfg.SiteLocation)
+	cfg.SiteRegion = runtimeString(values, "SITE_REGION", cfg.SiteRegion)
+
+	cfg.APIPort = runtimeString(values, "API_PORT", cfg.APIPort)
+	cfg.JWTSecret = runtimeString(values, "JWT_SECRET", cfg.JWTSecret)
+	cfg.AuthEnabled = runtimeBool(values, "AUTH_ENABLED", cfg.AuthEnabled)
+	cfg.SyncEnabled = runtimeBool(values, "SYNC_ENABLED", cfg.SyncEnabled)
+	cfg.NATSURL = runtimeString(values, "NATS_URL", cfg.NATSURL)
+
+	cfg.ANPRFTPHost = runtimeString(values, "ANPR_FTP_HOST", cfg.ANPRFTPHost)
+	cfg.ANPRFTPUser = runtimeString(values, "ANPR_FTP_USER", cfg.ANPRFTPUser)
+	cfg.ANPRFTPPass = runtimeString(values, "ANPR_FTP_PASS", cfg.ANPRFTPPass)
+	cfg.ANPRFTPDir = runtimeString(values, "ANPR_FTP_DIR", cfg.ANPRFTPDir)
+	cfg.ANPRFTPInterval = time.Duration(runtimeInt(values, "ANPR_FTP_INTERVAL_SEC", int(cfg.ANPRFTPInterval/time.Second))) * time.Second
+	cfg.ANPRDummyEnabled = runtimeBool(values, "ANPR_DUMMY_ENABLED", cfg.ANPRDummyEnabled)
+
+	cfg.AxleFTPHost = runtimeString(values, "AXLE_FTP_HOST", cfg.AxleFTPHost)
+	cfg.AxleFTPUser = runtimeString(values, "AXLE_FTP_USER", cfg.AxleFTPUser)
+	cfg.AxleFTPPass = runtimeString(values, "AXLE_FTP_PASS", cfg.AxleFTPPass)
+	cfg.AxleFTPDir = runtimeString(values, "AXLE_FTP_DIR", cfg.AxleFTPDir)
+	cfg.AxleFTPInterval = time.Duration(runtimeInt(values, "AXLE_FTP_INTERVAL_SEC", int(cfg.AxleFTPInterval/time.Second))) * time.Second
+	cfg.AxleDummyEnabled = runtimeBool(values, "AXLE_DUMMY_ENABLED", cfg.AxleDummyEnabled)
+
+	cfg.ANPRMinIOEndpoint = runtimeString(values, "ANPR_MINIO_ENDPOINT", cfg.ANPRMinIOEndpoint)
+	cfg.ANPRMinIOAccess = runtimeString(values, "ANPR_MINIO_ACCESS_KEY", cfg.ANPRMinIOAccess)
+	cfg.ANPRMinIOSecret = runtimeString(values, "ANPR_MINIO_SECRET_KEY", cfg.ANPRMinIOSecret)
+	cfg.ANPRMinIOBucket = runtimeString(values, "ANPR_MINIO_BUCKET", cfg.ANPRMinIOBucket)
+	cfg.ANPRMinIOUseSSL = runtimeBool(values, "ANPR_MINIO_USE_SSL", cfg.ANPRMinIOUseSSL)
+	cfg.AxleMinIOEndpoint = runtimeString(values, "AXLE_MINIO_ENDPOINT", cfg.AxleMinIOEndpoint)
+	cfg.AxleMinIOAccess = runtimeString(values, "AXLE_MINIO_ACCESS_KEY", cfg.AxleMinIOAccess)
+	cfg.AxleMinIOSecret = runtimeString(values, "AXLE_MINIO_SECRET_KEY", cfg.AxleMinIOSecret)
+	cfg.AxleMinIOBucket = runtimeString(values, "AXLE_MINIO_BUCKET", cfg.AxleMinIOBucket)
+	cfg.AxleMinIOUseSSL = runtimeBool(values, "AXLE_MINIO_USE_SSL", cfg.AxleMinIOUseSSL)
+	cfg.AttachmentMinIOEndpoint = runtimeString(values, "ATTACHMENT_MINIO_ENDPOINT", cfg.AttachmentMinIOEndpoint)
+	cfg.AttachmentMinIOAccess = runtimeString(values, "ATTACHMENT_MINIO_ACCESS_KEY", cfg.AttachmentMinIOAccess)
+	cfg.AttachmentMinIOSecret = runtimeString(values, "ATTACHMENT_MINIO_SECRET_KEY", cfg.AttachmentMinIOSecret)
+	cfg.AttachmentMinIOBucket = runtimeString(values, "ATTACHMENT_MINIO_BUCKET", cfg.AttachmentMinIOBucket)
+	cfg.AttachmentMinIOUseSSL = runtimeBool(values, "ATTACHMENT_MINIO_USE_SSL", cfg.AttachmentMinIOUseSSL)
+
+	cfg.CCTVTriggerEnabled = runtimeBool(values, "CCTV_TRIGGER_ENABLED", cfg.CCTVTriggerEnabled)
+	cfg.CCTVTriggerURL = runtimeString(values, "CCTV_TRIGGER_URL", cfg.CCTVTriggerURL)
+	cfg.CCTVTriggerSeconds = runtimeInt(values, "CCTV_TRIGGER_SECONDS", cfg.CCTVTriggerSeconds)
+	cfg.CCTVTriggerDummy = runtimeBool(values, "CCTV_TRIGGER_DUMMY", cfg.CCTVTriggerDummy)
+
+	cfg.DimensionEnabled = runtimeBool(values, "DIMENSION_ENABLED", cfg.DimensionEnabled)
+	cfg.DimensionDummyEnabled = runtimeBool(values, "DIMENSION_DUMMY_ENABLED", cfg.DimensionDummyEnabled)
+	cfg.DimensionThreshold = runtimeFloat(values, "DIMENSION_THRESHOLD", cfg.DimensionThreshold)
+	cfg.DimensionModelPath = runtimeString(values, "DIMENSION_MODEL_PATH", cfg.DimensionModelPath)
+	cfg.DimensionProfileName = runtimeString(values, "DIMENSION_PROFILE_NAME", cfg.DimensionProfileName)
+	cfg.DimensionMinConfidence = runtimeFloat(values, "DIMENSION_MIN_CONFIDENCE", cfg.DimensionMinConfidence)
+	cfg.DimensionEnablePoseFilter = runtimeBool(values, "DIMENSION_ENABLE_POSE_FILTER", cfg.DimensionEnablePoseFilter)
+
+	cfg.CameraImageWidth = runtimeInt(values, "CAMERA_IMAGE_WIDTH", cfg.CameraImageWidth)
+	cfg.CameraImageHeight = runtimeInt(values, "CAMERA_IMAGE_HEIGHT", cfg.CameraImageHeight)
+	cfg.CameraFocalLength = runtimeFloat(values, "CAMERA_FOCAL_LENGTH", cfg.CameraFocalLength)
+	cfg.CameraHeight = runtimeFloat(values, "CAMERA_HEIGHT_METERS", cfg.CameraHeight)
+	cfg.CameraTiltAngle = runtimeFloat(values, "CAMERA_TILT_ANGLE", cfg.CameraTiltAngle)
+	cfg.CameraRefPixelLength = runtimeInt(values, "CAMERA_REF_PIXEL_LENGTH", cfg.CameraRefPixelLength)
+	cfg.CameraRefRealLength = runtimeFloat(values, "CAMERA_REF_REAL_LENGTH", cfg.CameraRefRealLength)
+
+	cfg.WeighingTriggerURL = runtimeString(values, "WEIGHING_TRIGGER_URL", cfg.WeighingTriggerURL)
+	cfg.WeighingTriggerDirection = runtimeString(values, "WEIGHING_TRIGGER_DIRECTION", cfg.WeighingTriggerDirection)
+	cfg.WeighingTriggerTimeoutSec = runtimeInt(values, "WEIGHING_TRIGGER_TIMEOUT_SECONDS", cfg.WeighingTriggerTimeoutSec)
+	cfg.WeighingTriggerSave = runtimeBool(values, "WEIGHING_TRIGGER_SAVE", cfg.WeighingTriggerSave)
+	cfg.WeighingTriggerDummy = runtimeBool(values, "WEIGHING_TRIGGER_DUMMY", cfg.WeighingTriggerDummy)
+
+	cfg.VEAMLicensePath = runtimeString(values, "VEAM_LICENSE_PATH", cfg.VEAMLicensePath)
+	cfg.VEAMPublicKeyB64 = runtimeString(values, "VEAM_PUBLIC_KEY_B64", cfg.VEAMPublicKeyB64)
+	cfg.VEAMHardwareID = runtimeString(values, "VEAM_HARDWARE_ID", cfg.VEAMHardwareID)
+
+	log.Printf("[CONFIG] Applied %d runtime config value(s) from system_runtime_config", len(values))
+	return nil
+}
+
+func runtimeString(values map[string]string, key, def string) string {
+	if v, ok := values[key]; ok && v != "" {
+		return v
+	}
+	return def
+}
+
+func runtimeInt(values map[string]string, key string, def int) int {
+	if v, ok := values[key]; ok && v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			return parsed
+		}
+	}
+	return def
+}
+
+func runtimeBool(values map[string]string, key string, def bool) bool {
+	if v, ok := values[key]; ok && v != "" {
+		switch strings.ToLower(v) {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
+		}
+	}
+	return def
+}
+
+func runtimeFloat(values map[string]string, key string, def float64) float64 {
+	if v, ok := values[key]; ok && v != "" {
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			return parsed
+		}
+	}
+	return def
 }
 
 func getEnv(key, def string) string {

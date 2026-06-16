@@ -5,6 +5,7 @@ import (
 	"log"
 	"wim-service/internal/auth"
 	"wim-service/internal/handler"
+	"wim-service/internal/license"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -16,12 +17,13 @@ type Server struct {
 	App               *fiber.App
 	AuthService       *auth.AuthService
 	AuthHandler       *AuthHandler
+	UserHandler       *UserHandler
 	AttachmentHandler *handler.AttachmentHandler
 	VeamHandler       *handler.VeamHandler
 	AuthEnabled       bool
 }
 
-func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *handler.AttachmentHandler, authEnabled bool) *Server {
+func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *handler.AttachmentHandler, licenseService *license.Service, authEnabled bool) *Server {
 	app := fiber.New(fiber.Config{
 		AppName: "WIM Service API",
 	})
@@ -36,13 +38,15 @@ func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *handler.Attachme
 
 	authService := auth.NewAuthService(db, jwtSecret)
 	authHandler := NewAuthHandler(authService)
+	userHandler := NewUserHandler(db)
 
 	server := &Server{
 		App:               app,
 		AuthService:       authService,
 		AuthHandler:       authHandler,
+		UserHandler:       userHandler,
 		AttachmentHandler: attachmentHandler,
-		VeamHandler:       handler.NewVeamHandler(),
+		VeamHandler:       handler.NewVeamHandler(licenseService),
 		AuthEnabled:       authEnabled,
 	}
 
@@ -83,9 +87,23 @@ func (s *Server) setupRoutes() {
 	}
 	attachment.Post("/upload", s.AttachmentHandler.UploadImage)
 
+	// User management routes (protected - writes are handled by backend for password hashing)
+	users := api.Group("/users")
+	if s.AuthEnabled {
+		users.Use(JWTMiddleware(s.AuthService))
+	}
+	users.Post("", s.UserHandler.CreateUser)
+	users.Post("/", s.UserHandler.CreateUser)
+	users.Put("/:id", s.UserHandler.UpdateUser)
+	users.Delete("/:id", s.UserHandler.DeleteUser)
+
 	// VEAM routes (no auth required — license scan is local operation)
 	veam := s.App.Group("/veam")
 	veam.Get("/scan-license", s.VeamHandler.ScanLicense)
+	veam.Get("/status", s.VeamHandler.Status)
+	veam.Post("/activate", s.VeamHandler.Activate)
+	veam.Post("/activate-usb", s.VeamHandler.ActivateFromUSB)
+	veam.Delete("/license", s.VeamHandler.Revoke)
 
 	// Note: WIM Session management is handled via Hasura GraphQL
 	// No REST API endpoints needed here

@@ -200,7 +200,7 @@ export default function LoginModule() {
             >
               ✕
             </button>
-            <div className="min-h-[120px]"></div>
+            <div className="min-h-30"></div>
           </div>
         </div>
       )}

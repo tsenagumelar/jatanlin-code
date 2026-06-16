@@ -17,7 +17,7 @@ const errorLink = onError((errorHandler: any) => {
   if (errorHandler.graphQLErrors) {
     errorHandler.graphQLErrors.forEach(({ message, locations, path }: any) => {
       console.error(
-        `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
+        `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`,
       );
     });
   }
@@ -28,7 +28,6 @@ const errorLink = onError((errorHandler: any) => {
 
 // Auth middleware link
 const authLink = new ApolloLink((operation, forward) => {
-  // Get auth token from cookie or localStorage
   const token =
     typeof window !== "undefined"
       ? document.cookie
@@ -37,11 +36,10 @@ const authLink = new ApolloLink((operation, forward) => {
           ?.split("=")[1]
       : null;
 
-  // Add authorization header if token exists
   operation.setContext(({ headers = {} }) => ({
     headers: {
       ...headers,
-      authorization: token ? `Bearer ${token}` : "",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
   }));
 
@@ -52,12 +50,6 @@ const authLink = new ApolloLink((operation, forward) => {
 const httpLink = new HttpLink({
   uri: process.env.NEXT_PUBLIC_HASURA_URL || "http://localhost:8080/v1/graphql",
   credentials: "include", // Include cookies in requests
-  headers: {
-    // Hasura admin secret for development (should use JWT in production)
-    ...(process.env.NEXT_PUBLIC_HASURA_SECRET && {
-      "x-hasura-admin-secret": process.env.NEXT_PUBLIC_HASURA_SECRET,
-    }),
-  },
 });
 
 // WebSocket connection for subscriptions (client-side only)
@@ -67,15 +59,24 @@ const wsLink =
         createClient({
           url:
             process.env.NEXT_PUBLIC_HASURA_WS_IP ||
+            process.env.NEXT_PUBLIC_HASURA_WS ||
             "ws://localhost:5000/v1/graphql",
           connectionParams: {
-            headers: {
-              ...(process.env.NEXT_PUBLIC_HASURA_SECRET && {
-                "x-hasura-admin-secret": process.env.NEXT_PUBLIC_HASURA_SECRET,
-              }),
-            },
+            headers: (() => {
+              const token =
+                typeof window !== "undefined"
+                  ? document.cookie
+                      .split("; ")
+                      .find((row) => row.startsWith("authToken="))
+                      ?.split("=")[1]
+                  : null;
+
+              return {
+                ...(token ? { authorization: `Bearer ${token}` } : {}),
+              };
+            })(),
           },
-        })
+        }),
       )
     : null;
 
@@ -91,7 +92,7 @@ const splitLink =
           );
         },
         wsLink,
-        from([errorLink, authLink, httpLink])
+        from([errorLink, authLink, httpLink]),
       )
     : from([errorLink, authLink, httpLink]);
 
