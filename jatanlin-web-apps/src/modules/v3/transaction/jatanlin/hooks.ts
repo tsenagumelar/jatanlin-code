@@ -5,7 +5,11 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useGetConfigsQuery } from "@/src/graphql/hooks/configuration";
 import { useGetVehicleClassesQuery } from "@/src/graphql/hooks/master-vehicle-class";
-import { useGetVehicleActualsQuery } from "@/src/graphql/hooks/transact-vehicle-actual";
+import {
+  useGetVehicleActualsQuery,
+  useSoftDeleteVehicleActualMutation,
+} from "@/src/graphql/hooks/transact-vehicle-actual";
+import { useAppSelector } from "@/src/redux/hooks";
 import {
   checkOdolViolation,
   getOdolTolerances,
@@ -162,8 +166,11 @@ function downloadCsv(filename: string, rows: string[][]) {
 }
 
 export function useV3Jatanlin() {
+  const currentUser = useAppSelector((state) => state.login.user);
   const [filters, setFilters] = useState<V3JatanlinFilters>(initialFilters);
   const [page, setPage] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<V3JatanlinRow | null>(null);
   const where = useMemo(() => buildWhere(filters), [filters]);
 
   const vehicleActualsQuery = useGetVehicleActualsQuery({
@@ -183,6 +190,12 @@ export function useV3Jatanlin() {
     },
     fetchPolicy: "cache-and-network",
   });
+  const [softDeleteVehicleActual, deleteState] =
+    useSoftDeleteVehicleActualMutation();
+  const isAdmin = [
+    currentUser?.master_role.code,
+    currentUser?.master_role.role_name,
+  ].some((role) => role?.toLowerCase().includes("admin"));
 
   const rows = useMemo<V3JatanlinRow[]>(() => {
     const classes = vehicleClassesQuery.data?.master_vehicle_class ?? [];
@@ -283,6 +296,38 @@ export function useV3Jatanlin() {
     setPage(0);
   };
 
+  const openDeleteModal = (row: V3JatanlinRow) => {
+    if (!isAdmin || !currentUser) return;
+    setActionError(null);
+    setDeleteTarget(row);
+  };
+
+  const closeDeleteModal = () => {
+    if (!deleteState.loading) setDeleteTarget(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!isAdmin || !currentUser || !deleteTarget) return;
+
+    setActionError(null);
+    try {
+      await softDeleteVehicleActual({
+        variables: {
+          id: deleteTarget.id,
+          updated_by: currentUser.id,
+        },
+      });
+      await vehicleActualsQuery.refetch();
+      setDeleteTarget(null);
+    } catch (deleteError) {
+      setActionError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Unable to delete transaction.",
+      );
+    }
+  };
+
   const handleExport = (format: "csv" | "pdf") => {
     const headers = [
       "No",
@@ -334,7 +379,10 @@ export function useV3Jatanlin() {
       vehicleActualsQuery.loading ||
       vehicleClassesQuery.loading ||
       configsQuery.loading,
+    isDeleting: deleteState.loading,
+    isAdmin,
     error:
+      actionError ||
       vehicleActualsQuery.error?.message ||
       vehicleClassesQuery.error?.message ||
       configsQuery.error?.message ||
@@ -344,6 +392,10 @@ export function useV3Jatanlin() {
     resetDates,
     setPage,
     handleExport,
+    deleteTarget,
+    openDeleteModal,
+    closeDeleteModal,
+    confirmDelete,
     getPlate,
     getWeight,
     getDimensions,

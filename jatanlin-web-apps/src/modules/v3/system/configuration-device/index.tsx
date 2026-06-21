@@ -14,6 +14,7 @@ import {
   ShieldSettings24Regular,
   Warning24Filled,
 } from "@fluentui/react-icons";
+import { useAppSelector } from "@/src/redux/hooks";
 
 type ValueType = "string" | "number" | "boolean" | "url" | "password" | "path";
 type PingResult = "idle" | "testing" | "ok" | "fail" | "timeout";
@@ -29,6 +30,14 @@ interface RuntimeConfigRow {
   is_secret: boolean;
   is_runtime_editable: boolean;
   sort_order: number;
+}
+
+interface ApplicationConfigRow {
+  id: string;
+  config_key: string;
+  config_value: string | null;
+  description: string | null;
+  sort_order: number | null;
 }
 
 const GET_RUNTIME_CONFIGS = gql`
@@ -66,6 +75,44 @@ const UPSERT_RUNTIME_CONFIGS = gql`
         config_key
         config_value
       }
+    }
+  }
+`;
+
+const GET_APPLICATION_CONFIGS = gql`
+  query GetApplicationConfigs {
+    master_config(
+      where: {
+        config_type: { _eq: "apps" }
+        is_deleted: { _eq: false }
+      }
+      order_by: [{ sort_order: asc }, { config_key: asc }]
+    ) {
+      id
+      config_key
+      config_value
+      description
+      sort_order
+    }
+  }
+`;
+
+const UPDATE_APPLICATION_CONFIG = gql`
+  mutation UpdateApplicationConfig(
+    $id: uuid!
+    $config_value: String!
+    $updated_by: uuid
+  ) {
+    update_master_config_by_pk(
+      pk_columns: { id: $id }
+      _set: {
+        config_value: $config_value
+        updated_by: $updated_by
+        updated_date: "now()"
+      }
+    ) {
+      id
+      config_value
     }
   }
 `;
@@ -136,18 +183,33 @@ function displayValue(row: RuntimeConfigRow, values: Record<string, string>) {
 }
 
 export function V3ConfigurationDeviceModule() {
+  const currentUser = useAppSelector((state) => state.login.user);
   const { data, loading, refetch } = useQuery<{ system_runtime_config: RuntimeConfigRow[] }>(
     GET_RUNTIME_CONFIGS,
     { fetchPolicy: "cache-and-network" }
   );
   const [upsertConfigs, { loading: saving }] = useMutation(UPSERT_RUNTIME_CONFIGS);
+  const {
+    data: applicationConfigData,
+    loading: loadingApplicationConfigs,
+    refetch: refetchApplicationConfigs,
+  } = useQuery<{ master_config: ApplicationConfigRow[] }>(GET_APPLICATION_CONFIGS, {
+    fetchPolicy: "cache-and-network",
+  });
+  const [updateApplicationConfig, { loading: savingApplicationConfigs }] =
+    useMutation(UPDATE_APPLICATION_CONFIG);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [applicationValues, setApplicationValues] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [pingResults, setPingResults] = useState<Record<string, PingResult>>({});
 
   const rows = useMemo(() => data?.system_runtime_config ?? [], [data]);
+  const applicationConfigs = useMemo(
+    () => applicationConfigData?.master_config ?? [],
+    [applicationConfigData],
+  );
   const grouped = useMemo(() => groupRows(rows), [rows]);
   const orderedGroups = useMemo(() => Object.keys(grouped), [grouped]);
 
@@ -159,6 +221,14 @@ export function V3ConfigurationDeviceModule() {
     setValues(next);
     setDirty(false);
   }, [rows]);
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    applicationConfigs.forEach((config) => {
+      next[config.id] = config.config_value ?? "";
+    });
+    setApplicationValues(next);
+  }, [applicationConfigs]);
 
   const showToast = (message: string, type: "success" | "error" | "info") => {
     setToast({ message, type });
@@ -193,6 +263,40 @@ export function V3ConfigurationDeviceModule() {
       showToast("Configuration saved. Restart backend services for startup-only values.", "success");
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Failed to save configuration.", "error");
+    }
+  };
+
+  const applicationDirty = applicationConfigs.some(
+    (config) => applicationValues[config.id] !== (config.config_value ?? ""),
+  );
+
+  const handleSaveApplicationConfigs = async () => {
+    try {
+      await Promise.all(
+        applicationConfigs
+          .filter(
+            (config) =>
+              applicationValues[config.id] !== (config.config_value ?? ""),
+          )
+          .map((config) =>
+            updateApplicationConfig({
+              variables: {
+                id: config.id,
+                config_value: applicationValues[config.id] ?? "",
+                updated_by: currentUser?.id ?? null,
+              },
+            }),
+          ),
+      );
+      await refetchApplicationConfigs();
+      showToast("Application settings saved.", "success");
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Failed to save application settings.",
+        "error",
+      );
     }
   };
 
@@ -326,6 +430,70 @@ export function V3ConfigurationDeviceModule() {
           and track <span className="font-mono">system_runtime_config</span> in Hasura.
         </div>
       )}
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+              <Settings24Regular />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-950">Application Settings</h2>
+              <p className="text-sm text-slate-500">
+                Manage WhatsApp and ODOL tolerance values from the <span className="font-mono">apps</span> configuration table.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleSaveApplicationConfigs}
+            disabled={savingApplicationConfigs || !applicationDirty}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Save24Regular className="h-4 w-4" />
+            {savingApplicationConfigs ? "Saving..." : "Save Application Settings"}
+          </button>
+        </div>
+
+        {applicationConfigs.length > 0 ? (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {applicationConfigs.map((config) => (
+              <label key={config.id} className="block">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="text-sm font-bold text-slate-700">
+                    {config.config_key === "WHATSAPP"
+                      ? "WhatsApp"
+                      : config.config_key.replaceAll("_", " ")}
+                  </span>
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-500">
+                    {config.config_key}
+                  </span>
+                </div>
+                <input
+                  type={config.config_key.startsWith("TOLERANCE_") ? "number" : "text"}
+                  value={applicationValues[config.id] ?? ""}
+                  onChange={(event) =>
+                    setApplicationValues((current) => ({
+                      ...current,
+                      [config.id]: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                />
+                {config.description && (
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    {config.description}
+                  </p>
+                )}
+              </label>
+            ))}
+          </div>
+        ) : !loadingApplicationConfigs ? (
+          <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-500">
+            No active <span className="font-mono">apps</span> configuration rows were returned.
+          </p>
+        ) : null}
+      </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

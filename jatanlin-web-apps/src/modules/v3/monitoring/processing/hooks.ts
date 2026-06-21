@@ -659,7 +659,6 @@ export function useV3Processing() {
   const vehicleAnpr = getNestedRecord(vehicle, "transact_anpr_capture");
   const vehicleAxle = getNestedRecord(vehicle, "transact_axle_capture");
   const weighing = getNestedRecord(vehicle, "transact_weighing");
-  const vehicleDimension = getNestedRecord(vehicle, "transact_dimension");
   const cctv = getNestedRecord(vehicle, "transact_cctv");
   const latestStatus = Array.isArray(vehicle?.transact_vehicle_statuses)
     ? (vehicle?.transact_vehicle_statuses[0] as Record<string, unknown> | undefined)
@@ -669,118 +668,6 @@ export function useV3Processing() {
   const liveAxle = axleData as Record<string, unknown> | null;
   const liveDimension = dimensionData as Record<string, unknown> | null;
   const liveCctv = cctvData as Record<string, unknown> | null;
-
-  useEffect(() => {
-    if (isProcessingStarted || !vehicle) return;
-
-    const latestVehicleActualId = asString(vehicle.id);
-    if (latestVehicleActualId && vehicleActualId !== latestVehicleActualId) {
-      setVehicleActualId(latestVehicleActualId);
-    }
-
-    if (
-      vehicleAnpr &&
-      asString(liveAnpr?.id) !== asString(vehicleAnpr.id)
-    ) {
-      setAnprData({
-        ...vehicleAnpr,
-        session_id: vehicle.session_id ?? null,
-      });
-    } else if (!liveAnpr && asString(vehicle.actual_plat_no)) {
-      setAnprData({
-        id: `${latestVehicleActualId}-anpr`,
-        plate_no: vehicle.actual_plat_no,
-        session_id: vehicle.session_id ?? null,
-      });
-    }
-
-    if (
-      weighing &&
-      asString(liveWeight?.id) !== asString(weighing.id)
-    ) {
-      setWeightData({
-        ...weighing,
-        session_id: vehicle.session_id ?? null,
-      });
-    } else if (!liveWeight && asNumber(vehicle.actual_weight)) {
-      setWeightData({
-        id: `${latestVehicleActualId}-weight`,
-        total_weight: vehicle.actual_weight,
-        total_axle: vehicle.actual_total_axle,
-        created_date: vehicle.created_date,
-        session_id: vehicle.session_id ?? null,
-      });
-    }
-
-    if (
-      vehicleAxle &&
-      asString(liveAxle?.id) !== asString(vehicleAxle.id)
-    ) {
-      setAxleData({
-        ...vehicleAxle,
-        length: asNumber(vehicleAxle.length_mm) / 1000,
-        session_id: vehicle.session_id ?? null,
-      });
-    } else if (!liveAxle && asNumber(vehicle.actual_total_axle)) {
-      setAxleData({
-        id: `${latestVehicleActualId}-axle`,
-        total_axles: vehicle.actual_total_axle,
-        length: vehicle.actual_length,
-        session_id: vehicle.session_id ?? null,
-      });
-    }
-
-    if (
-      vehicleDimension &&
-      asString(liveDimension?.id) !== asString(vehicleDimension.id)
-    ) {
-      setDimensionData({
-        ...vehicleDimension,
-        session_id: vehicle.session_id ?? null,
-      });
-    } else if (
-      !liveDimension &&
-      (asNumber(vehicle.actual_length) ||
-        asNumber(vehicle.actual_width) ||
-        asNumber(vehicle.actual_height))
-    ) {
-      setDimensionData({
-        id: `${latestVehicleActualId}-dimension`,
-        length: vehicle.actual_length,
-        width: vehicle.actual_width,
-        height: vehicle.actual_height,
-        session_id: vehicle.session_id ?? null,
-      });
-    }
-
-    if (cctv && asString(liveCctv?.id) !== asString(cctv.id)) {
-      setCctvData({
-        ...cctv,
-        site_id: vehicle.site_id ?? null,
-        session_id: vehicle.session_id ?? null,
-      });
-    }
-  }, [
-    cctv,
-    isProcessingStarted,
-    liveAnpr,
-    liveAxle,
-    liveCctv,
-    liveDimension,
-    liveWeight,
-    setAnprData,
-    setAxleData,
-    setCctvData,
-    setDimensionData,
-    setVehicleActualId,
-    setWeightData,
-    vehicle,
-    vehicleActualId,
-    vehicleAnpr,
-    vehicleAxle,
-    vehicleDimension,
-    weighing,
-  ]);
 
   const latestSessionDataRef = useRef({
     liveAnpr,
@@ -829,7 +716,9 @@ export function useV3Processing() {
   const legalHeight = asNumber(vehicleClass?.height);
 
   const violation = (() => {
-    if (asString(latestStatus?.result)) return asString(latestStatus?.result);
+    if (vehicleActualId && asString(latestStatus?.result)) {
+      return asString(latestStatus?.result);
+    }
     if (!actualWeightTon || !actualLength || !actualWidth || !actualHeight || !vehicleClass) {
       return "Pending";
     }

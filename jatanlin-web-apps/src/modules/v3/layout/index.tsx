@@ -22,8 +22,6 @@ import {
   Person24Regular,
   ShieldKeyhole24Filled,
   ShieldKeyhole24Regular,
-  ShieldSettings24Filled,
-  ShieldSettings24Regular,
   SignOut24Regular,
   Tv24Filled,
   Tv24Regular,
@@ -112,12 +110,6 @@ const menuSections: V3MenuSection[] = [
   {
     label: "System",
     items: [
-      {
-        label: "Admin Setting",
-        href: "/v3/system/admin-setting",
-        icon: <ShieldSettings24Regular />,
-        activeIcon: <ShieldSettings24Filled />,
-      },
       {
         label: "Configuration & Device",
         href: "/v3/system/configuration-device-registration",

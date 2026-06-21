@@ -11,17 +11,43 @@ import { onError } from "@apollo/client/link/error";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { createClient } from "graphql-ws";
+import { logout } from "@/src/modules/login/slice";
+import { persistor, store } from "@/src/redux/store";
+
+const missingJwtAuthenticationHeaderMessage =
+  "Missing 'Authorization' or 'Cookie' header in JWT authentication mode";
+let isRedirectingToLogin = false;
+
+function redirectToV3LoginOnMissingJwtHeader(message?: string) {
+  if (
+    typeof window === "undefined" ||
+    isRedirectingToLogin ||
+    !message?.includes(missingJwtAuthenticationHeaderMessage)
+  ) {
+    return;
+  }
+
+  isRedirectingToLogin = true;
+  document.cookie = "isAuthenticated=; path=/; max-age=0";
+  document.cookie = "authToken=; path=/; max-age=0";
+  store.dispatch(logout());
+  void persistor.flush().finally(() => {
+    window.location.replace("/v3/login");
+  });
+}
 
 // Error handling link
 const errorLink = onError((errorHandler: any) => {
   if (errorHandler.graphQLErrors) {
     errorHandler.graphQLErrors.forEach(({ message, locations, path }: any) => {
+      redirectToV3LoginOnMissingJwtHeader(message);
       console.error(
         `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`,
       );
     });
   }
   if (errorHandler.networkError) {
+    redirectToV3LoginOnMissingJwtHeader(errorHandler.networkError.message);
     console.error(`[Network error]: ${errorHandler.networkError}`);
   }
 });
@@ -81,7 +107,7 @@ const wsLink =
     : null;
 
 // Split link: use WebSocket for subscriptions, HTTP for queries/mutations
-const splitLink =
+const transportLink =
   typeof window !== "undefined" && wsLink
     ? split(
         ({ query }) => {
@@ -92,13 +118,15 @@ const splitLink =
           );
         },
         wsLink,
-        from([errorLink, authLink, httpLink]),
+        from([authLink, httpLink]),
       )
-    : from([errorLink, authLink, httpLink]);
+    : from([authLink, httpLink]);
+
+const link = from([errorLink, transportLink]);
 
 // Create Apollo Client
 export const apolloClient = new ApolloClient({
-  link: splitLink,
+  link,
   cache: new InMemoryCache({
     typePolicies: {
       Query: {

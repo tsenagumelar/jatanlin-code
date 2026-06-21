@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   ArrowRight20Regular,
   CheckmarkCircle20Regular,
+  Delete20Regular,
+  Dismiss24Regular,
   DocumentPdf20Regular,
   Filter20Regular,
   Play20Regular,
@@ -238,6 +240,17 @@ export function V3JatanlinPage() {
                             <CheckmarkCircle20Regular />
                             Verify
                           </Link>
+                          {jatanlin.isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => jatanlin.openDeleteModal(row)}
+                              disabled={jatanlin.isDeleting}
+                              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Delete20Regular />
+                              {jatanlin.isDeleting ? "Deleting..." : "Delete"}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -296,6 +309,73 @@ export function V3JatanlinPage() {
           </div>
         </div>
       </div>
+
+      {jatanlin.deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <button
+            type="button"
+            aria-label="Close delete confirmation"
+            onClick={jatanlin.closeDeleteModal}
+            disabled={jatanlin.isDeleting}
+            className="absolute inset-0 cursor-default"
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-transaction-title"
+            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-700">
+                  <Delete20Regular />
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-red-700">
+                    Delete Transaction
+                  </p>
+                  <h2 id="delete-transaction-title" className="mt-1 text-lg font-bold text-slate-950">
+                    Delete {jatanlin.getPlate(jatanlin.deleteTarget)}?
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={jatanlin.closeDeleteModal}
+                disabled={jatanlin.isDeleting}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Close delete confirmation"
+              >
+                <Dismiss24Regular />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-sm font-semibold leading-6 text-slate-600">
+                This transaction will be removed from the active list and can no longer be processed from this page.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={jatanlin.closeDeleteModal}
+                disabled={jatanlin.isDeleting}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={jatanlin.confirmDelete}
+                disabled={jatanlin.isDeleting}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-red-300"
+              >
+                <Delete20Regular />
+                {jatanlin.isDeleting ? "Deleting..." : "Delete Transaction"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </V3DefaultPage>
   );
 }

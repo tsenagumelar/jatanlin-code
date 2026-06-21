@@ -1,5 +1,5 @@
-import { ConfigurationModule } from "@/src/modules/configuration";
+import { redirect } from "next/navigation";
 
 export default function AdminSettingPage() {
-  return <ConfigurationModule />;
+  redirect("/v3/system/configuration-device-registration");
 }
