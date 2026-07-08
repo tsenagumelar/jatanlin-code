@@ -5,7 +5,7 @@
 Jalankan FTP lokal untuk testing ANPR/AXLE:
 
 ```bash
-docker compose -f deploy/docker-compose.ftp-local.yml up -d
+./deploy/run-ftp-local.sh
 ```
 
 Konfigurasi backend jika backend jalan langsung di Mac:
@@ -14,7 +14,7 @@ Konfigurasi backend jika backend jalan langsung di Mac:
 ANPR_FTP_HOST="localhost:10021"
 ANPR_FTP_USER="ftpuser"
 ANPR_FTP_PASS="ftppass"
-ANPR_FTP_DIR="/ftp/ftpuser/anpr/"
+ANPR_FTP_DIR="/anpr"
 
 AXLE_FTP_HOST="localhost:10021"
 AXLE_FTP_USER="ftpuser"
@@ -33,6 +33,14 @@ Folder data lokal:
 
 - `deploy/ftp-local-data/anpr`
 - `deploy/ftp-local-data/axle`
+
+Command tambahan:
+
+```bash
+./deploy/run-ftp-local.sh status
+./deploy/run-ftp-local.sh logs
+./deploy/run-ftp-local.sh stop
+```
 
 ## 1) Siapkan Config Area
 
