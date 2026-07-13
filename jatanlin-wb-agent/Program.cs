@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using System.Text.Json;
 using WServerApi.Models;
 using WServerApi.Models.Domain;
 using WServerApi.Models.Dto;
@@ -38,6 +39,7 @@ app.MapGet("/", () => Results.Ok(new { ok = true, service = "WServerApi", endpoi
     "/ws/stream",
     "/ws/wim/start?direction=LEFT|RIGHT",
     "/ws/wim/data",
+    "/ws/wim/live",
     "/ws/wim/stop",
     "/ws/wim/capture?direction=LEFT|RIGHT&timeoutSeconds=60 (AUTO: Start->Wait->Save->Stop)",
     "/ws/wim/trigger?direction=LEFT|RIGHT&timeoutSeconds=60 (REAL STREAM: Start->Listen->Save->Stop)",
@@ -151,6 +153,96 @@ app.MapGet("/ws/wim/data", async (HttpContext ctx, WsClient cli) =>
     });
 
     await tcs.Task;
+    return Results.Empty;
+});
+
+// Structured SSE stream for live WIM condition/status. This endpoint is intended
+// for dashboards that need the current TCP connection state and parsed MODE:5 data.
+app.MapGet("/ws/wim/live", async (HttpContext ctx, WsClient cli) =>
+{
+    ctx.Response.Headers.Append("Content-Type", "text/event-stream");
+    ctx.Response.Headers.Append("Cache-Control", "no-cache");
+    ctx.Response.Headers.Append("Connection", "keep-alive");
+    ctx.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+
+    var writeLock = new SemaphoreSlim(1, 1);
+    string? lastRaw = null;
+    var lastSnapshot = BuildWimStatusSnapshot(cli, "status", null);
+
+    async Task WriteEventAsync(string eventName, object payload)
+    {
+        if (ctx.RequestAborted.IsCancellationRequested) return;
+
+        await writeLock.WaitAsync(ctx.RequestAborted);
+        try
+        {
+            await ctx.Response.WriteAsync($"event: {eventName}\n", ctx.RequestAborted);
+            await ctx.Response.WriteAsync($"data: {JsonSerializer.Serialize(payload)}\n\n", ctx.RequestAborted);
+            await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected.
+        }
+        finally
+        {
+            writeLock.Release();
+        }
+    }
+
+    void OnMsg(MsgFrame m)
+    {
+        if (m.Raw.Contains("MODE:5", StringComparison.OrdinalIgnoreCase) ||
+            m.Raw.Contains("MODE:3", StringComparison.OrdinalIgnoreCase))
+        {
+            lastRaw = m.Raw;
+            lastSnapshot = BuildWimStatusSnapshot(cli, "wim", m.Raw);
+            _ = WriteEventAsync("wim", lastSnapshot);
+            return;
+        }
+
+        if (m.Raw.Contains("OBJECT:VEHICLE", StringComparison.OrdinalIgnoreCase))
+        {
+            lastRaw = m.Raw;
+            lastSnapshot = BuildWimVehicleSnapshot(cli, m.Raw);
+            _ = WriteEventAsync("vehicle", lastSnapshot);
+        }
+    }
+
+    void OnRes(ResFrame r)
+    {
+        if (r.Raw.Contains("OBJECT:VEHICLE", StringComparison.OrdinalIgnoreCase))
+        {
+            lastRaw = r.Raw;
+            lastSnapshot = BuildWimVehicleSnapshot(cli, r.Raw);
+            _ = WriteEventAsync("vehicle", lastSnapshot);
+        }
+    }
+
+    cli.OnMsg += OnMsg;
+    cli.OnRes += OnRes;
+
+    try
+    {
+        await WriteEventAsync("status", lastSnapshot);
+
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+        while (await timer.WaitForNextTickAsync(ctx.RequestAborted))
+        {
+            await WriteEventAsync("status", BuildWimStatusSnapshot(cli, "status", lastRaw));
+        }
+    }
+    catch (OperationCanceledException)
+    {
+        // Client disconnected.
+    }
+    finally
+    {
+        cli.OnMsg -= OnMsg;
+        cli.OnRes -= OnRes;
+        writeLock.Dispose();
+    }
+
     return Results.Empty;
 });
 
@@ -298,7 +390,7 @@ app.MapPost("/ws/wim/capture", async (
 
 static int? ParseIntField(string raw, string key)
 {
-    var idx = raw.IndexOf(key + ":", StringComparison.Ordinal);
+    var idx = raw.IndexOf(key + ":", StringComparison.OrdinalIgnoreCase);
     if (idx < 0) return null;
     idx += key.Length + 1;
     var end = raw.IndexOfAny(new[] { ';', ' ', '\r', '\n' }, idx);
@@ -306,6 +398,104 @@ static int? ParseIntField(string raw, string key)
     var slice = raw[idx..end];
     if (int.TryParse(slice, out var val)) return val;
     return null;
+}
+
+static double? ParseDoubleField(string raw, string key)
+{
+    var idx = raw.IndexOf(key + ":", StringComparison.OrdinalIgnoreCase);
+    if (idx < 0) return null;
+    idx += key.Length + 1;
+    var end = raw.IndexOfAny(new[] { ';', ' ', '\r', '\n' }, idx);
+    if (end < 0) end = raw.Length;
+    var slice = raw[idx..end];
+    if (double.TryParse(slice, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var val)) return val;
+    return null;
+}
+
+static string? ExtractSection(string raw, string key)
+{
+    var idx = raw.IndexOf(key + ":", StringComparison.OrdinalIgnoreCase);
+    if (idx < 0) return null;
+    var end = raw.IndexOf(';', idx);
+    if (end < 0) end = raw.Length;
+    return raw[idx..end];
+}
+
+static string? DirectionLabel(int? direction)
+    => direction switch
+    {
+        0 => "LEFT",
+        1 => "RIGHT",
+        2 => "LEFT",
+        _ => null
+    };
+
+static object BuildWimStatusSnapshot(WsClient cli, string eventType, string? raw)
+{
+    var mode = raw is null ? null : ParseIntField(raw, "MODE");
+    var bridge1 = raw is null ? null : ExtractSection(raw, "BRIDGE1");
+    var bridge2 = raw is null ? null : ExtractSection(raw, "BRIDGE2");
+    var channel1 = raw is null ? null : ExtractSection(raw, "CHANNEL1");
+    var channel2 = raw is null ? null : ExtractSection(raw, "CHANNEL2");
+    var bridge1Weight = bridge1 is null ? null : ParseIntField(bridge1, "WEIGHT");
+    var bridge2Weight = bridge2 is null ? null : ParseIntField(bridge2, "WEIGHT");
+    int? bridgeTotalWeight =
+        bridge1Weight is null && bridge2Weight is null
+            ? null
+            : bridge1Weight.GetValueOrDefault() + bridge2Weight.GetValueOrDefault();
+    var direction = raw is null ? null : ParseIntField(raw, "DIR");
+    var totalWeight = raw is null ? null : mode == 3 ? bridgeTotalWeight : ParseIntField(raw, "TOTAL");
+    var lastWeight = raw is null ? null : ParseIntField(raw, "LASTWEIGHT");
+    var axle = raw is null ? null : ParseIntField(raw, "AXLE");
+    var timeout = raw is null ? null : ParseIntField(raw, "TIMEOUT");
+    var load = raw is null ? null : ParseIntField(raw, "LOAD");
+    var overload = raw is null ? null : ParseIntField(raw, "OVERLOAD");
+
+    return new
+    {
+        type = eventType,
+        connected = cli.State is ConnectionState.Connected or ConnectionState.LoggedIn,
+        connectionState = cli.State.ToString(),
+        mode,
+        direction,
+        directionLabel = DirectionLabel(direction),
+        axle,
+        lastWeight,
+        totalWeight,
+        bridge1Weight,
+        bridge2Weight,
+        bridgeTotalWeight,
+        bridge1State = bridge1 is null ? null : ParseIntField(bridge1, "STATE"),
+        bridge2State = bridge2 is null ? null : ParseIntField(bridge2, "STATE"),
+        channel1Value = channel1 is null ? null : ParseIntField(channel1, "VALUE"),
+        channel2Value = channel2 is null ? null : ParseIntField(channel2, "VALUE"),
+        timeout,
+        load,
+        overload,
+        updatedAt = DateTimeOffset.UtcNow,
+        raw
+    };
+}
+
+static object BuildWimVehicleSnapshot(WsClient cli, string raw)
+{
+    var direction = ParseIntField(raw, "DIR");
+
+    return new
+    {
+        type = "vehicle",
+        connected = cli.State is ConnectionState.Connected or ConnectionState.LoggedIn,
+        connectionState = cli.State.ToString(),
+        recordId = ParseIntField(raw, "RECID"),
+        resultCode = ParseIntField(raw, "RES"),
+        direction,
+        directionLabel = DirectionLabel(direction),
+        totalWeight = ParseIntField(raw, "WEIGHT"),
+        axleCount = ParseIntField(raw, "AXLECOUNT"),
+        speed = ParseDoubleField(raw, "SPEED"),
+        updatedAt = DateTimeOffset.UtcNow,
+        raw
+    };
 }
 
 static async Task<(Dictionary<int, int> AxleWeights, int? LastTimeout, int? LastTotalWeight, int? LastDirection, string? LastRaw)>

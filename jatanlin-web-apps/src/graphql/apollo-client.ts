@@ -16,12 +16,14 @@ import { persistor, store } from "@/src/redux/store";
 
 const missingJwtAuthenticationHeaderMessage =
   "Missing 'Authorization' or 'Cookie' header in JWT authentication mode";
+const publicGraphqlAuthBypassPaths = ["/v3/monitoring/device-connection"];
 let isRedirectingToLogin = false;
 
 function redirectToV3LoginOnMissingJwtHeader(message?: string) {
   if (
     typeof window === "undefined" ||
     isRedirectingToLogin ||
+    publicGraphqlAuthBypassPaths.includes(window.location.pathname) ||
     !message?.includes(missingJwtAuthenticationHeaderMessage)
   ) {
     return;

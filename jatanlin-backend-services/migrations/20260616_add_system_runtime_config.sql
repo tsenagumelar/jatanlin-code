@@ -60,6 +60,7 @@ VALUES
 	('ANPR_FTP', 'ANPR_FTP_DIR', '/ftp/ftpuser/anpr/', 'path', 'ANPR FTP Directory', 'Directory where ANPR XML/image files are stored.', false, 440),
 	('ANPR_FTP', 'ANPR_FTP_INTERVAL_SEC', '5', 'number', 'ANPR FTP Interval', 'Polling interval in seconds for ANPR watcher.', false, 450),
 	('ANPR_FTP', 'ANPR_DUMMY_ENABLED', 'true', 'boolean', 'ANPR Dummy Enabled', 'Use dummy ANPR input instead of physical integration.', false, 460),
+	('ANPR_FTP', 'ANPR_STREAM_URL', 'http://10.0.43.30:9901/video.mjpeg', 'url', 'ANPR Direct Stream URL', 'Direct browser-playable stream URL, for example MJPEG/HLS/MP4 over HTTP. RTSP is not browser-playable.', false, 470),
 
 	('AXLE_FTP', 'AXLE_FTP_HOST', '10.0.43.100:10021', 'string', 'AXLE FTP Host', 'FTP host and port for axle capture files.', false, 510),
 	('AXLE_FTP', 'AXLE_FTP_USER', 'ftpuser', 'string', 'AXLE FTP Username', 'Username for axle FTP access.', false, 520),
@@ -67,6 +68,7 @@ VALUES
 	('AXLE_FTP', 'AXLE_FTP_DIR', '/ftp/ftpuser/axle/', 'path', 'AXLE FTP Directory', 'Directory where axle XML/image files are stored.', false, 540),
 	('AXLE_FTP', 'AXLE_FTP_INTERVAL_SEC', '5', 'number', 'AXLE FTP Interval', 'Polling interval in seconds for axle watcher.', false, 550),
 	('AXLE_FTP', 'AXLE_DUMMY_ENABLED', 'true', 'boolean', 'AXLE Dummy Enabled', 'Use dummy axle input instead of physical integration.', false, 560),
+	('AXLE_FTP', 'AXLE_STREAM_URL', 'http://10.0.43.40:9901/video.mjpeg', 'url', 'AXLE Direct Stream URL', 'Direct browser-playable stream URL, for example MJPEG/HLS/MP4 over HTTP. RTSP is not browser-playable.', false, 570),
 
 	('MINIO', 'ANPR_MINIO_ENDPOINT', '51.79.173.213:9000', 'string', 'ANPR MinIO Endpoint', 'Object storage endpoint for ANPR assets.', false, 610),
 	('MINIO', 'ANPR_MINIO_ACCESS_KEY', 'admin', 'string', 'ANPR MinIO Access Key', 'Access key for ANPR object storage.', false, 620),
@@ -97,6 +99,7 @@ VALUES
 	('CCTV', 'CCTV_TRIGGER_URL', 'http://localhost:8090/record', 'url', 'CCTV Trigger URL', 'Endpoint called by backend when evidence recording is needed.', false, 810),
 	('CCTV', 'CCTV_TRIGGER_SECONDS', '20', 'number', 'CCTV Trigger Seconds', 'Recording duration in seconds.', false, 820),
 	('CCTV', 'CCTV_TRIGGER_DUMMY', 'true', 'boolean', 'CCTV Trigger Dummy', 'Use dummy CCTV evidence output.', false, 830),
+	('CCTV', 'CCTV_STREAM_URL', 'rtsp://10.0.43.20:554/profile1', 'url', 'CCTV Direct Stream URL', 'RTSP or browser-playable stream URL. RTSP is transcoded by the web stream proxy.', false, 840),
 
 	('DIMENSION', 'DIMENSION_ENABLED', 'true', 'boolean', 'Dimension Enabled', 'Enable vehicle dimension detection.', false, 810),
 	('DIMENSION', 'DIMENSION_DUMMY_ENABLED', 'true', 'boolean', 'Dimension Dummy Enabled', 'Use dummy dimension data for testing.', false, 820),
@@ -119,6 +122,7 @@ VALUES
 	('WEIGHING', 'WEIGHING_TRIGGER_TIMEOUT_SECONDS', '25', 'number', 'Weighing Timeout Seconds', 'Timeout for weighing trigger calls.', false, 970),
 	('WEIGHING', 'WEIGHING_TRIGGER_SAVE', 'true', 'boolean', 'Weighing Trigger Save', 'Save capture result from weighing trigger.', false, 980),
 	('WEIGHING', 'WEIGHING_TRIGGER_DUMMY', 'false', 'boolean', 'Weighing Trigger Dummy', 'Use dummy weighing trigger mode.', false, 990),
+	('WEIGHING', 'WIM_STREAM_URL', '/api/v3/wim-live', 'url', 'WIM Live Stream URL', 'Same-origin SSE proxy endpoint for real-time WIM connection and weighing status.', false, 1000),
 
 	('VEAM', 'VEAM_PUBLIC_KEY_B64', '', 'password', 'VEAM Public Key', 'Public key used to validate VEAM2 license signatures.', true, 910),
 	('VEAM', 'VEAM_LICENSE_PATH', './data/license.veam', 'path', 'VEAM License Path', 'Local path where active license is stored.', false, 920),

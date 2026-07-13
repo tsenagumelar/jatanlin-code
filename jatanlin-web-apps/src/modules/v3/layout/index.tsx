@@ -33,6 +33,8 @@ import {
   ArrowSync24Regular,
   PlugConnected24Filled,
   PlugConnected24Regular,
+  NetworkCheck24Filled,
+  NetworkCheck24Regular,
 } from "@fluentui/react-icons";
 import { useAppSelector } from "@/src/redux/hooks";
 import { useV3AppShell } from "./hooks";
@@ -58,6 +60,12 @@ const menuSections: V3MenuSection[] = [
         href: "/v3/monitoring/processing",
         icon: <ArrowSync24Regular />,
         activeIcon: <ArrowSync24Filled />,
+      },
+      {
+        label: "Device Connection",
+        href: "/v3/monitoring/device-connection",
+        icon: <NetworkCheck24Regular />,
+        activeIcon: <NetworkCheck24Filled />,
       },
       {
         label: "Live View",

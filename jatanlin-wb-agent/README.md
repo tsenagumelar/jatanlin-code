@@ -432,6 +432,35 @@ GET /ws/msgs
 
 Mendapatkan recent messages (ring buffer).
 
+### Live WIM Condition Stream
+
+```http
+GET /ws/wim/live
+```
+
+SSE JSON stream untuk dashboard monitoring. Endpoint ini mengirim event `status` setiap 2 detik dan event `wim`/`vehicle` saat frame real-time diterima dari WIM.
+
+```bash
+curl -N http://localhost:5000/ws/wim/live
+```
+
+Contoh payload:
+
+```json
+{
+  "type": "status",
+  "connected": true,
+  "connectionState": "Connected",
+  "mode": 5,
+  "directionLabel": "RIGHT",
+  "axle": 2,
+  "lastWeight": 1380,
+  "totalWeight": 4140,
+  "timeout": 12,
+  "updatedAt": "2026-07-08T06:56:42.11518+00:00"
+}
+```
+
 ---
 
 ## Device Protocol
