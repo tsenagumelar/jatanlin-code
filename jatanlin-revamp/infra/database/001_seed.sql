@@ -13,15 +13,37 @@ SET role_name = EXCLUDED.role_name,
     is_deleted = false,
     updated_date = now();
 
-INSERT INTO public.master_site (id, code, site_name, site_location, site_region, description, is_active, is_deleted)
+INSERT INTO public.master_site (
+  id,
+  code,
+  site_name,
+  site_location,
+  site_region,
+  site_address,
+  site_city,
+  site_province,
+  site_timezone,
+  contact_name,
+  contact_phone,
+  operational_status,
+  description,
+  is_active,
+  is_deleted
+)
 VALUES
-  (:'site_id', :'site_code', :'site_name', :'site_location', :'site_region', 'Primary local revamp site', true, false),
-  ('b0238918-8921-41ed-b8e6-28deb27abcd2', 'JTN-LOCAL-02', 'Revamp Demo Gate B', 'Local Yard Gate B', 'Default', 'Secondary sample site for local testing', true, false)
+  (:'site_id', :'site_code', :'site_name', :'site_location', :'site_region', :'site_address', :'site_city', :'site_province', :'site_timezone', :'site_contact_name', :'site_contact_phone', 'offline', 'Primary local revamp site', true, false),
+  ('b0238918-8921-41ed-b8e6-28deb27abcd2', 'JTN-LOCAL-02', 'Revamp Demo Gate B', 'Local Yard Gate B', 'Default', 'Local Yard Gate B', 'Sukabumi', 'Jawa Barat', 'Asia/Jakarta', 'Gate B Operator', NULL, 'offline', 'Secondary sample site for local testing', true, false)
 ON CONFLICT (code) DO UPDATE
 SET id = EXCLUDED.id,
     site_name = EXCLUDED.site_name,
     site_location = EXCLUDED.site_location,
     site_region = EXCLUDED.site_region,
+    site_address = EXCLUDED.site_address,
+    site_city = EXCLUDED.site_city,
+    site_province = EXCLUDED.site_province,
+    site_timezone = EXCLUDED.site_timezone,
+    contact_name = EXCLUDED.contact_name,
+    contact_phone = EXCLUDED.contact_phone,
     description = EXCLUDED.description,
     is_active = true,
     is_deleted = false,

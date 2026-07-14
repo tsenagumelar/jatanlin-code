@@ -114,6 +114,7 @@ export const V2VerifikasiModule: React.FC<Props> = ({ id, onBack }) => {
       notes: verCatatan || `Plat: ${verPlat}, Berat: ${verBerat} TON, As: ${verJumlahAs}, P: ${verPanjang}m, L: ${verLebar}m, T: ${verTinggi}m`,
       updated_by: user?.id,
       updated_date: new Date().toISOString(),
+      site_id: vehicle.site_id,
     };
     try {
       if (lastStatus?.id) {

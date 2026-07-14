@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"os"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -38,11 +40,93 @@ func (s *AuthService) Authenticate(username, password string) (*LoginResponse, e
 		return nil, err
 	}
 
+	if err := s.updateActiveSiteOperator(user); err != nil {
+		log.Printf("[AUTH] failed to update active site operator for user_id=%s: %v", user.ID, err)
+	}
+
 	return &LoginResponse{
 		Token:     token,
 		ExpiresAt: expiresAt,
 		User:      user.ToUserInfo(),
 	}, nil
+}
+
+func (s *AuthService) updateActiveSiteOperator(user *User) error {
+	siteID := strings.TrimSpace(os.Getenv("SITE_ID"))
+	if siteID == "" {
+		siteID = strings.TrimSpace(os.Getenv("NEXT_PUBLIC_SITE_ID"))
+	}
+	siteCode := strings.TrimSpace(os.Getenv("SITE_CODE"))
+	if siteCode == "" {
+		siteCode = strings.TrimSpace(os.Getenv("WB_SITE_CODE"))
+	}
+
+	var result sql.Result
+	var err error
+
+	if siteID != "" {
+		result, err = s.DB.Exec(`
+			UPDATE public.master_site
+			SET active_operator_id = $1,
+			    active_operator_name = $2,
+			    operational_status = 'online',
+			    last_seen_at = now(),
+			    updated_by = $1,
+			    updated_date = now()
+			WHERE id = $3::uuid
+			  AND COALESCE(is_deleted, false) = false
+		`, user.ID, user.FullName, siteID)
+	} else if siteCode != "" {
+		result, err = s.DB.Exec(`
+			UPDATE public.master_site
+			SET active_operator_id = $1,
+			    active_operator_name = $2,
+			    operational_status = 'online',
+			    last_seen_at = now(),
+			    updated_by = $1,
+			    updated_date = now()
+			WHERE code = $3
+			  AND COALESCE(is_deleted, false) = false
+		`, user.ID, user.FullName, siteCode)
+	} else {
+		result, err = s.DB.Exec(`
+			UPDATE public.master_site
+			SET active_operator_id = $1,
+			    active_operator_name = $2,
+			    operational_status = 'online',
+			    last_seen_at = now(),
+			    updated_by = $1,
+			    updated_date = now()
+			WHERE id = (
+				SELECT id
+				FROM public.master_site
+				WHERE COALESCE(is_active, false) = true
+				  AND COALESCE(is_deleted, false) = false
+				ORDER BY created_date ASC
+				LIMIT 1
+			)
+		`, user.ID, user.FullName)
+	}
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		if siteID != "" {
+			return errors.New("site not found for SITE_ID")
+		}
+		if siteCode != "" {
+			return errors.New("site not found for SITE_CODE")
+		}
+		return errors.New("no active site found")
+	}
+
+	log.Printf("[AUTH] Active site operator updated: user_id=%s full_name=%s", user.ID, user.FullName)
+	return nil
 }
 
 func (s *AuthService) getUserByUsernameOrEmail(usernameOrEmail string) (*User, error) {

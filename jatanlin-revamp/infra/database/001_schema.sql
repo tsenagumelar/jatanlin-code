@@ -74,6 +74,19 @@ CREATE TABLE public.master_site (
 	site_name varchar(200) NOT NULL,
 	site_location varchar(200) NULL,
 	site_region varchar(100) NULL, -- Region/area of the site for grouping
+	site_address text NULL,
+	site_city varchar(100) NULL,
+	site_province varchar(100) NULL,
+	site_timezone varchar(64) DEFAULT 'Asia/Jakarta'::character varying NOT NULL,
+	contact_name varchar(150) NULL,
+	contact_phone varchar(30) NULL,
+	operational_status varchar(30) DEFAULT 'offline'::character varying NOT NULL,
+	last_seen_at timestamptz NULL,
+	last_sync_at timestamptz NULL,
+	active_operator_id uuid NULL,
+	active_operator_name varchar(150) NULL,
+	app_version varchar(50) NULL,
+	service_version varchar(50) NULL,
 	description text NULL,
 	is_active bool DEFAULT true NULL,
 	is_deleted bool DEFAULT false NULL,
@@ -82,9 +95,12 @@ CREATE TABLE public.master_site (
 	updated_by uuid NULL,
 	updated_date timestamptz DEFAULT now() NULL,
 	CONSTRAINT master_site_code_key UNIQUE (code),
+	CONSTRAINT master_site_operational_status_check CHECK (((operational_status)::text = ANY ((ARRAY['online'::character varying, 'offline'::character varying, 'warning'::character varying, 'maintenance'::character varying])::text[]))),
 	CONSTRAINT master_site_pkey PRIMARY KEY (id)
 );
 CREATE INDEX idx_master_site_active ON public.master_site USING btree (is_active) WHERE (is_deleted = false);
+CREATE INDEX idx_master_site_last_seen ON public.master_site USING btree (last_seen_at DESC);
+CREATE INDEX idx_master_site_operational_status ON public.master_site USING btree (operational_status);
 CREATE INDEX idx_master_site_region ON public.master_site USING btree (site_region);
 COMMENT ON TABLE public.master_site IS 'Master data for all sites in the multi-site architecture';
 
@@ -92,6 +108,10 @@ COMMENT ON TABLE public.master_site IS 'Master data for all sites in the multi-s
 
 COMMENT ON COLUMN public.master_site.code IS 'Unique site code identifier (e.g., SITE001, JKT-TOLL-01)';
 COMMENT ON COLUMN public.master_site.site_region IS 'Region/area of the site for grouping';
+COMMENT ON COLUMN public.master_site.operational_status IS 'Latest site runtime status reported by the local site';
+COMMENT ON COLUMN public.master_site.last_seen_at IS 'Latest heartbeat timestamp from this site';
+COMMENT ON COLUMN public.master_site.last_sync_at IS 'Latest successful sync timestamp from this site';
+COMMENT ON COLUMN public.master_site.active_operator_id IS 'Currently active local operator, if reported by the site runtime heartbeat';
 
 
 -- public.master_vehicle_class definition
@@ -279,7 +299,7 @@ CREATE TABLE public.transact_anpr_capture (
 	created_date timestamptz DEFAULT now() NULL,
 	updated_by uuid NULL,
 	updated_date timestamptz DEFAULT now() NULL,
-	site_id uuid NULL, -- Site where this capture occurred
+	site_id uuid NOT NULL, -- Site where this capture occurred
 	session_id uuid NULL, -- WIM session ID. Placeholder row may contain only id + session_id when ANPR is missing
 	CONSTRAINT transact_anpr_capture_external_id_key UNIQUE (external_id),
 	CONSTRAINT transact_anpr_capture_pkey PRIMARY KEY (id)
@@ -320,7 +340,7 @@ CREATE TABLE public.transact_axle_capture (
 	created_date timestamptz DEFAULT now() NULL,
 	updated_by uuid NULL,
 	updated_date timestamptz DEFAULT now() NULL,
-	site_id uuid NULL, -- Site where this measurement occurred
+	site_id uuid NOT NULL, -- Site where this measurement occurred
 	session_id uuid NULL, -- WIM session ID. Placeholder row may contain only id + session_id when AXLE is missing
 	CONSTRAINT transact_axle_capture_external_id_key UNIQUE (external_id),
 	CONSTRAINT transact_axle_capture_pkey PRIMARY KEY (id)
@@ -350,7 +370,7 @@ CREATE TABLE public.transact_cctv (
 	created_date timestamptz DEFAULT now() NULL,
 	updated_by uuid NULL,
 	updated_date timestamptz DEFAULT now() NULL,
-	site_id uuid NULL,
+	site_id uuid NOT NULL,
 	session_id uuid NULL, -- WIM session ID when this CCTV capture was processed
 	CONSTRAINT transact_cctv_pkey PRIMARY KEY (id)
 );
@@ -381,7 +401,7 @@ CREATE TABLE public.transact_dimension (
 	created_date timestamptz DEFAULT now() NULL,
 	updated_by uuid NULL,
 	updated_date timestamptz DEFAULT now() NULL,
-	site_id uuid NULL,
+	site_id uuid NOT NULL,
 	session_id uuid NULL, -- WIM session ID. Placeholder row may contain only id + session_id when dimension is missing
 	CONSTRAINT transact_dimension_pkey PRIMARY KEY (id)
 );
@@ -416,7 +436,7 @@ CREATE TABLE public.transact_vehicle_actual (
 	created_date timestamptz DEFAULT now() NULL,
 	updated_by uuid NULL,
 	updated_date timestamptz DEFAULT now() NULL,
-	site_id uuid NULL,
+	site_id uuid NOT NULL,
 	actual_plat_no varchar(32) NULL,
 	actual_total_axle int4 NULL,
 	location_lat numeric(10, 7) NULL,
@@ -453,7 +473,7 @@ CREATE TABLE public.transact_vehicle_status (
 	created_date timestamptz DEFAULT now() NULL,
 	updated_by uuid NULL,
 	updated_date timestamptz DEFAULT now() NULL,
-	site_id uuid NULL,
+	site_id uuid NOT NULL,
 	transact_vehicle_actual_id uuid NOT NULL,
 	status varchar(50) NOT NULL,
 	"result" varchar(50) NULL,
@@ -483,7 +503,7 @@ CREATE TABLE public.transact_weighing (
 	created_date timestamptz DEFAULT now() NULL,
 	updated_by uuid NULL,
 	updated_date timestamptz DEFAULT now() NULL,
-	site_id uuid NULL,
+	site_id uuid NOT NULL,
 	session_id uuid NULL, -- WIM session ID. Placeholder row may contain only id + session_id when weighing is missing
 	CONSTRAINT transact_weighing_pkey PRIMARY KEY (id)
 );
@@ -590,6 +610,7 @@ ALTER TABLE public.master_device ADD CONSTRAINT master_device_device_type_id_fke
 -- public.master_user foreign keys
 
 ALTER TABLE public.master_user ADD CONSTRAINT master_user_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.master_role(id) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE public.master_site ADD CONSTRAINT master_site_active_operator_id_fkey FOREIGN KEY (active_operator_id) REFERENCES public.master_user(id) ON DELETE SET NULL ON UPDATE CASCADE;
 
 
 -- public.transact_anpr_capture foreign keys
