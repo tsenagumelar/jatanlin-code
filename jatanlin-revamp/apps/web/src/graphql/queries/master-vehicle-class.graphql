@@ -1,0 +1,158 @@
+# Query: Get All Vehicle Classes (dengan filter is_deleted = false)
+query GetVehicleClasses(
+  $limit: Int!
+  $offset: Int!
+  $where: master_vehicle_class_bool_exp = {}
+) {
+  master_vehicle_class(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+    limit: $limit
+    offset: $offset
+    order_by: { created_date: desc }
+  ) {
+    id
+    code
+    type
+    description
+    total_axle
+    class_2_weight
+    class_3_weight
+    length
+    width
+    height
+    image
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+  }
+
+  master_vehicle_class_aggregate(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+
+# Query: Get Vehicle Class By ID
+query GetVehicleClassById($id: uuid!) {
+  master_vehicle_class_by_pk(id: $id) {
+    id
+    code
+    type
+    description
+    total_axle
+    class_2_weight
+    class_3_weight
+    length
+    width
+    height
+    image
+    is_active
+    is_deleted
+    created_by
+    created_date
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Insert Vehicle Class
+mutation InsertVehicleClass($object: master_vehicle_class_insert_input!) {
+  insert_master_vehicle_class_one(object: $object) {
+    id
+    code
+    type
+    description
+    total_axle
+    class_2_weight
+    class_3_weight
+    length
+    width
+    height
+    image
+    is_active
+    created_by
+    created_date
+  }
+}
+
+# Mutation: Update Vehicle Class
+mutation UpdateVehicleClass($id: uuid!, $set: master_vehicle_class_set_input!) {
+  update_master_vehicle_class_by_pk(pk_columns: { id: $id }, _set: $set) {
+    id
+    code
+    type
+    description
+    total_axle
+    class_2_weight
+    class_3_weight
+    length
+    width
+    height
+    image
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Soft Delete Vehicle Class (set is_deleted = true)
+mutation SoftDeleteVehicleClass($id: uuid!, $updated_by: uuid!) {
+  update_master_vehicle_class_by_pk(
+    pk_columns: { id: $id }
+    _set: {
+      is_deleted: true
+      is_active: false
+      updated_by: $updated_by
+      updated_date: "now()"
+    }
+  ) {
+    id
+    code
+    type
+    is_deleted
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Restore Deleted Vehicle Class (set is_deleted = false)
+mutation RestoreVehicleClass($id: uuid!, $updated_by: uuid!) {
+  update_master_vehicle_class_by_pk(
+    pk_columns: { id: $id }
+    _set: { is_deleted: false, updated_by: $updated_by, updated_date: "now()" }
+  ) {
+    id
+    code
+    type
+    is_deleted
+    updated_by
+    updated_date
+  }
+}
+
+# Query: Check Code Availability
+query CheckVehicleClassCodeExists($code: String!) {
+  master_vehicle_class(
+    where: { code: { _eq: $code }, is_deleted: { _eq: false } }
+  ) {
+    id
+    code
+  }
+}
+
+# Query: Check Type Availability
+query CheckVehicleClassTypeExists($type: String!) {
+  master_vehicle_class(
+    where: { type: { _eq: $type }, is_deleted: { _eq: false } }
+  ) {
+    id
+    type
+  }
+}

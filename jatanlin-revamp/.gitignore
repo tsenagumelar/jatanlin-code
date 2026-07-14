@@ -1,0 +1,10 @@
+.env
+
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+
+services/wb-agent/bin/
+services/wb-agent/obj/
+
+services/backend/.gocache/

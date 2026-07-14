@@ -1,0 +1,262 @@
+# Fragment: Vehicle Actual with all relations
+fragment VehicleActualDetails on transact_vehicle_actual {
+  id
+  anpr_id
+  axle_id
+  transact_dimension_id
+  transact_weighing_id
+  actual_width
+  actual_length
+  actual_height
+  actual_weight
+  actual_plat_no
+  actual_total_axle
+  is_active
+  is_deleted
+  created_by
+  created_date
+  updated_by
+  updated_date
+  site_id
+  location_lat
+  location_lng
+  location_address
+  transact_cctv_id
+  session_id
+
+  # ANPR Data (object relation)
+  transact_anpr_capture {
+    id
+    external_id
+    plate_no
+    confidence
+    captured_at
+    created_date
+    location_code
+    camera_id
+    minio_bucket
+    minio_date_folder
+    minio_full_image_object
+    minio_plate_image_object
+  }
+
+  # Axle Data (object relation)
+  transact_axle_capture {
+    id
+    external_id
+    plate_no
+    captured_at
+    created_date
+    camera_id
+    length_mm
+    total_wheels
+    total_axles
+    vehicle_category
+    vehicle_body_type
+    minio_bucket
+    minio_date_folder
+    minio_image_object
+  }
+
+  # Weighing Data (object relation)
+  transact_weighing {
+    id
+    total_axle
+    axle_detail
+    total_weight
+    is_active
+    created_date
+  }
+
+  # Dimension Data (object relation)
+  transact_dimension {
+    id
+    anpr_id
+    filepath
+    length
+    width
+    height
+    is_active
+    created_date
+  }
+
+  # CCTV Data (object relation)
+  transact_cctv {
+    id
+    filename
+    filepath
+    created_date
+  }
+
+  # Vehicle Status History (array of status)
+  transact_vehicle_statuses(
+    where: { is_deleted: { _eq: false } }
+    order_by: { created_date: desc }
+  ) {
+    id
+    status
+    result
+    notes
+    attachment
+    is_active
+    created_by
+    created_date
+    updated_by
+    updated_date
+  }
+}
+
+# Query: Get All Vehicle Actuals (dengan filter is_deleted = false)
+query GetVehicleActuals(
+  $limit: Int!
+  $offset: Int!
+  $where: transact_vehicle_actual_bool_exp = {}
+) {
+  transact_vehicle_actual(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+    limit: $limit
+    offset: $offset
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleActualDetails
+  }
+
+  transact_vehicle_actual_aggregate(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+
+# Query: Get Vehicle Actual By ID
+query GetVehicleActualById($id: uuid!) {
+  transact_vehicle_actual_by_pk(id: $id) {
+    ...VehicleActualDetails
+  }
+}
+
+# Query: Get Vehicle Actuals By ANPR ID
+query GetVehicleActualsByAnprId($anpr_id: uuid!) {
+  transact_vehicle_actual(
+    where: { anpr_id: { _eq: $anpr_id }, is_deleted: { _eq: false } }
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleActualDetails
+  }
+}
+
+# Query: Get Vehicle Actuals By Site
+query GetVehicleActualsBySite($site_id: uuid!, $limit: Int = 10) {
+  transact_vehicle_actual(
+    where: { site_id: { _eq: $site_id }, is_deleted: { _eq: false } }
+    limit: $limit
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleActualDetails
+  }
+}
+
+# Query: Get Vehicle History By Plate Number
+query GetVehicleHistoryByPlate($plate_no: String!) {
+  transact_vehicle_actual(
+    where: {
+      _and: [
+        { is_deleted: { _eq: false } }
+        {
+          _or: [
+            { actual_plat_no: { _ilike: $plate_no } }
+            { transact_anpr_capture: { plate_no: { _ilike: $plate_no } } }
+          ]
+        }
+        {
+          transact_vehicle_statuses: {
+            status: { _in: ["verified", "rejected"] }
+          }
+        }
+      ]
+    }
+    order_by: { created_date: desc }
+    limit: 50
+  ) {
+    ...VehicleActualDetails
+  }
+}
+
+# Query: Get Vehicle Actuals By Date Range
+query GetVehicleActualsByDateRange(
+  $start_date: timestamptz!
+  $end_date: timestamptz!
+) {
+  transact_vehicle_actual(
+    where: {
+      created_date: { _gte: $start_date, _lte: $end_date }
+      is_deleted: { _eq: false }
+    }
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleActualDetails
+  }
+}
+
+# Mutation: Insert Vehicle Actual
+mutation InsertVehicleActual($object: transact_vehicle_actual_insert_input!) {
+  insert_transact_vehicle_actual_one(object: $object) {
+    ...VehicleActualDetails
+  }
+}
+
+# Mutation: Update Vehicle Actual
+mutation UpdateVehicleActual(
+  $id: uuid!
+  $set: transact_vehicle_actual_set_input!
+) {
+  update_transact_vehicle_actual_by_pk(pk_columns: { id: $id }, _set: $set) {
+    ...VehicleActualDetails
+  }
+}
+
+# Mutation: Soft Delete Vehicle Actual
+mutation SoftDeleteVehicleActual($id: uuid!, $updated_by: uuid!) {
+  update_transact_vehicle_actual_by_pk(
+    pk_columns: { id: $id }
+    _set: {
+      is_deleted: true
+      is_active: false
+      updated_by: $updated_by
+      updated_date: "now()"
+    }
+  ) {
+    id
+    anpr_id
+    is_deleted
+    is_active
+    updated_by
+    updated_date
+    location_lat
+    location_lng
+    location_address
+  }
+}
+
+# Subscription: Listen for New Vehicle Actuals
+subscription SubscribeLatestVehicleActual($site_id: uuid) {
+  transact_vehicle_actual(
+    where: { is_deleted: { _eq: false }, site_id: { _eq: $site_id } }
+    order_by: { created_date: desc }
+    limit: 1
+  ) {
+    ...VehicleActualDetails
+  }
+}
+
+# Subscription: Listen for Vehicle Actuals by ANPR ID
+subscription SubscribeVehicleActualsByAnpr($anpr_id: uuid!) {
+  transact_vehicle_actual(
+    where: { is_deleted: { _eq: false }, anpr_id: { _eq: $anpr_id } }
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleActualDetails
+  }
+}

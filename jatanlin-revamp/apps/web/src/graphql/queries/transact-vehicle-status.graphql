@@ -1,0 +1,373 @@
+# Fragment: Vehicle Status with relations
+fragment VehicleStatusDetails on transact_vehicle_status {
+  id
+  transact_vehicle_actual_id
+  status
+  result
+  notes
+  attachment
+  is_active
+  is_deleted
+  created_by
+  created_date
+  updated_by
+  updated_date
+  site_id
+
+  # Vehicle Actual Data with all nested relations
+  transact_vehicle_actual {
+    id
+    anpr_id
+    axle_id
+    transact_dimension_id
+    transact_weighing_id
+    actual_width
+    actual_length
+    actual_height
+    actual_weight
+    site_id
+
+    # ANPR Data
+    transact_anpr_capture {
+      id
+      external_id
+      plate_no
+      confidence
+      captured_at
+      location_code
+      camera_id
+      minio_bucket
+      minio_date_folder
+      minio_full_image_object
+      minio_plate_image_object
+    }
+
+    # Axle Data
+    transact_axle_capture {
+      id
+      external_id
+      plate_no
+      captured_at
+      camera_id
+      length_mm
+      total_wheels
+      total_axles
+      vehicle_category
+      vehicle_body_type
+      minio_bucket
+      minio_date_folder
+      minio_image_object
+    }
+
+    # Weighing Data
+    transact_weighing {
+      id
+      total_axle
+      axle_detail
+      total_weight
+      is_active
+      created_date
+    }
+
+    # Dimension Data
+    transact_dimension {
+      id
+      anpr_id
+      filepath
+      length
+      width
+      height
+      is_active
+      created_date
+    }
+  }
+}
+
+# Query: Get All Vehicle Status (dengan filter is_deleted = false)
+query GetVehicleStatus(
+  $limit: Int!
+  $offset: Int!
+  $where: transact_vehicle_status_bool_exp = {}
+) {
+  transact_vehicle_status(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+    limit: $limit
+    offset: $offset
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleStatusDetails
+  }
+
+  transact_vehicle_status_aggregate(
+    where: { _and: [{ is_deleted: { _eq: false } }, $where] }
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+
+# Query: Get Vehicle Status By ID
+query GetVehicleStatusById($id: uuid!) {
+  transact_vehicle_status_by_pk(id: $id) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Query: Get Vehicle Status By Vehicle Actual ID
+query GetVehicleStatusByActualId($transact_vehicle_actual_id: uuid!) {
+  transact_vehicle_status(
+    where: {
+      transact_vehicle_actual_id: { _eq: $transact_vehicle_actual_id }
+      is_deleted: { _eq: false }
+    }
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Query: Get Vehicle Status By Site
+query GetVehicleStatusBySite($site_id: uuid!, $limit: Int = 10) {
+  transact_vehicle_status(
+    where: { site_id: { _eq: $site_id }, is_deleted: { _eq: false } }
+    limit: $limit
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Query: Get Vehicle Status By Status Type
+query GetVehicleStatusByType($status: String!, $limit: Int = 10) {
+  transact_vehicle_status(
+    where: { status: { _eq: $status }, is_deleted: { _eq: false } }
+    limit: $limit
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Query: Get Vehicle Status By Result
+query GetVehicleStatusByResult($result: String!, $limit: Int = 10) {
+  transact_vehicle_status(
+    where: { result: { _eq: $result }, is_deleted: { _eq: false } }
+    limit: $limit
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Query: Get Vehicle Status By Date Range
+query GetVehicleStatusByDateRange(
+  $start_date: timestamptz!
+  $end_date: timestamptz!
+) {
+  transact_vehicle_status(
+    where: {
+      created_date: { _gte: $start_date, _lte: $end_date }
+      is_deleted: { _eq: false }
+    }
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Query: Get Vehicle Status Statistics by Status Type
+query GetVehicleStatusStatistics($site_id: uuid) {
+  # Count by status
+  detected: transact_vehicle_status_aggregate(
+    where: {
+      status: { _eq: "detected" }
+      is_deleted: { _eq: false }
+      site_id: { _eq: $site_id }
+    }
+  ) {
+    aggregate {
+      count
+    }
+  }
+
+  verified: transact_vehicle_status_aggregate(
+    where: {
+      status: { _eq: "verified" }
+      is_deleted: { _eq: false }
+      site_id: { _eq: $site_id }
+    }
+  ) {
+    aggregate {
+      count
+    }
+  }
+
+  odol: transact_vehicle_status_aggregate(
+    where: {
+      status: { _eq: "odol" }
+      is_deleted: { _eq: false }
+      site_id: { _eq: $site_id }
+    }
+  ) {
+    aggregate {
+      count
+    }
+  }
+
+  normal: transact_vehicle_status_aggregate(
+    where: {
+      status: { _eq: "normal" }
+      is_deleted: { _eq: false }
+      site_id: { _eq: $site_id }
+    }
+  ) {
+    aggregate {
+      count
+    }
+  }
+
+  rejected: transact_vehicle_status_aggregate(
+    where: {
+      status: { _eq: "rejected" }
+      is_deleted: { _eq: false }
+      site_id: { _eq: $site_id }
+    }
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+
+# Mutation: Insert Vehicle Status
+mutation InsertVehicleStatus($object: transact_vehicle_status_insert_input!) {
+  insert_transact_vehicle_status_one(object: $object) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Mutation: Insert Multiple Vehicle Status
+mutation InsertVehicleStatusBatch(
+  $objects: [transact_vehicle_status_insert_input!]!
+) {
+  insert_transact_vehicle_status(objects: $objects) {
+    affected_rows
+    returning {
+      ...VehicleStatusDetails
+    }
+  }
+}
+
+# Mutation: Update Vehicle Status
+mutation UpdateVehicleStatus(
+  $id: uuid!
+  $set: transact_vehicle_status_set_input!
+) {
+  update_transact_vehicle_status_by_pk(pk_columns: { id: $id }, _set: $set) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Mutation: Update Vehicle Status by Vehicle Actual ID
+mutation UpdateVehicleStatusByActualId(
+  $transact_vehicle_actual_id: uuid!
+  $set: transact_vehicle_status_set_input!
+) {
+  update_transact_vehicle_status(
+    where: { transact_vehicle_actual_id: { _eq: $transact_vehicle_actual_id } }
+    _set: $set
+  ) {
+    affected_rows
+    returning {
+      ...VehicleStatusDetails
+    }
+  }
+}
+
+# Mutation: Soft Delete Vehicle Status
+mutation SoftDeleteVehicleStatus($id: uuid!, $updated_by: uuid!) {
+  update_transact_vehicle_status_by_pk(
+    pk_columns: { id: $id }
+    _set: {
+      is_deleted: true
+      is_active: false
+      updated_by: $updated_by
+      updated_date: "now()"
+    }
+  ) {
+    id
+    transact_vehicle_actual_id
+    status
+    result
+    is_deleted
+    is_active
+    updated_by
+    updated_date
+  }
+}
+
+# Mutation: Hard Delete Vehicle Status (permanent)
+mutation DeleteVehicleStatus($id: uuid!) {
+  delete_transact_vehicle_status_by_pk(id: $id) {
+    id
+    transact_vehicle_actual_id
+    status
+  }
+}
+
+# Subscription: Listen for New Vehicle Status
+subscription SubscribeLatestVehicleStatus($site_id: uuid) {
+  transact_vehicle_status(
+    where: { is_deleted: { _eq: false }, site_id: { _eq: $site_id } }
+    order_by: { created_date: desc }
+    limit: 1
+  ) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Subscription: Listen for Vehicle Status by Vehicle Actual ID
+subscription SubscribeVehicleStatusByActualId(
+  $transact_vehicle_actual_id: uuid!
+) {
+  transact_vehicle_status(
+    where: {
+      is_deleted: { _eq: false }
+      transact_vehicle_actual_id: { _eq: $transact_vehicle_actual_id }
+    }
+    order_by: { created_date: desc }
+  ) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Subscription: Listen for Vehicle Status by Status Type
+subscription SubscribeVehicleStatusByType($status: String!, $site_id: uuid) {
+  transact_vehicle_status(
+    where: {
+      is_deleted: { _eq: false }
+      status: { _eq: $status }
+      site_id: { _eq: $site_id }
+    }
+    order_by: { created_date: desc }
+    limit: 10
+  ) {
+    ...VehicleStatusDetails
+  }
+}
+
+# Subscription: Listen for Latest Status by Result
+subscription SubscribeVehicleStatusByResult($result: String!, $site_id: uuid) {
+  transact_vehicle_status(
+    where: {
+      is_deleted: { _eq: false }
+      result: { _eq: $result }
+      site_id: { _eq: $site_id }
+    }
+    order_by: { created_date: desc }
+    limit: 10
+  ) {
+    ...VehicleStatusDetails
+  }
+}

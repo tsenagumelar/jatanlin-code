@@ -1,0 +1,24 @@
+# Mutation: Insert WIM Session
+mutation InsertTransactWimSession($object: transact_wim_session_insert_input!) {
+  insert_transact_wim_session_one(object: $object) {
+    id
+    session_name
+    status
+    started_at
+    site_id
+    is_dummy
+  }
+}
+
+# Mutation: Update WIM Session
+mutation UpdateTransactWimSession(
+  $id: uuid!
+  $set: transact_wim_session_set_input!
+) {
+  update_transact_wim_session_by_pk(pk_columns: { id: $id }, _set: $set) {
+    id
+    status
+    ended_at
+    updated_date
+  }
+}
