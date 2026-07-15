@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jtn-dc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jatanlin_data_center}
+      POSTGRES_USER: ${POSTGRES_USER:-jatanlin_dc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jatanlin_dc_password}
+    ports:
+      - "${POSTGRES_PORT:-25432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../database:/database:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  hasura:
+    image: hasura/graphql-engine:v2.45.1
+    container_name: jtn-dc-hasura
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://${POSTGRES_USER:-jatanlin_dc}:${POSTGRES_PASSWORD:-jatanlin_dc_password}@postgres:5432/${POSTGRES_DB:-jatanlin_data_center}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET:-dc_hasura_secret}
+      HASURA_GRAPHQL_JWT_SECRET: '{"type":"HS256","key":"${JWT_SECRET:-jatanlin-data-center-secret-2026}"}'
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup,http-log,webhook-log,websocket-log,query-log
+    ports:
+      - "${HASURA_GRAPHQL_PORT:-28080}:8080"
+
+  backend:
+    build:
+      context: ../../services/backend
+      dockerfile: Dockerfile
+    container_name: jtn-dc-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_PORT: "8080"
+      DATABASE_URL: postgres://${POSTGRES_USER:-jatanlin_dc}:${POSTGRES_PASSWORD:-jatanlin_dc_password}@postgres:5432/${POSTGRES_DB:-jatanlin_data_center}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-jatanlin-data-center-secret-2026}
+      CORS_ORIGINS: http://localhost:${DATA_CENTER_WEB_PORT:-3001}
+    ports:
+      - "${DATA_CENTER_API_PORT:-28001}:8080"
+
+volumes:
+  postgres-data:
