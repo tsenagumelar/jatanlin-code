@@ -47,7 +47,7 @@ help:
 	@printf '%s\n' '  make anpr-watcher   Start ANPR FTP watcher'
 	@printf '%s\n' '  make axle-watcher   Start AXLE FTP watcher'
 	@printf '%s\n' '  make cctv-streamer  Start CCTV streamer'
-	@printf '%s\n' '  make sync-agent     Start data center sync agent'
+	@printf '%s\n' '  make sync-agent     Start data center sync agent continuously'
 	@printf '%s\n' '  make wb-agent       Start WB agent'
 	@printf '%s\n' '  make veam-license-generate Generate local VEAM license'
 	@printf '%s\n' '  make veam-license-check    Validate local VEAM license'
@@ -111,7 +111,7 @@ cctv-streamer:
 	$(RUN_ENV) cd $(BACKEND_DIR) && GOCACHE=$(GO_CACHE_DIR) $(GO) run ./cmd/cctv-streamer
 
 sync-agent:
-	$(RUN_ENV) cd $(BACKEND_DIR) && GOCACHE=$(GO_CACHE_DIR) $(GO) run ./cmd/sync-agent
+	$(RUN_ENV) cd $(BACKEND_DIR) && DATA_CENTER_SYNC_ENABLED=true DATA_CENTER_SYNC_ONCE=false GOCACHE=$(GO_CACHE_DIR) $(GO) run ./cmd/sync-agent
 
 wb-agent:
 	$(RUN_ENV) cd $(WB_AGENT_DIR) && $(DOTNET) run --project WServerApi.csproj
