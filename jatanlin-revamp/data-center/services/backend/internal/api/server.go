@@ -107,7 +107,15 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 				site_id,
 				COUNT(*)::int AS today_transactions,
 				COUNT(*) FILTER (WHERE violation_status <> 'normal')::int AS today_violations,
-				COUNT(*) FILTER (WHERE violation_status = 'normal')::int AS today_normal
+				COUNT(*) FILTER (WHERE violation_status = 'normal')::int AS today_normal,
+				COUNT(*) FILTER (
+					WHERE violation_status <> 'normal'
+					  AND COALESCE(violation_notes, '') ILIKE '%loading%'
+				)::int AS today_over_loading,
+				COUNT(*) FILTER (
+					WHERE violation_status <> 'normal'
+					  AND COALESCE(violation_notes, '') NOT ILIKE '%loading%'
+				)::int AS today_over_dimension
 			FROM public.dc_vehicle_actual
 			WHERE COALESCE(is_deleted, false) = false
 			  AND enforcement_started_at >= date_trunc('day', now())
@@ -125,8 +133,10 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			s.last_sync_at,
 			COALESCE(v.today_transactions, 0),
 			COALESCE(v.today_violations, 0),
-			COALESCE(v.today_normal, 0)
-		FROM public.dc_site
+			COALESCE(v.today_normal, 0),
+			COALESCE(v.today_over_loading, 0),
+			COALESCE(v.today_over_dimension, 0)
+		FROM public.dc_site s
 		LEFT JOIN today_vehicle v ON v.site_id = s.id
 		WHERE COALESCE(s.is_deleted, false) = false
 		ORDER BY s.site_code ASC
@@ -150,6 +160,8 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 		TodayTransactions  int        `json:"today_transactions"`
 		TodayViolations    int        `json:"today_violations"`
 		TodayNormal        int        `json:"today_normal"`
+		TodayOverLoading   int        `json:"today_over_loading"`
+		TodayOverDimension int        `json:"today_over_dimension"`
 	}
 
 	sites := []site{}
@@ -168,6 +180,8 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			&item.TodayTransactions,
 			&item.TodayViolations,
 			&item.TodayNormal,
+			&item.TodayOverLoading,
+			&item.TodayOverDimension,
 		); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return

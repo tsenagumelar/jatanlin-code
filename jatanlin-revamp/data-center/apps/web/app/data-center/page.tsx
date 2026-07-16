@@ -33,6 +33,8 @@ type Overview = {
     today_transactions: number;
     today_violations: number;
     today_normal: number;
+    today_over_loading: number;
+    today_over_dimension: number;
   }>;
   recent_violations: Array<{
     id: string;
@@ -57,6 +59,8 @@ type UnitRow = {
   totalToday: number;
   violations: number;
   normal: number;
+  overLoading: number;
+  overDimension: number;
   lastSeenAt: string | null;
   lastSyncAt: string | null;
   lastSeenLabel: string;
@@ -502,6 +506,8 @@ export default function DataCenterPage() {
         totalToday: site.today_transactions ?? 0,
         violations: site.today_violations ?? 0,
         normal: site.today_normal ?? 0,
+        overLoading: site.today_over_loading ?? 0,
+        overDimension: site.today_over_dimension ?? 0,
         lastSeenAt: site.last_seen_at,
         lastSyncAt: site.last_sync_at,
         lastSeenLabel: relativeTime(site.last_seen_at),
@@ -546,9 +552,11 @@ export default function DataCenterPage() {
     const overDimension =
       analyticsViolationFilter === "over_loading"
         ? 0
-        : Math.max(violations, 0);
+        : analyticsUnits.reduce((total, unit) => total + unit.overDimension, 0);
     const overLoading =
-      analyticsViolationFilter === "over_dimension" ? 0 : 0;
+      analyticsViolationFilter === "over_dimension"
+        ? 0
+        : analyticsUnits.reduce((total, unit) => total + unit.overLoading, 0);
     const visibleNormal =
       analyticsViolationFilter === "all" || analyticsViolationFilter === "normal"
         ? normal
@@ -603,7 +611,16 @@ export default function DataCenterPage() {
           return row.violation_status === "normal";
         }
         if (analyticsViolationFilter === "over_dimension") {
-          return row.violation_status !== "normal";
+          return (
+            row.violation_status !== "normal" &&
+            !row.violation_notes.toLowerCase().includes("loading")
+          );
+        }
+        if (analyticsViolationFilter === "over_loading") {
+          return (
+            row.violation_status !== "normal" &&
+            row.violation_notes.toLowerCase().includes("loading")
+          );
         }
         return false;
       })
@@ -644,12 +661,16 @@ export default function DataCenterPage() {
   const vehicleRate = totalVehicles > 0 ? 100 : 0;
   const violationRate =
     totalVehicles > 0 ? Math.round((totalViolations / totalVehicles) * 100) : 0;
-  const analyticsViolationRate =
-    analyticsTotals.vehicles > 0
-      ? Math.round(
-          (analyticsTotals.visibleViolations / analyticsTotals.vehicles) * 100,
-        )
-      : 0;
+  const analyticsDistributionTotal = Math.max(
+    analyticsTotals.overDimension +
+      analyticsTotals.overLoading +
+      analyticsTotals.visibleNormal,
+    1,
+  );
+  const analyticsOverDimensionPct =
+    (analyticsTotals.overDimension / analyticsDistributionTotal) * 100;
+  const analyticsOverLoadingPct =
+    (analyticsTotals.overLoading / analyticsDistributionTotal) * 100;
   const syncHealthyCount = units.filter(
     (unit) => minutesAgo(unit.lastSyncAt) <= 15,
   ).length;
@@ -1472,7 +1493,7 @@ export default function DataCenterPage() {
                   <div
                     className="h-52 w-52 rounded-full"
                     style={{
-                      background: `conic-gradient(#ef4444 0 ${analyticsViolationRate}%, #f59e0b ${analyticsViolationRate}% ${analyticsViolationRate}%, #059669 ${analyticsViolationRate}% 100%)`,
+                      background: `conic-gradient(#ef4444 0 ${analyticsOverDimensionPct}%, #f59e0b ${analyticsOverDimensionPct}% ${analyticsOverDimensionPct + analyticsOverLoadingPct}%, #059669 ${analyticsOverDimensionPct + analyticsOverLoadingPct}% 100%)`,
                     }}
                   >
                     <div className="m-12 h-28 w-28 rounded-full bg-white" />
@@ -1539,7 +1560,11 @@ export default function DataCenterPage() {
                           <td className="px-5 py-5 font-bold text-slate-600">
                             {row.violation_status === "normal"
                               ? "Normal"
-                              : "Over Dimension"}
+                              : row.violation_notes
+                                    .toLowerCase()
+                                    .includes("loading")
+                                ? "Over Loading"
+                                : "Over Dimension"}
                           </td>
                           <td className="px-5 py-5 font-bold text-slate-600">
                             {row.violation_notes || "Article 277"}
