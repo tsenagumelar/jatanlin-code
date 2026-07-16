@@ -16,7 +16,7 @@ GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 
 .DEFAULT_GOAL := help
 
-.PHONY: help infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint dev dev-local
+.PHONY: help infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint backend-web dev dev-local
 
 help:
 	@printf '%s\n' 'Jatanlin Data Center'
@@ -40,6 +40,7 @@ help:
 	@printf '%s\n' '  make web              Start web locally'
 	@printf '%s\n' '  make web-build        Build web'
 	@printf '%s\n' '  make web-lint         Run web lint'
+	@printf '%s\n' '  make backend-web      Start backend API and web locally'
 	@printf '%s\n' '  make dev              Start API and web locally'
 	@printf '%s\n' '  make dev-local        Start infra deps, API local, and web local'
 
@@ -87,6 +88,8 @@ web-build:
 
 web-lint:
 	$(NPM) --prefix $(WEB_DIR) run lint
+
+backend-web: dev
 
 dev:
 	@$(MAKE) api & p1=$$!; \
