@@ -7,4 +7,4 @@ apps/web/out/
 services/wb-agent/bin/
 services/wb-agent/obj/
 
-services/backend/.gocache/
+**/.gocache/
