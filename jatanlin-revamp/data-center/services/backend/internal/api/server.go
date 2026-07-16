@@ -31,6 +31,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
 	mux.HandleFunc("GET /api/auth/me", s.withAuth(s.handleMe))
 	mux.HandleFunc("GET /api/data-center/overview", s.withAuth(s.handleOverview))
+	mux.HandleFunc("GET /api/data-center/transactions/{id}", s.withAuth(s.handleTransactionDetail))
 	mux.HandleFunc("POST /api/sync/heartbeat", s.withSiteSyncAuth(s.handleSyncHeartbeat))
 	mux.HandleFunc("POST /api/sync/mirror/batch", s.withSiteSyncAuth(s.handleSyncMirrorBatch))
 	mux.HandleFunc("POST /api/sync/vehicle-actual/batch", s.withSiteSyncAuth(s.handleSyncVehicleActualBatch))

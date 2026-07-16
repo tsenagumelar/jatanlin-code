@@ -1588,6 +1588,9 @@ export default function DataCenterPage() {
                           <td className="px-5 py-5 text-right">
                             <button
                               type="button"
+                              onClick={() =>
+                                router.push(`/data-center/transactions/${row.id}`)
+                              }
                               className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600"
                             >
                               View
