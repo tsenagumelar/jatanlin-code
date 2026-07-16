@@ -8,3 +8,4 @@ services/wb-agent/bin/
 services/wb-agent/obj/
 
 **/.gocache/
+services/backend/data/sync-agent-cursors.json
