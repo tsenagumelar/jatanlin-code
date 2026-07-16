@@ -16,14 +16,16 @@ GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 
 .DEFAULT_GOAL := help
 
-.PHONY: help infra-up infra-bootstrap infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api web-install web web-build web-lint dev
+.PHONY: help infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint dev dev-local
 
 help:
 	@printf '%s\n' 'Jatanlin Data Center'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Infrastructure:'
-	@printf '%s\n' '  make infra-up         Start Postgres, Hasura, and backend API'
-	@printf '%s\n' '  make infra-bootstrap  Start infra, migrate schema, then seed data'
+	@printf '%s\n' '  make infra-up         Start Postgres, Hasura, MinIO, and backend API in Docker'
+	@printf '%s\n' '  make infra-up-local   Start Postgres, Hasura, and MinIO only for local backend'
+	@printf '%s\n' '  make infra-bootstrap  Start Docker backend infra, migrate schema, then seed data'
+	@printf '%s\n' '  make infra-bootstrap-local Start local-backend infra, migrate schema, then seed data'
 	@printf '%s\n' '  make infra-migrate    Apply database schema'
 	@printf '%s\n' '  make infra-seed       Seed admin and sample data'
 	@printf '%s\n' '  make infra-down       Stop infrastructure'
@@ -33,16 +35,23 @@ help:
 	@printf '%s\n' ''
 	@printf '%s\n' 'Development:'
 	@printf '%s\n' '  make api              Start backend API locally'
+	@printf '%s\n' '  make backend-api      Alias for make api'
 	@printf '%s\n' '  make web-install      Install web dependencies'
 	@printf '%s\n' '  make web              Start web locally'
 	@printf '%s\n' '  make web-build        Build web'
 	@printf '%s\n' '  make web-lint         Run web lint'
 	@printf '%s\n' '  make dev              Start API and web locally'
+	@printf '%s\n' '  make dev-local        Start infra deps, API local, and web local'
 
 infra-up:
 	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d
 
+infra-up-local:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d postgres hasura minio minio-init
+
 infra-bootstrap: infra-up infra-migrate infra-seed
+
+infra-bootstrap-local: infra-up-local infra-migrate infra-seed
 
 infra-migrate:
 	./scripts/db-migrate.sh
@@ -65,6 +74,8 @@ infra-logs:
 api:
 	$(RUN_ENV) cd $(BACKEND_DIR) && GOCACHE=$(GO_CACHE_DIR) $(GO) run ./cmd/api
 
+backend-api: api
+
 web-install:
 	$(NPM) --prefix $(WEB_DIR) install
 
@@ -82,3 +93,6 @@ dev:
 	$(MAKE) web & p2=$$!; \
 	trap 'kill $$p1 $$p2 2>/dev/null || true' INT TERM EXIT; \
 	wait
+
+dev-local: infra-up-local
+	@$(MAKE) dev
