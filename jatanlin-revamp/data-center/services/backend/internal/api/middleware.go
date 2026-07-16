@@ -31,6 +31,17 @@ func (s *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (s *Server) withSiteSyncAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		key := strings.TrimSpace(r.Header.Get("X-Site-Sync-Key"))
+		if key == "" || key != s.Config.SiteSyncKey {
+			writeError(w, http.StatusUnauthorized, "invalid site sync key")
+			return
+		}
+		next(w, r)
+	}
+}
+
 func (s *Server) withCORS(next http.Handler) http.Handler {
 	allowed := map[string]bool{}
 	for _, origin := range s.Config.CORSOrigins {
@@ -43,7 +54,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 		}
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Site-Sync-Key")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 
 		if r.Method == http.MethodOptions {

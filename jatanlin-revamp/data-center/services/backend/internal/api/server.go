@@ -31,6 +31,12 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
 	mux.HandleFunc("GET /api/auth/me", s.withAuth(s.handleMe))
 	mux.HandleFunc("GET /api/data-center/overview", s.withAuth(s.handleOverview))
+	mux.HandleFunc("POST /api/sync/heartbeat", s.withSiteSyncAuth(s.handleSyncHeartbeat))
+	mux.HandleFunc("POST /api/sync/mirror/batch", s.withSiteSyncAuth(s.handleSyncMirrorBatch))
+	mux.HandleFunc("POST /api/sync/vehicle-actual/batch", s.withSiteSyncAuth(s.handleSyncVehicleActualBatch))
+	mux.HandleFunc("POST /api/sync/attachments/prepare", s.withSiteSyncAuth(s.handleSyncAttachmentPrepare))
+	mux.HandleFunc("POST /api/sync/attachments/complete", s.withSiteSyncAuth(s.handleSyncAttachmentComplete))
+	mux.HandleFunc("POST /api/sync/cursor", s.withSiteSyncAuth(s.handleSyncCursor))
 	return s.withCORS(mux)
 }
 
@@ -92,7 +98,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			COUNT(*)::int,
 			COUNT(*) FILTER (WHERE violation_status <> 'normal')::int,
 			COUNT(*) FILTER (WHERE violation_status = 'normal')::int
-		FROM public.dc_vehicle_actual
+		FROM public.dc_dashboard_vehicle_actual
 		WHERE COALESCE(is_deleted, false) = false
 		  AND enforcement_started_at >= date_trunc('day', now())
 	`).Scan(&summary.TodayTransactions, &summary.TodayViolations, &summary.TodayNormal)
@@ -116,7 +122,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 					WHERE violation_status <> 'normal'
 					  AND COALESCE(violation_notes, '') NOT ILIKE '%loading%'
 				)::int AS today_over_dimension
-			FROM public.dc_vehicle_actual
+			FROM public.dc_dashboard_vehicle_actual
 			WHERE COALESCE(is_deleted, false) = false
 			  AND enforcement_started_at >= date_trunc('day', now())
 			GROUP BY site_id
@@ -199,7 +205,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			COALESCE(v.violation_notes, ''),
 			COALESCE(v.operator_name, ''),
 			s.site_code
-		FROM public.dc_vehicle_actual v
+		FROM public.dc_dashboard_vehicle_actual v
 		JOIN public.dc_site s ON s.id = v.site_id
 		WHERE COALESCE(v.is_deleted, false) = false
 		ORDER BY COALESCE(v.enforcement_started_at, v.created_at) DESC
