@@ -18,7 +18,7 @@ GO ?= go
 GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 DOTNET ?= /opt/homebrew/opt/dotnet@8/bin/dotnet
 
-.PHONY: help infra-up infra-bootstrap infra-migrate infra-seed infra-down infra-restart infra-ps infra-logs infra-pull infra-clean web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer wb-agent veam-license-generate veam-license-check services dev dev-full
+.PHONY: help infra-up infra-bootstrap infra-migrate infra-seed infra-down infra-restart infra-ps infra-logs infra-pull infra-clean web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check services dev dev-full
 
 help:
 	@printf '%s\n' 'Jatanlin Revamp'
@@ -47,6 +47,7 @@ help:
 	@printf '%s\n' '  make anpr-watcher   Start ANPR FTP watcher'
 	@printf '%s\n' '  make axle-watcher   Start AXLE FTP watcher'
 	@printf '%s\n' '  make cctv-streamer  Start CCTV streamer'
+	@printf '%s\n' '  make sync-agent     Start data center sync agent'
 	@printf '%s\n' '  make wb-agent       Start WB agent'
 	@printf '%s\n' '  make veam-license-generate Generate local VEAM license'
 	@printf '%s\n' '  make veam-license-check    Validate local VEAM license'
@@ -109,6 +110,9 @@ axle-watcher:
 cctv-streamer:
 	$(RUN_ENV) cd $(BACKEND_DIR) && GOCACHE=$(GO_CACHE_DIR) $(GO) run ./cmd/cctv-streamer
 
+sync-agent:
+	$(RUN_ENV) cd $(BACKEND_DIR) && GOCACHE=$(GO_CACHE_DIR) $(GO) run ./cmd/sync-agent
+
 wb-agent:
 	$(RUN_ENV) cd $(WB_AGENT_DIR) && $(DOTNET) run --project WServerApi.csproj
 
@@ -123,8 +127,9 @@ services:
 	$(MAKE) anpr-watcher & p2=$$!; \
 	$(MAKE) axle-watcher & p3=$$!; \
 	$(MAKE) cctv-streamer & p4=$$!; \
-	$(MAKE) wb-agent & p5=$$!; \
-	trap 'kill $$p1 $$p2 $$p3 $$p4 $$p5 2>/dev/null || true' INT TERM EXIT; \
+	$(MAKE) sync-agent & p5=$$!; \
+	$(MAKE) wb-agent & p6=$$!; \
+	trap 'kill $$p1 $$p2 $$p3 $$p4 $$p5 $$p6 2>/dev/null || true' INT TERM EXIT; \
 	wait
 
 dev:

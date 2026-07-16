@@ -67,3 +67,30 @@ Database bootstrap:
 - `make infra-migrate` apply schema final dari `infra/database/001_schema.sql`.
 - `make infra-seed` isi master data, sample device/site/user, dan admin lokal dari `infra/database/001_seed.sql`.
 - `make infra-bootstrap` menjalankan `infra-up`, `infra-migrate`, dan `infra-seed`.
+
+## Data Center Sync Agent
+
+Sync agent mengirim data transaksi dari site lokal ke data center dengan retry aman. Cursor hanya naik setelah data center membalas sukses, jadi kalau jaringan putus batch yang sama akan dikirim ulang.
+
+Aktifkan di `.env`:
+
+```bash
+DATA_CENTER_SYNC_ENABLED=true
+DATA_CENTER_API_URL=http://localhost:28001
+DATA_CENTER_SYNC_KEY=jatanlin-site-sync-key-2026
+DATA_CENTER_SYNC_INTERVAL_SEC=30
+DATA_CENTER_SYNC_BATCH_SIZE=100
+DATA_CENTER_SYNC_CURSOR_FILE=./data/sync-agent-cursors.json
+```
+
+Jalankan manual:
+
+```bash
+make sync-agent
+```
+
+Untuk tes satu siklus:
+
+```bash
+DATA_CENTER_SYNC_ENABLED=true DATA_CENTER_SYNC_ONCE=true make sync-agent
+```
