@@ -8,6 +8,7 @@ func (s *Server) setupRoutes() {
 	s.registerAttachmentRoutes()
 	s.registerUserRoutes()
 	s.registerVeamRoutes()
+	s.registerDataCenterSyncRoutes()
 
 	// WIM Session management stays in Hasura GraphQL.
 }
@@ -49,6 +50,12 @@ func (s *Server) registerVeamRoutes() {
 	veam.Post("/activate", s.VeamHandler.Activate)
 	veam.Post("/activate-usb", s.VeamHandler.ActivateFromUSB)
 	veam.Delete("/license", s.VeamHandler.Revoke)
+}
+
+func (s *Server) registerDataCenterSyncRoutes() {
+	sync := s.App.Group("/api").Group("/data-center-sync")
+	s.useAuthIfEnabled(sync)
+	sync.Post("/range", s.TriggerDataCenterSyncRange)
 }
 
 func (s *Server) useAuthIfEnabled(router fiber.Router) {

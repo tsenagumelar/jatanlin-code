@@ -43,6 +43,7 @@ type Overview = {
     location: string;
     violation_status: string;
     violation_notes: string;
+    verification_status: string;
     officer: string;
     site_code: string;
   }>;
@@ -612,13 +613,13 @@ export default function DataCenterPage() {
         }
         if (analyticsViolationFilter === "over_dimension") {
           return (
-            row.violation_status !== "normal" &&
+            row.violation_status === "violation" &&
             !row.violation_notes.toLowerCase().includes("loading")
           );
         }
         if (analyticsViolationFilter === "over_loading") {
           return (
-            row.violation_status !== "normal" &&
+            row.violation_status === "violation" &&
             row.violation_notes.toLowerCase().includes("loading")
           );
         }
@@ -700,6 +701,53 @@ export default function DataCenterPage() {
     router.replace("/login");
   }
 
+  const operationalKpiGrid = (
+    <section className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      <KpiTile
+        label="Sites Online"
+        value={`${activeCount}/${totalSites}`}
+        detail={`${onlineRate}% active`}
+        tone="blue"
+        icon="site"
+      />
+      <KpiTile
+        label="Vehicles Today"
+        value={totalVehicles}
+        detail={`${vehicleRate}% total kendaraan`}
+        tone="green"
+        icon="vehicle"
+      />
+      <KpiTile
+        label="Violation Rate"
+        value={`${violationRate}%`}
+        detail={`${totalViolations} of ${totalVehicles}`}
+        tone="red"
+        icon="rate"
+      />
+      <KpiTile
+        label="Sync Healthy"
+        value={`${syncHealthyCount}/${totalSites}`}
+        detail={`${syncHealthyRate}% under 15m`}
+        tone="green"
+        icon="sync"
+      />
+      <KpiTile
+        label="Critical Sites"
+        value={criticalSites}
+        detail="offline / delayed"
+        tone={criticalSites > 0 ? "amber" : "slate"}
+        icon="critical"
+      />
+      <KpiTile
+        label="Last Data"
+        value={lastDataSite?.lastSyncLabel ?? "-"}
+        detail={lastDataSite?.code ?? "no data"}
+        tone="slate"
+        icon="last"
+      />
+    </section>
+  );
+
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-[#eef2f7] text-slate-900">
       <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
@@ -749,51 +797,6 @@ export default function DataCenterPage() {
         </div>
       ) : null}
 
-      <section className="grid shrink-0 grid-cols-1 gap-3 px-6 py-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-        <KpiTile
-          label="Sites Online"
-          value={`${activeCount}/${totalSites}`}
-          detail={`${onlineRate}% active`}
-          tone="blue"
-          icon="site"
-        />
-        <KpiTile
-          label="Vehicles Today"
-          value={totalVehicles}
-          detail={`${vehicleRate}% total kendaraan`}
-          tone="green"
-          icon="vehicle"
-        />
-        <KpiTile
-          label="Violation Rate"
-          value={`${violationRate}%`}
-          detail={`${totalViolations} of ${totalVehicles}`}
-          tone="red"
-          icon="rate"
-        />
-        <KpiTile
-          label="Sync Healthy"
-          value={`${syncHealthyCount}/${totalSites}`}
-          detail={`${syncHealthyRate}% under 15m`}
-          tone="green"
-          icon="sync"
-        />
-        <KpiTile
-          label="Critical Sites"
-          value={criticalSites}
-          detail="offline / delayed"
-          tone={criticalSites > 0 ? "amber" : "slate"}
-          icon="critical"
-        />
-        <KpiTile
-          label="Last Data"
-          value={lastDataSite?.lastSyncLabel ?? "-"}
-          detail={lastDataSite?.code ?? "no data"}
-          tone="slate"
-          icon="last"
-        />
-      </section>
-
       <nav className="shrink-0 border-y border-slate-200 bg-white px-6">
         <div className="flex gap-2">
           {tabs.map((tab) => (
@@ -822,6 +825,8 @@ export default function DataCenterPage() {
 
         {overview && activeTab === "overview" ? (
           <div className="flex h-full min-h-0 flex-col gap-4">
+            {operationalKpiGrid}
+
             <div className="h-[40vh] min-h-[340px] shrink-0">
               <CommandMap
                 units={units}
@@ -1020,6 +1025,8 @@ export default function DataCenterPage() {
 
         {overview && activeTab === "transactions" ? (
           <div className="flex h-full min-h-0 flex-col gap-4">
+            {operationalKpiGrid}
+
             <div className="h-[36vh] min-h-[300px] shrink-0">
               <CommandMap
                 units={units}
@@ -1163,6 +1170,8 @@ export default function DataCenterPage() {
 
         {overview && activeTab === "sites" ? (
           <div className="flex h-full min-h-0 flex-col gap-4">
+            {operationalKpiGrid}
+
             <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
               <div>
                 <h2 className="text-2xl font-black text-slate-900">
@@ -1560,11 +1569,13 @@ export default function DataCenterPage() {
                           <td className="px-5 py-5 font-bold text-slate-600">
                             {row.violation_status === "normal"
                               ? "Normal"
-                              : row.violation_notes
-                                    .toLowerCase()
-                                    .includes("loading")
-                                ? "Over Loading"
-                                : "Over Dimension"}
+                              : row.violation_status === "violation"
+                                ? row.violation_notes
+                                      .toLowerCase()
+                                      .includes("loading")
+                                  ? "Over Loading"
+                                  : "Over Dimension"
+                                : "Pending"}
                           </td>
                           <td className="px-5 py-5 font-bold text-slate-600">
                             {row.violation_notes || "Article 277"}
@@ -1575,14 +1586,14 @@ export default function DataCenterPage() {
                           <td className="px-5 py-5">
                             <span
                               className={`rounded-full px-3 py-1 text-sm font-black ${
-                                row.violation_status === "normal"
+                                row.verification_status === "verified"
                                   ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-amber-50 text-amber-700"
+                                  : row.verification_status === "rejected"
+                                    ? "bg-red-50 text-red-700"
+                                    : "bg-amber-50 text-amber-700"
                               }`}
                             >
-                              {row.violation_status === "normal"
-                                ? "normal"
-                                : "verified"}
+                              {row.verification_status || "pending"}
                             </span>
                           </td>
                           <td className="px-5 py-5 text-right">

@@ -15,6 +15,7 @@ import {
   Warning24Filled,
 } from "@fluentui/react-icons";
 import { useAppSelector } from "@/src/redux/hooks";
+import { getAuthTokenCookie } from "@/src/utils/auth";
 
 type ValueType = "string" | "number" | "boolean" | "url" | "password" | "path";
 type PingResult = "idle" | "testing" | "ok" | "fail" | "timeout";
@@ -38,6 +39,22 @@ interface ApplicationConfigRow {
   config_value: string | null;
   description: string | null;
   sort_order: number | null;
+}
+
+interface DataCenterSyncResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    counts?: Record<string, number>;
+  };
+}
+
+function todayInputValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 const GET_RUNTIME_CONFIGS = gql`
@@ -204,6 +221,10 @@ export function V3ConfigurationDeviceModule() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [pingResults, setPingResults] = useState<Record<string, PingResult>>({});
+  const [syncStartDate, setSyncStartDate] = useState(todayInputValue);
+  const [syncEndDate, setSyncEndDate] = useState(todayInputValue);
+  const [syncingDataCenter, setSyncingDataCenter] = useState(false);
+  const [lastSyncResult, setLastSyncResult] = useState<Record<string, number> | null>(null);
 
   const rows = useMemo(() => data?.system_runtime_config ?? [], [data]);
   const applicationConfigs = useMemo(
@@ -331,6 +352,54 @@ export function V3ConfigurationDeviceModule() {
     rows
       .filter((row) => pingKeys.has(row.config_key))
       .forEach((row) => pingDevice(row.config_key, displayValue(row, values)));
+  };
+
+  const handleSyncDataCenter = async () => {
+    if (!syncStartDate || !syncEndDate) {
+      showToast("Pilih start date dan end date terlebih dahulu.", "error");
+      return;
+    }
+    if (syncEndDate < syncStartDate) {
+      showToast("End date tidak boleh lebih kecil dari start date.", "error");
+      return;
+    }
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+    const token = getAuthTokenCookie();
+    setSyncingDataCenter(true);
+    setLastSyncResult(null);
+
+    try {
+      const response = await fetch(`${apiUrl}/api/data-center-sync/range`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token || ""}`,
+        },
+        body: JSON.stringify({
+          start_date: syncStartDate,
+          end_date: syncEndDate,
+        }),
+      });
+      const payload = (await response.json()) as DataCenterSyncResponse;
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || "Failed to queue data center sync.");
+      }
+      setLastSyncResult(payload.data?.counts ?? null);
+      showToast(
+        "Data center sync queued. Sync agent will upsert the selected range.",
+        "success",
+      );
+    } catch (error) {
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Failed to queue data center sync.",
+        "error",
+      );
+    } finally {
+      setSyncingDataCenter(false);
+    }
   };
 
   const renderInput = (row: RuntimeConfigRow) => {
@@ -542,6 +611,68 @@ export function V3ConfigurationDeviceModule() {
                 </div>
               );
             })}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+              <Server24Regular />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-950">
+                Sync to Data Center
+              </h2>
+              <p className="text-sm leading-6 text-slate-500">
+                Queue transaction data in the selected date range for upsert by
+                the running sync agent. Default range is today.
+              </p>
+              {lastSyncResult && (
+                <p className="mt-2 text-xs font-semibold text-slate-500">
+                  Queued: vehicle {lastSyncResult.vehicle_actual ?? 0}, status{" "}
+                  {lastSyncResult.vehicle_status ?? 0}, ANPR{" "}
+                  {lastSyncResult.anpr_capture ?? 0}, AXLE{" "}
+                  {lastSyncResult.axle_capture ?? 0}, CCTV{" "}
+                  {lastSyncResult.cctv ?? 0}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[170px_170px_auto]">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-400">
+                Start Date
+              </span>
+              <input
+                type="date"
+                value={syncStartDate}
+                onChange={(event) => setSyncStartDate(event.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-400">
+                End Date
+              </span>
+              <input
+                type="date"
+                value={syncEndDate}
+                onChange={(event) => setSyncEndDate(event.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleSyncDataCenter}
+              disabled={syncingDataCenter}
+              className="inline-flex h-10 items-center justify-center gap-2 self-end rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ArrowClockwise24Regular className="h-4 w-4" />
+              {syncingDataCenter ? "Queueing..." : "Sync"}
+            </button>
+          </div>
         </div>
       </section>
 

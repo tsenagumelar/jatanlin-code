@@ -1,6 +1,4 @@
 "use client";
-
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight20Regular,
@@ -176,12 +174,11 @@ export function V3JatanlinPage() {
                       <td className="px-3 py-2">
                         <div className="relative flex h-8 w-12 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-100">
                           {photoUrl ? (
-                            <Image
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
                               src={photoUrl}
                               alt={jatanlin.getPlate(row)}
-                              fill
-                              sizes="48px"
-                              className="object-cover"
+                              className="h-full w-full object-cover"
                             />
                           ) : (
                             <VehicleTruckProfile24Regular className="text-slate-300" />
@@ -233,13 +230,16 @@ export function V3JatanlinPage() {
                             <ArrowRight20Regular />
                             View
                           </Link>
-                          <Link
-                            href={`/transaction/jatanlin/verify/${row.id}`}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
-                          >
-                            <CheckmarkCircle20Regular />
-                            Verify
-                          </Link>
+                          {(row.latestStatus === "pending" ||
+                            row.latestStatus === "draft") && (
+                            <Link
+                              href={`/transaction/jatanlin/verify/${row.id}`}
+                              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+                            >
+                              <CheckmarkCircle20Regular />
+                              Verify
+                            </Link>
+                          )}
                           {jatanlin.isAdmin && (
                             <button
                               type="button"

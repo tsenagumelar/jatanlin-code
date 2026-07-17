@@ -13,6 +13,7 @@ import (
 
 type Server struct {
 	App               *fiber.App
+	DB                *sql.DB
 	AuthService       *auth.AuthService
 	AuthHandler       *AuthHandler
 	UserHandler       *UserHandler
@@ -26,6 +27,7 @@ func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.Attac
 
 	server := &Server{
 		App:               newFiberApp(),
+		DB:                db,
 		AuthService:       authService,
 		AuthHandler:       NewAuthHandler(authService),
 		UserHandler:       NewUserHandler(db),

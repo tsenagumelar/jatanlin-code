@@ -9,7 +9,6 @@ import {
   VehicleClassLimit,
 } from "@/src/utils/odol";
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   Button,
   Spinner,
@@ -956,20 +955,34 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     );
   }
 
-  const anprImageUrl = vehicle.transact_anpr_capture
-    ? getMinioImageUrl(
-        vehicle.transact_anpr_capture.minio_bucket,
-        vehicle.transact_anpr_capture.minio_full_image_object,
-      )
-    : "";
-  const axleImageUrl = vehicle.transact_axle_capture
-    ? getMinioImageUrl(
-        vehicle.transact_axle_capture.minio_bucket,
-        vehicle.transact_axle_capture.minio_image_object,
-      )
-    : "";
+  const anprImageUrl =
+    sourceAnprBucket && sourceAnprObjectName
+      ? getMinioImageUrl(sourceAnprBucket, sourceAnprObjectName)
+      : sourceAnprImagePath
+        ? getImageUrl(sourceAnprImagePath)
+        : vehicle.transact_anpr_capture
+          ? getMinioImageUrl(
+              vehicle.transact_anpr_capture.minio_bucket,
+              vehicle.transact_anpr_capture.minio_full_image_object,
+            )
+          : "";
+  const axleImageUrl =
+    sourceAxleBucket && sourceAxleObjectName
+      ? getMinioImageUrl(sourceAxleBucket, sourceAxleObjectName)
+      : sourceAxleImagePath
+        ? getImageUrl(sourceAxleImagePath)
+        : vehicle.transact_axle_capture
+          ? getMinioImageUrl(
+              vehicle.transact_axle_capture.minio_bucket,
+              vehicle.transact_axle_capture.minio_image_object,
+            )
+          : "";
   const cctv = (vehicle as any)?.transact_cctv;
-  const cctvVideoUrl = cctv?.filepath ? getImageUrl(cctv.filepath) : "";
+  const cctvVideoUrl = sourceCctvPath
+    ? getImageUrl(sourceCctvPath)
+    : cctv?.filepath
+      ? getImageUrl(cctv.filepath)
+      : "";
 
   const sourceSectionMissing = {
     anpr:
@@ -1445,11 +1458,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                 <div className="font-semibold text-sm">ANPR Evidence</div>
                 <div className="aspect-video w-full rounded-lg bg-neutral-100 overflow-hidden">
                   {anprImageUrl ? (
-                    <Image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={anprImageUrl}
                       alt="ANPR"
-                      width={400}
-                      height={300}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -1467,11 +1479,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                 <div className="font-semibold text-sm">Axle Evidence</div>
                 <div className="aspect-video w-full rounded-lg bg-neutral-100 overflow-hidden">
                   {axleImageUrl ? (
-                    <Image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={axleImageUrl}
                       alt="Axle"
-                      width={400}
-                      height={300}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -1536,11 +1547,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         className="rounded-lg overflow-hidden border border-neutral-200"
                       >
                         <div className="relative">
-                          <Image
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
                             src={preview}
                             alt="Preview"
-                            width={400}
-                            height={200}
                             className="w-full h-32 object-cover"
                           />
                           <button

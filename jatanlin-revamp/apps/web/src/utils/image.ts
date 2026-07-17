@@ -15,6 +15,11 @@ export const getMinioImageUrl = (
   // Remove leading slash if present
   const cleanBucket = bucket.startsWith('/') ? bucket.slice(1) : bucket;
   const cleanPath = objectPath.startsWith('/') ? objectPath.slice(1) : objectPath;
+  const objectPathWithBucket = `${cleanBucket}/`;
+
+  if (cleanPath === cleanBucket || cleanPath.startsWith(objectPathWithBucket)) {
+    return `${MINIO_URL}/${cleanPath}`;
+  }
 
   return `${MINIO_URL}/${cleanBucket}/${cleanPath}`;
 };

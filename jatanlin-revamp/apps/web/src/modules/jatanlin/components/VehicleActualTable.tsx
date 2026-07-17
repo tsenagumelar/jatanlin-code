@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
-import Image from "next/image";
 import { Button, Badge } from "@fluentui/react-components";
 import {
   Eye24Regular,
@@ -98,12 +97,24 @@ const VehicleImage: React.FC<{ vehicle: VehicleActualData }> = ({
   vehicle,
 }) => {
   const [imageError, setImageError] = React.useState(false);
-  const imageUrl = vehicle.transact_anpr_capture
-    ? getMinioImageUrl(
-        vehicle.transact_anpr_capture.minio_bucket,
-        vehicle.transact_anpr_capture.minio_full_image_object
-      )
-    : "";
+  const imageUrl =
+    vehicle.transact_anpr_capture?.minio_bucket &&
+    vehicle.transact_anpr_capture?.minio_full_image_object
+      ? getMinioImageUrl(
+          vehicle.transact_anpr_capture.minio_bucket,
+          vehicle.transact_anpr_capture.minio_full_image_object,
+        )
+      : vehicle.transact_axle_capture?.minio_bucket &&
+          vehicle.transact_axle_capture?.minio_image_object
+        ? getMinioImageUrl(
+            vehicle.transact_axle_capture.minio_bucket,
+            vehicle.transact_axle_capture.minio_image_object,
+          )
+        : "";
+
+  React.useEffect(() => {
+    setImageError(false);
+  }, [imageUrl]);
 
   if (!imageUrl || imageError) {
     return (
@@ -113,14 +124,11 @@ const VehicleImage: React.FC<{ vehicle: VehicleActualData }> = ({
     );
   }
 
-  console.log("Rendering image:", imageUrl);
-
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={imageUrl}
       alt="Kendaraan"
-      width={80}
-      height={48}
       className="w-20 h-12 object-cover rounded border border-gray-200"
       onError={() => setImageError(true)}
     />

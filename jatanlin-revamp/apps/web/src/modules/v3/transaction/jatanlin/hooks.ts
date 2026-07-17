@@ -110,8 +110,14 @@ function getAxle(row: V3JatanlinRow) {
 
 function getPhotoUrl(row: V3JatanlinRow) {
   const anpr = row.transact_anpr_capture;
-  if (!anpr?.minio_bucket || !anpr.minio_full_image_object) return "";
-  return getMinioImageUrl(anpr.minio_bucket, anpr.minio_full_image_object);
+  if (anpr?.minio_bucket && anpr.minio_full_image_object) {
+    return getMinioImageUrl(anpr.minio_bucket, anpr.minio_full_image_object);
+  }
+  const axle = row.transact_axle_capture;
+  if (axle?.minio_bucket && axle.minio_image_object) {
+    return getMinioImageUrl(axle.minio_bucket, axle.minio_image_object);
+  }
+  return "";
 }
 
 function getLatestStatusLabel(status: string) {
@@ -203,8 +209,9 @@ export function useV3Jatanlin() {
 
     return (vehicleActualsQuery.data?.transact_vehicle_actual ?? []).map((row) => {
       const latestStatus = row.transact_vehicle_statuses?.[0];
+      const latestStatusValue = latestStatus?.status?.toLowerCase() || "pending";
       const verifiedResult =
-        latestStatus?.status === "verified" ? latestStatus.result : null;
+        latestStatusValue === "verified" ? latestStatus.result : null;
       let violationType = verifiedResult || "Pending";
 
       if (!verifiedResult) {
@@ -254,7 +261,7 @@ export function useV3Jatanlin() {
       return {
         ...row,
         violationType,
-        latestStatus: latestStatus?.status || "pending",
+        latestStatus: latestStatusValue,
       };
     });
   }, [

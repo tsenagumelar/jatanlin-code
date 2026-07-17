@@ -166,7 +166,7 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-func (s *Server) transactionRawDetail(siteID string, sourceID string) (map[string]json.RawMessage, error) {
+func (s *Server) transactionRawDetail(siteID string, sourceID string) (map[string]any, error) {
 	var session, anpr, axle, cctv, dimension, weighing, actual, status sql.NullString
 	err := s.DB.QueryRow(`
 		WITH actual_row AS (
@@ -191,7 +191,7 @@ func (s *Server) transactionRawDetail(siteID string, sourceID string) (map[strin
 		return nil, err
 	}
 
-	return map[string]json.RawMessage{
+	return map[string]any{
 		"session":        nullableRawJSON(session),
 		"anpr":           nullableRawJSON(anpr),
 		"axle":           nullableRawJSON(axle),
@@ -279,9 +279,16 @@ func (s *Server) transactionAttachments(siteID string, sourceID string) ([]trans
 	return attachments, nil
 }
 
-func nullableRawJSON(value sql.NullString) json.RawMessage {
+func nullableRawJSON(value sql.NullString) any {
 	if !value.Valid || strings.TrimSpace(value.String) == "" {
-		return json.RawMessage("null")
+		return nil
 	}
-	return json.RawMessage(value.String)
+	var decoded any
+	if err := json.Unmarshal([]byte(value.String), &decoded); err != nil {
+		return map[string]any{
+			"_decode_error": err.Error(),
+			"_raw":          value.String,
+		}
+	}
+	return decoded
 }

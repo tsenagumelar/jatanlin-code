@@ -129,6 +129,24 @@ CREATE TABLE IF NOT EXISTS public.dc_vehicle_attachment (
   CONSTRAINT dc_vehicle_attachment_site_unique UNIQUE (site_id, site_attachment_id)
 );
 
+CREATE TABLE IF NOT EXISTS public.dc_master_record (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID NOT NULL REFERENCES public.dc_site(id),
+  table_name VARCHAR(80) NOT NULL,
+  source_id UUID NOT NULL,
+  code VARCHAR(120),
+  display_name VARCHAR(240),
+  source_created_at TIMESTAMPTZ,
+  source_updated_at TIMESTAMPTZ,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  is_active BOOLEAN,
+  is_deleted BOOLEAN NOT NULL DEFAULT false,
+  raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT dc_master_record_site_table_source_unique UNIQUE (site_id, table_name, source_id)
+);
+
 CREATE TABLE IF NOT EXISTS public.dc_transact_wim_session (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   site_id UUID NOT NULL REFERENCES public.dc_site(id),
@@ -334,6 +352,9 @@ CREATE INDEX IF NOT EXISTS idx_dc_sync_log_site ON public.dc_sync_log (site_id, 
 CREATE INDEX IF NOT EXISTS idx_dc_site_sync_cursor_site ON public.dc_site_sync_cursor (site_id, sync_type);
 CREATE INDEX IF NOT EXISTS idx_dc_vehicle_attachment_vehicle ON public.dc_vehicle_attachment (vehicle_actual_id, attachment_type);
 CREATE INDEX IF NOT EXISTS idx_dc_vehicle_attachment_site_transaction ON public.dc_vehicle_attachment (site_id, site_transaction_id);
+CREATE INDEX IF NOT EXISTS idx_dc_master_record_site_table ON public.dc_master_record (site_id, table_name);
+CREATE INDEX IF NOT EXISTS idx_dc_master_record_code ON public.dc_master_record (table_name, code);
+CREATE INDEX IF NOT EXISTS idx_dc_master_record_updated ON public.dc_master_record (table_name, source_updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dc_transact_wim_session_site_started ON public.dc_transact_wim_session (site_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dc_transact_anpr_capture_site_session ON public.dc_transact_anpr_capture (site_id, source_session_id);
 CREATE INDEX IF NOT EXISTS idx_dc_transact_axle_capture_site_session ON public.dc_transact_axle_capture (site_id, source_session_id);
@@ -388,8 +409,11 @@ SELECT
   v.actual_height AS height_mm,
   v.actual_total_axle AS axle_count,
   CASE
-    WHEN lower(COALESCE(vs.status, vs.result, '')) LIKE '%normal%' THEN 'normal'
-    WHEN vs.id IS NOT NULL THEN 'violation'
+    WHEN lower(COALESCE(vs.status, '')) = 'verified'
+      AND lower(COALESCE(vs.result, '')) LIKE '%normal%' THEN 'normal'
+    WHEN lower(COALESCE(vs.status, '')) = 'verified' THEN 'violation'
+    WHEN lower(COALESCE(vs.status, '')) = 'rejected' THEN 'normal'
+    WHEN vs.id IS NOT NULL THEN lower(COALESCE(vs.status, 'pending'))
     ELSE 'pending'
   END AS violation_status,
   COALESCE(vs.notes, vs.result, vs.status) AS violation_notes,

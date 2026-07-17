@@ -168,11 +168,18 @@ export default function TransactionDetailPage() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload.error || "Gagal mengambil detail transaksi");
+        const body = await response.text();
+        let payload: TransactionDetail | { error?: string };
+        try {
+          payload = body ? JSON.parse(body) : {};
+        } catch {
+          throw new Error(body || "Response detail transaksi tidak valid");
         }
-        setDetail(payload);
+        if (!response.ok) {
+          const errorMessage = "error" in payload ? payload.error : undefined;
+          throw new Error(errorMessage || "Gagal mengambil detail transaksi");
+        }
+        setDetail(payload as TransactionDetail);
       })
       .catch((err) => {
         setError(

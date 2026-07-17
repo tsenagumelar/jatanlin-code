@@ -69,6 +69,12 @@ func (s *Server) handleSyncMirrorBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 var mirrorUpserts = map[string]string{
+	"master_role":          masterRecordUpsert("master_role", "role_name"),
+	"master_device_type":   masterRecordUpsert("master_device_type", "type_name"),
+	"master_vehicle_class": masterRecordUpsert("master_vehicle_class", "type"),
+	"master_config":        masterRecordUpsert("master_config", "config_key"),
+	"master_device":        masterRecordUpsert("master_device", "device_name"),
+	"master_user":          masterRecordUpsert("master_user", "full_name"),
 	"transact_wim_session": `
 		WITH rows AS (
 			SELECT *
@@ -505,4 +511,61 @@ var mirrorUpserts = map[string]string{
 		    synced_at = now(),
 		    raw_payload = EXCLUDED.raw_payload
 	`,
+}
+
+func masterRecordUpsert(tableName string, displayKey string) string {
+	escapedTable := strings.ReplaceAll(tableName, `'`, `''`)
+	escapedDisplayKey := strings.ReplaceAll(displayKey, `'`, `''`)
+	return fmt.Sprintf(`
+		WITH rows AS (
+			SELECT value AS raw
+			FROM jsonb_array_elements($2::jsonb)
+		),
+		normalized AS (
+			SELECT
+				raw,
+				(raw->>'id')::uuid AS source_id,
+				NULLIF(raw->>'code', '') AS code,
+				COALESCE(
+					NULLIF(raw->>'%s', ''),
+					NULLIF(raw->>'full_name', ''),
+					NULLIF(raw->>'username', ''),
+					NULLIF(raw->>'code', ''),
+					raw->>'id'
+				) AS display_name,
+				NULLIF(raw->>'created_date', '')::timestamptz AS source_created_at,
+				NULLIF(raw->>'updated_date', '')::timestamptz AS source_updated_at,
+				COALESCE(NULLIF(raw->>'is_active', '')::boolean, true) AS is_active,
+				COALESCE(NULLIF(raw->>'is_deleted', '')::boolean, false) AS is_deleted
+			FROM rows
+			WHERE raw ? 'id'
+			  AND COALESCE(raw->>'id', '') <> ''
+		)
+		INSERT INTO public.dc_master_record (
+			site_id, table_name, source_id, code, display_name,
+			source_created_at, source_updated_at, is_active, is_deleted, raw_payload
+		)
+		SELECT
+			$1,
+			'%s',
+			source_id,
+			code,
+			display_name,
+			source_created_at,
+			source_updated_at,
+			is_active,
+			is_deleted,
+			raw
+		FROM normalized
+		ON CONFLICT (site_id, table_name, source_id) DO UPDATE
+		SET code = EXCLUDED.code,
+		    display_name = EXCLUDED.display_name,
+		    source_created_at = EXCLUDED.source_created_at,
+		    source_updated_at = EXCLUDED.source_updated_at,
+		    is_active = EXCLUDED.is_active,
+		    is_deleted = EXCLUDED.is_deleted,
+		    synced_at = now(),
+		    updated_at = now(),
+		    raw_payload = EXCLUDED.raw_payload
+	`, escapedDisplayKey, escapedTable)
 }

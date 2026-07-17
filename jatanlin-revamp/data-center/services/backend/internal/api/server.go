@@ -97,7 +97,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 	err = s.DB.QueryRow(`
 		SELECT
 			COUNT(*)::int,
-			COUNT(*) FILTER (WHERE violation_status <> 'normal')::int,
+			COUNT(*) FILTER (WHERE violation_status = 'violation')::int,
 			COUNT(*) FILTER (WHERE violation_status = 'normal')::int
 		FROM public.dc_dashboard_vehicle_actual
 		WHERE COALESCE(is_deleted, false) = false
@@ -113,14 +113,14 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			SELECT
 				site_id,
 				COUNT(*)::int AS today_transactions,
-				COUNT(*) FILTER (WHERE violation_status <> 'normal')::int AS today_violations,
+				COUNT(*) FILTER (WHERE violation_status = 'violation')::int AS today_violations,
 				COUNT(*) FILTER (WHERE violation_status = 'normal')::int AS today_normal,
 				COUNT(*) FILTER (
-					WHERE violation_status <> 'normal'
+					WHERE violation_status = 'violation'
 					  AND COALESCE(violation_notes, '') ILIKE '%loading%'
 				)::int AS today_over_loading,
 				COUNT(*) FILTER (
-					WHERE violation_status <> 'normal'
+					WHERE violation_status = 'violation'
 					  AND COALESCE(violation_notes, '') NOT ILIKE '%loading%'
 				)::int AS today_over_dimension
 			FROM public.dc_dashboard_vehicle_actual
@@ -205,9 +205,19 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			COALESCE(v.violation_status, 'pending'),
 			COALESCE(v.violation_notes, ''),
 			COALESCE(v.operator_name, ''),
-			s.site_code
+			s.site_code,
+			COALESCE(vs.status, CASE WHEN v.violation_status IN ('normal', 'violation') THEN 'verified' ELSE v.violation_status END, 'pending')
 		FROM public.dc_dashboard_vehicle_actual v
 		JOIN public.dc_site s ON s.id = v.site_id
+		LEFT JOIN LATERAL (
+			SELECT status
+			FROM public.dc_transact_vehicle_status tvs
+			WHERE tvs.site_id = v.site_id
+			  AND tvs.source_vehicle_actual_id::text = v.source_id
+			  AND COALESCE(tvs.is_deleted, false) = false
+			ORDER BY COALESCE(tvs.updated_date, tvs.created_date, tvs.synced_at) DESC
+			LIMIT 1
+		) vs ON true
 		WHERE COALESCE(v.is_deleted, false) = false
 		ORDER BY COALESCE(v.enforcement_started_at, v.created_at) DESC
 		LIMIT 10
@@ -219,14 +229,15 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 	defer recentRows.Close()
 
 	type recentViolation struct {
-		ID              string    `json:"id"`
-		Time            time.Time `json:"time"`
-		PlateNo         string    `json:"plate_no"`
-		Location        string    `json:"location"`
-		ViolationStatus string    `json:"violation_status"`
-		ViolationNotes  string    `json:"violation_notes"`
-		Officer         string    `json:"officer"`
-		SiteCode        string    `json:"site_code"`
+		ID                 string    `json:"id"`
+		Time               time.Time `json:"time"`
+		PlateNo            string    `json:"plate_no"`
+		Location           string    `json:"location"`
+		ViolationStatus    string    `json:"violation_status"`
+		ViolationNotes     string    `json:"violation_notes"`
+		Officer            string    `json:"officer"`
+		SiteCode           string    `json:"site_code"`
+		VerificationStatus string    `json:"verification_status"`
 	}
 
 	recentViolations := []recentViolation{}
@@ -241,6 +252,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			&item.ViolationNotes,
 			&item.Officer,
 			&item.SiteCode,
+			&item.VerificationStatus,
 		); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return

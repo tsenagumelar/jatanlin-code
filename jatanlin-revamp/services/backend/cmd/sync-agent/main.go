@@ -33,6 +33,7 @@ type syncConfig struct {
 	BatchSize                int
 	CursorFile               string
 	HTTPTimeout              time.Duration
+	Lookback                 time.Duration
 	Once                     bool
 	AttachmentSyncEnabled    bool
 	DataCenterMinIOEndpoint  string
@@ -46,10 +47,16 @@ type syncConfig struct {
 type mirrorTable struct {
 	Name       string
 	CursorExpr string
+	SiteScoped bool
 }
 
 type cursorState struct {
 	Tables map[string]string `json:"tables"`
+}
+
+type parsedCursor struct {
+	Time time.Time
+	ID   string
 }
 
 type batchResult struct {
@@ -192,6 +199,7 @@ func loadSyncConfig() syncConfig {
 		BatchSize:                envInt("DATA_CENTER_SYNC_BATCH_SIZE", 100),
 		CursorFile:               env("DATA_CENTER_SYNC_CURSOR_FILE", "./data/sync-agent-cursors.json"),
 		HTTPTimeout:              time.Duration(envInt("DATA_CENTER_SYNC_HTTP_TIMEOUT_SEC", 20)) * time.Second,
+		Lookback:                 time.Duration(envInt("DATA_CENTER_SYNC_LOOKBACK_SEC", 300)) * time.Second,
 		Once:                     envBool("DATA_CENTER_SYNC_ONCE", false),
 		AttachmentSyncEnabled:    envBool("DATA_CENTER_ATTACHMENT_SYNC_ENABLED", true),
 		DataCenterMinIOEndpoint:  env("DATA_CENTER_MINIO_ENDPOINT", "localhost:29000"),
@@ -200,14 +208,20 @@ func loadSyncConfig() syncConfig {
 		DataCenterMinIOBucket:    env("DATA_CENTER_MINIO_BUCKET", "jatanlin-data-center-attachments"),
 		DataCenterMinIOUseSSL:    envBool("DATA_CENTER_MINIO_USE_SSL", false),
 		MirrorTables: []mirrorTable{
-			{Name: "transact_wim_session", CursorExpr: "COALESCE(updated_date, created_date, started_at, now())"},
-			{Name: "transact_anpr_capture", CursorExpr: "COALESCE(updated_date, created_date, captured_at, now())"},
-			{Name: "transact_axle_capture", CursorExpr: "COALESCE(updated_date, created_date, captured_at, now())"},
-			{Name: "transact_cctv", CursorExpr: "COALESCE(updated_date, created_date, now())"},
-			{Name: "transact_dimension", CursorExpr: "COALESCE(updated_date, created_date, now())"},
-			{Name: "transact_weighing", CursorExpr: "COALESCE(updated_date, created_date, now())"},
-			{Name: "transact_vehicle_actual", CursorExpr: "COALESCE(updated_date, created_date, now())"},
-			{Name: "transact_vehicle_status", CursorExpr: "COALESCE(updated_date, created_date, now())"},
+			{Name: "master_role", CursorExpr: "COALESCE(updated_date, created_date, now())"},
+			{Name: "master_device_type", CursorExpr: "COALESCE(updated_date, created_date, now())"},
+			{Name: "master_vehicle_class", CursorExpr: "COALESCE(updated_date, created_date, now())"},
+			{Name: "master_config", CursorExpr: "COALESCE(updated_date, created_date, now())"},
+			{Name: "master_device", CursorExpr: "COALESCE(updated_date, created_date, now())"},
+			{Name: "master_user", CursorExpr: "COALESCE(updated_date, created_date, now())"},
+			{Name: "transact_wim_session", CursorExpr: "COALESCE(updated_date, created_date, started_at, now())", SiteScoped: true},
+			{Name: "transact_anpr_capture", CursorExpr: "COALESCE(updated_date, created_date, captured_at, now())", SiteScoped: true},
+			{Name: "transact_axle_capture", CursorExpr: "COALESCE(updated_date, created_date, captured_at, now())", SiteScoped: true},
+			{Name: "transact_cctv", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
+			{Name: "transact_dimension", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
+			{Name: "transact_weighing", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
+			{Name: "transact_vehicle_actual", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
+			{Name: "transact_vehicle_status", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
 		},
 	}
 }
@@ -286,7 +300,7 @@ func (a *syncAgent) sendHeartbeat(ctx context.Context) error {
 
 func (a *syncAgent) syncTableBatch(ctx context.Context, table mirrorTable) (bool, error) {
 	cursorValue := a.cursor(table.Name)
-	rowsJSON, maxCursor, count, err := a.fetchRows(ctx, table, cursorValue)
+	rowsJSON, maxCursor, count, advanceCursor, err := a.fetchRows(ctx, table, cursorValue)
 	if err != nil {
 		return false, err
 	}
@@ -294,10 +308,14 @@ func (a *syncAgent) syncTableBatch(ctx context.Context, table mirrorTable) (bool
 		return false, nil
 	}
 
+	sourceUpdatedAt, err := sourceUpdatedAtFromCursor(maxCursor)
+	if err != nil {
+		return false, err
+	}
 	payload := map[string]any{
 		"site_code":              a.siteCode,
 		"table_name":             table.Name,
-		"last_source_updated_at": maxCursor,
+		"last_source_updated_at": sourceUpdatedAt,
 		"records":                json.RawMessage(rowsJSON),
 	}
 	var result batchResult
@@ -308,39 +326,143 @@ func (a *syncAgent) syncTableBatch(ctx context.Context, table mirrorTable) (bool
 		return false, fmt.Errorf("data center accepted partial batch for %s: %d failed", table.Name, result.RecordsFailed)
 	}
 
-	a.state.Tables[table.Name] = maxCursor
-	if err := a.saveCursorState(); err != nil {
-		return false, err
+	if advanceCursor {
+		a.state.Tables[table.Name] = maxCursor
+		if err := a.saveCursorState(); err != nil {
+			return false, err
+		}
 	}
 
-	log.Printf("[SYNC] %s synced %d record(s), cursor=%s", table.Name, count, maxCursor)
-	return count >= a.cfg.BatchSize, nil
+	if advanceCursor {
+		log.Printf("[SYNC] %s synced %d record(s), cursor=%s", table.Name, count, maxCursor)
+	} else {
+		log.Printf("[SYNC] %s replayed %d record(s), cursor=%s", table.Name, count, cursorValue)
+	}
+	return advanceCursor && count >= a.cfg.BatchSize, nil
 }
 
-func (a *syncAgent) fetchRows(ctx context.Context, table mirrorTable, cursor string) (string, string, int, error) {
+func (a *syncAgent) fetchRows(ctx context.Context, table mirrorTable, cursor string) (string, string, int, bool, error) {
+	parsed, err := parseCursor(cursor)
+	if err != nil {
+		return "", "", 0, false, err
+	}
+
+	rowsJSON, maxCursor, count, err := a.fetchRowsWindow(ctx, table, parsed, sql.NullTime{})
+	if err != nil {
+		return "", "", 0, false, err
+	}
+	if count > 0 {
+		return rowsJSON, maxCursor, count, true, nil
+	}
+	if a.cfg.Lookback <= 0 {
+		return rowsJSON, cursor, 0, false, nil
+	}
+
+	lookbackCursor := parsedCursor{Time: parsed.Time.Add(-a.cfg.Lookback).UTC()}
+	rowsJSON, _, count, err = a.fetchRowsWindow(ctx, table, lookbackCursor, sql.NullTime{Time: parsed.Time, Valid: true})
+	if err != nil {
+		return "", "", 0, false, err
+	}
+	return rowsJSON, cursor, count, false, nil
+}
+
+func (a *syncAgent) fetchRowsWindow(ctx context.Context, table mirrorTable, lowerCursor parsedCursor, upperCursor sql.NullTime) (string, string, int, error) {
+	if !table.SiteScoped {
+		return a.fetchGlobalRowsWindow(ctx, table, lowerCursor, upperCursor)
+	}
+
 	query := fmt.Sprintf(`
 		WITH selected AS (
 			SELECT *
 			FROM public.%s
 			WHERE site_id = $1
-			  AND %s > $2::timestamptz
+			  AND (
+			    %s > $2::timestamptz
+			    OR (%s = $2::timestamptz AND id::text > $3)
+			  )
+			  AND ($5::timestamptz IS NULL OR %s <= $5::timestamptz)
+			ORDER BY %s ASC, id ASC
+			LIMIT $4
+		)
+		SELECT
+			COALESCE(jsonb_agg(to_jsonb(selected)), '[]'::jsonb)::text,
+			COALESCE(
+			  (
+			    SELECT %s
+			    FROM selected
+			    ORDER BY %s DESC, id DESC
+			    LIMIT 1
+			  ),
+			  $2::timestamptz
+			),
+			COALESCE(
+			  (
+			    SELECT id::text
+			    FROM selected
+			    ORDER BY %s DESC, id DESC
+			    LIMIT 1
+			  ),
+			  $3
+			),
+			count(*)::int
+		FROM selected
+	`, table.Name, table.CursorExpr, table.CursorExpr, table.CursorExpr, table.CursorExpr, table.CursorExpr, table.CursorExpr, table.CursorExpr)
+
+	var rowsJSON string
+	var maxCursor time.Time
+	var maxID string
+	var count int
+	if err := a.db.QueryRowContext(ctx, query, a.siteID, lowerCursor.Time, lowerCursor.ID, a.cfg.BatchSize, upperCursor).Scan(&rowsJSON, &maxCursor, &maxID, &count); err != nil {
+		return "", "", 0, err
+	}
+	return rowsJSON, formatCursor(maxCursor, maxID), count, nil
+}
+
+func (a *syncAgent) fetchGlobalRowsWindow(ctx context.Context, table mirrorTable, lowerCursor parsedCursor, upperCursor sql.NullTime) (string, string, int, error) {
+	query := fmt.Sprintf(`
+		WITH selected AS (
+			SELECT *
+			FROM public.%s
+			WHERE (
+			    %s > $1::timestamptz
+			    OR (%s = $1::timestamptz AND id::text > $2)
+			  )
+			  AND ($4::timestamptz IS NULL OR %s <= $4::timestamptz)
 			ORDER BY %s ASC, id ASC
 			LIMIT $3
 		)
 		SELECT
 			COALESCE(jsonb_agg(to_jsonb(selected)), '[]'::jsonb)::text,
-			COALESCE(max(%s), $2::timestamptz),
+			COALESCE(
+			  (
+			    SELECT %s
+			    FROM selected
+			    ORDER BY %s DESC, id DESC
+			    LIMIT 1
+			  ),
+			  $1::timestamptz
+			),
+			COALESCE(
+			  (
+			    SELECT id::text
+			    FROM selected
+			    ORDER BY %s DESC, id DESC
+			    LIMIT 1
+			  ),
+			  $2
+			),
 			count(*)::int
 		FROM selected
-	`, table.Name, table.CursorExpr, table.CursorExpr, table.CursorExpr)
+	`, table.Name, table.CursorExpr, table.CursorExpr, table.CursorExpr, table.CursorExpr, table.CursorExpr, table.CursorExpr, table.CursorExpr)
 
 	var rowsJSON string
 	var maxCursor time.Time
+	var maxID string
 	var count int
-	if err := a.db.QueryRowContext(ctx, query, a.siteID, cursor, a.cfg.BatchSize).Scan(&rowsJSON, &maxCursor, &count); err != nil {
+	if err := a.db.QueryRowContext(ctx, query, lowerCursor.Time, lowerCursor.ID, a.cfg.BatchSize, upperCursor).Scan(&rowsJSON, &maxCursor, &maxID, &count); err != nil {
 		return "", "", 0, err
 	}
-	return rowsJSON, maxCursor.UTC().Format(time.RFC3339Nano), count, nil
+	return rowsJSON, formatCursor(maxCursor, maxID), count, nil
 }
 
 func (a *syncAgent) configureMinIO(cfg *config.Config) error {
@@ -407,7 +529,7 @@ func newMinIOClient(endpoint, accessKey, secretKey string, useSSL bool) (*minio.
 
 func (a *syncAgent) syncAttachmentBatch(ctx context.Context) (bool, error) {
 	cursorValue := a.cursor("attachment:minio")
-	candidates, maxCursor, err := a.fetchAttachmentCandidates(ctx, cursorValue)
+	candidates, maxCursor, advanceCursor, err := a.fetchAttachmentCandidates(ctx, cursorValue)
 	if err != nil {
 		return false, err
 	}
@@ -436,16 +558,47 @@ func (a *syncAgent) syncAttachmentBatch(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("data center accepted partial attachment batch: %d failed", result.RecordsFailed)
 	}
 
-	a.state.Tables["attachment:minio"] = maxCursor.UTC().Format(time.RFC3339Nano)
-	if err := a.saveCursorState(); err != nil {
-		return false, err
+	if advanceCursor {
+		a.state.Tables["attachment:minio"] = maxCursor.UTC().Format(time.RFC3339Nano)
+		if err := a.saveCursorState(); err != nil {
+			return false, err
+		}
 	}
 
-	log.Printf("[SYNC] attachments synced %d object(s), cursor=%s", len(records), a.state.Tables["attachment:minio"])
-	return len(records) >= a.cfg.BatchSize, nil
+	if advanceCursor {
+		log.Printf("[SYNC] attachments synced %d object(s), cursor=%s", len(records), a.state.Tables["attachment:minio"])
+	} else {
+		log.Printf("[SYNC] attachments replayed %d object(s), cursor=%s", len(records), cursorValue)
+	}
+	return advanceCursor && len(records) >= a.cfg.BatchSize, nil
 }
 
-func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string) ([]attachmentCandidate, time.Time, error) {
+func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string) ([]attachmentCandidate, time.Time, bool, error) {
+	candidates, maxCursor, err := a.fetchAttachmentCandidatesWindow(ctx, cursor, sql.NullTime{})
+	if err != nil {
+		return nil, time.Time{}, false, err
+	}
+	if len(candidates) > 0 {
+		return candidates, maxCursor, true, nil
+	}
+	if a.cfg.Lookback <= 0 {
+		return candidates, maxCursor, false, nil
+	}
+
+	cursorAt, err := time.Parse(time.RFC3339Nano, cursor)
+	if err != nil {
+		cursorAt, err = time.Parse(time.RFC3339, cursor)
+	}
+	if err != nil {
+		return nil, time.Time{}, false, err
+	}
+
+	lookbackCursor := cursorAt.Add(-a.cfg.Lookback).UTC().Format(time.RFC3339Nano)
+	candidates, maxCursor, err = a.fetchAttachmentCandidatesWindow(ctx, lookbackCursor, sql.NullTime{Time: cursorAt, Valid: true})
+	return candidates, maxCursor, false, err
+}
+
+func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCursor string, upperCursor sql.NullTime) ([]attachmentCandidate, time.Time, error) {
 	const query = `
 		WITH candidates AS (
 			SELECT
@@ -475,6 +628,7 @@ func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string
 			  AND t.is_deleted IS NOT TRUE
 			  AND NULLIF(btrim(attachment.object_key), '') IS NOT NULL
 			  AND COALESCE(t.updated_date, t.created_date, t.captured_at, now()) > $2::timestamptz
+			  AND ($4::timestamptz IS NULL OR COALESCE(t.updated_date, t.created_date, t.captured_at, now()) <= $4::timestamptz)
 
 			UNION ALL
 
@@ -504,6 +658,7 @@ func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string
 			  AND t.is_deleted IS NOT TRUE
 			  AND NULLIF(btrim(attachment.object_key), '') IS NOT NULL
 			  AND COALESCE(t.updated_date, t.created_date, t.captured_at, now()) > $2::timestamptz
+			  AND ($4::timestamptz IS NULL OR COALESCE(t.updated_date, t.created_date, t.captured_at, now()) <= $4::timestamptz)
 		)
 		SELECT
 			source_table,
@@ -521,7 +676,7 @@ func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string
 		LIMIT $3
 	`
 
-	rows, err := a.db.QueryContext(ctx, query, a.siteID, cursor, a.cfg.BatchSize)
+	rows, err := a.db.QueryContext(ctx, query, a.siteID, lowerCursor, a.cfg.BatchSize, upperCursor)
 	if err != nil {
 		return nil, time.Time{}, err
 	}
@@ -699,6 +854,38 @@ func (a *syncAgent) cursor(tableName string) string {
 		return value
 	}
 	return "1970-01-01T00:00:00Z"
+}
+
+func parseCursor(value string) (parsedCursor, error) {
+	parts := strings.SplitN(strings.TrimSpace(value), "|", 2)
+	cursorTime, err := time.Parse(time.RFC3339Nano, parts[0])
+	if err != nil {
+		cursorTime, err = time.Parse(time.RFC3339, parts[0])
+	}
+	if err != nil {
+		return parsedCursor{}, err
+	}
+	cursor := parsedCursor{Time: cursorTime.UTC()}
+	if len(parts) == 2 {
+		cursor.ID = parts[1]
+	}
+	return cursor, nil
+}
+
+func formatCursor(cursorTime time.Time, id string) string {
+	formatted := cursorTime.UTC().Format(time.RFC3339Nano)
+	if strings.TrimSpace(id) == "" {
+		return formatted
+	}
+	return formatted + "|" + id
+}
+
+func sourceUpdatedAtFromCursor(value string) (time.Time, error) {
+	parsed, err := parseCursor(value)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return parsed.Time, nil
 }
 
 func env(key, def string) string {
