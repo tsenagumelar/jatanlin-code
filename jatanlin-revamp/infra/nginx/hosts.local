@@ -1,0 +1,10 @@
+127.0.0.1 site.jatanlin.test
+127.0.0.1 api.site.jatanlin.test
+127.0.0.1 hasura.site.jatanlin.test
+127.0.0.1 minio.site.jatanlin.test
+127.0.0.1 console.minio.site.jatanlin.test
+127.0.0.1 dc.jatanlin.test
+127.0.0.1 api.dc.jatanlin.test
+127.0.0.1 hasura.dc.jatanlin.test
+127.0.0.1 minio.dc.jatanlin.test
+127.0.0.1 console.minio.dc.jatanlin.test

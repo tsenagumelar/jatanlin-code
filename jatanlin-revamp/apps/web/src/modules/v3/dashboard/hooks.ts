@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { gql, useQuery } from "@apollo/client";
 import { useGetConfigsQuery } from "@/src/graphql/hooks/configuration";
 import { useGetVehicleClassesQuery } from "@/src/graphql/hooks/master-vehicle-class";
 import { useGetVehicleActualsQuery } from "@/src/graphql/hooks/transact-vehicle-actual";
@@ -10,59 +9,6 @@ import {
   type VehicleClassLimit,
 } from "@/src/utils/odol";
 import type { V3DashboardData } from "./types";
-
-const DASHBOARD_STATUS_QUERY = gql`
-  query V3DashboardStatuses($startDate: timestamptz!) {
-    transact_vehicle_status(
-      where: {
-        is_deleted: { _eq: false }
-        created_date: { _gte: $startDate }
-      }
-      order_by: { created_date: desc }
-      limit: 500
-    ) {
-      id
-      status
-      result
-      created_date
-      transact_vehicle_actual {
-        id
-        actual_plat_no
-        actual_weight
-        actual_length
-        actual_width
-        actual_height
-        actual_total_axle
-        location_address
-        transact_anpr_capture {
-          plate_no
-          location_code
-        }
-      }
-    }
-  }
-`;
-
-type DashboardStatusRow = {
-  id: string;
-  status?: string | null;
-  result?: string | null;
-  created_date?: string | null;
-  transact_vehicle_actual?: {
-    id?: string | null;
-    actual_plat_no?: string | null;
-    actual_weight?: number | string | null;
-    actual_length?: number | string | null;
-    actual_width?: number | string | null;
-    actual_height?: number | string | null;
-    actual_total_axle?: number | null;
-    location_address?: string | null;
-    transact_anpr_capture?: {
-      plate_no?: string | null;
-      location_code?: string | null;
-    } | null;
-  } | null;
-};
 
 function formatShortDate(date: Date) {
   return date.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
@@ -125,14 +71,6 @@ export function useV3Dashboard(): V3DashboardData {
     };
   }, []);
 
-  const statusQuery = useQuery<{ transact_vehicle_status: DashboardStatusRow[] }>(
-    DASHBOARD_STATUS_QUERY,
-    {
-      variables: { startDate: dashboardRange.startDateIso },
-      fetchPolicy: "network-only",
-      pollInterval: 60_000,
-    },
-  );
   const vehicleActualsQuery = useGetVehicleActualsQuery({
     variables: { limit: 500, offset: 0 },
     fetchPolicy: "network-only",
@@ -153,7 +91,6 @@ export function useV3Dashboard(): V3DashboardData {
 
   const dashboard = useMemo(() => {
     const vehicles = vehicleActualsQuery.data?.transact_vehicle_actual ?? [];
-    const statusRows = statusQuery.data?.transact_vehicle_status ?? [];
     const vehicleClasses = vehicleClassesQuery.data?.master_vehicle_class ?? [];
     const tolerances = getOdolTolerances(configsQuery.data?.master_config);
 
@@ -188,74 +125,7 @@ export function useV3Dashboard(): V3DashboardData {
     let dimension = { plate: "-", volume: 0, label: "-" };
     const articleCounts = new Map<string, number>();
 
-    statusRows.forEach((row) => {
-      const result = row.result || "Normal";
-      const isViolation = isViolationResult(result);
-      const createdDate = row.created_date ? new Date(row.created_date) : null;
-      const trend = createdDate ? trendMap.get(dateKey(createdDate)) : undefined;
-      const actual = row.transact_vehicle_actual;
-      const plate =
-        actual?.actual_plat_no ||
-        actual?.transact_anpr_capture?.plate_no ||
-        "-";
-      const article = getViolationArticle(result);
-
-      if (isViolation) {
-        odolVehicles++;
-        totalViolations++;
-        if (isToday(row.created_date)) todayViolations++;
-        if (result.includes("Dimension")) {
-          overDimension++;
-          if (trend) trend.overDimension++;
-        }
-        if (result.includes("Loading")) {
-          overLoading++;
-          if (trend) trend.overLoading++;
-        }
-        articleCounts.set(article, (articleCounts.get(article) ?? 0) + 1);
-
-        recentViolations.push({
-          id: String(actual?.id || row.id),
-          no: 0,
-          time: formatShortDateTime(row.created_date),
-          plate,
-          location:
-            actual?.location_address ||
-            actual?.transact_anpr_capture?.location_code ||
-            "-",
-          type: result,
-          article,
-          officer: "-",
-          status: row.status || "pending",
-        });
-      } else {
-        normalVehicles++;
-        if (trend) trend.normal++;
-      }
-
-      const actualWeight = Number(actual?.actual_weight || 0);
-      if (isViolation && actualWeight > heaviest.weight) {
-        heaviest = { plate, weight: actualWeight };
-      }
-
-      const actualLength = Number(actual?.actual_length || 0);
-      const actualWidth = Number(actual?.actual_width || 0);
-      const actualHeight = Number(actual?.actual_height || 0);
-      const volume = actualLength * actualWidth * actualHeight;
-      if (isViolation && volume > dimension.volume) {
-        dimension = {
-          plate,
-          volume,
-          label: `${actualLength || 0} x ${actualWidth || 0} x ${
-            actualHeight || 0
-          } m`,
-        };
-      }
-    });
-
     vehicles.forEach((vehicle) => {
-      if (statusRows.length > 0) return;
-
       const createdDate = vehicle.created_date
         ? new Date(vehicle.created_date)
         : null;
@@ -427,13 +297,11 @@ export function useV3Dashboard(): V3DashboardData {
   }, [
     dashboardRange.startDate,
     configsQuery.data?.master_config,
-    statusQuery.data?.transact_vehicle_status,
     vehicleActualsQuery.data?.transact_vehicle_actual,
     vehicleClassesQuery.data?.master_vehicle_class,
   ]);
 
   const error =
-    statusQuery.error?.message ||
     vehicleActualsQuery.error?.message ||
     vehicleClassesQuery.error?.message ||
     configsQuery.error?.message ||
@@ -451,7 +319,6 @@ export function useV3Dashboard(): V3DashboardData {
     topArticle: dashboard.topArticle,
     isLoading:
       vehicleActualsQuery.loading ||
-      statusQuery.loading ||
       vehicleClassesQuery.loading ||
       configsQuery.loading,
     error,

@@ -18,7 +18,7 @@ GO ?= go
 GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 DOTNET ?= /opt/homebrew/opt/dotnet@8/bin/dotnet
 
-.PHONY: help infra-up infra-bootstrap infra-migrate infra-seed infra-down infra-restart infra-ps infra-logs infra-pull infra-clean web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check services dev dev-full
+.PHONY: help infra-up infra-bootstrap infra-migrate infra-seed infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check services dev dev-full
 
 help:
 	@printf '%s\n' 'Jatanlin Revamp'
@@ -34,6 +34,12 @@ help:
 	@printf '%s\n' '  make infra-logs     Follow infrastructure logs'
 	@printf '%s\n' '  make infra-pull     Pull infrastructure images'
 	@printf '%s\n' '  make infra-clean    Stop infra and remove volumes'
+	@printf '%s\n' '  make proxy-up       Start local DNS reverse proxy only'
+	@printf '%s\n' '  make proxy-down     Stop local DNS reverse proxy only'
+	@printf '%s\n' '  make proxy-restart  Restart local DNS reverse proxy'
+	@printf '%s\n' '  make proxy-logs     Follow local DNS reverse proxy logs'
+	@printf '%s\n' '  make proxy-test     Validate local DNS reverse proxy config'
+	@printf '%s\n' '  make dns-hosts-print Print /etc/hosts entries for local DNS'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Web targets:'
 	@printf '%s\n' '  make web-install    Install web dependencies'
@@ -83,6 +89,24 @@ infra-pull:
 
 infra-clean:
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) down -v
+
+proxy-up:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d edge-proxy
+
+proxy-down:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) stop edge-proxy
+
+proxy-restart:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) restart edge-proxy
+
+proxy-logs:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) logs -f edge-proxy
+
+proxy-test:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) run --rm edge-proxy nginx -t
+
+dns-hosts-print:
+	@cat infra/nginx/hosts.local
 
 web-install:
 	$(NPM) --prefix $(WEB_DIR) install
