@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"jatanlin-data-center-backend/internal/auth"
 	"jatanlin-data-center-backend/internal/config"
 )
+
+var errInvalidDateRange = errors.New("end_date must be greater than or equal to start_date")
 
 type Server struct {
 	DB     *sql.DB
@@ -69,7 +72,13 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"claims": claims})
 }
 
-func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
+	startAt, endExclusive, err := overviewDateRange(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	var summary struct {
 		TotalSites        int `json:"total_sites"`
 		OnlineSites       int `json:"online_sites"`
@@ -80,7 +89,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 		TodayNormal       int `json:"today_normal"`
 	}
 
-	err := s.DB.QueryRow(`
+	err = s.DB.QueryRow(`
 		SELECT
 			COUNT(*)::int,
 			COUNT(*) FILTER (WHERE operational_status = 'online')::int,
@@ -101,8 +110,9 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			COUNT(*) FILTER (WHERE violation_status = 'normal')::int
 		FROM public.dc_dashboard_vehicle_actual
 		WHERE COALESCE(is_deleted, false) = false
-		  AND enforcement_started_at >= date_trunc('day', now())
-	`).Scan(&summary.TodayTransactions, &summary.TodayViolations, &summary.TodayNormal)
+		  AND COALESCE(enforcement_started_at, created_at) >= $1
+		  AND COALESCE(enforcement_started_at, created_at) < $2
+	`, startAt, endExclusive).Scan(&summary.TodayTransactions, &summary.TodayViolations, &summary.TodayNormal)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -125,7 +135,8 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 				)::int AS today_over_dimension
 			FROM public.dc_dashboard_vehicle_actual
 			WHERE COALESCE(is_deleted, false) = false
-			  AND enforcement_started_at >= date_trunc('day', now())
+			  AND COALESCE(enforcement_started_at, created_at) >= $1
+			  AND COALESCE(enforcement_started_at, created_at) < $2
 			GROUP BY site_id
 		)
 		SELECT
@@ -147,7 +158,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 		LEFT JOIN today_vehicle v ON v.site_id = s.id
 		WHERE COALESCE(s.is_deleted, false) = false
 		ORDER BY s.site_code ASC
-	`)
+	`, startAt, endExclusive)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -219,9 +230,11 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 			LIMIT 1
 		) vs ON true
 		WHERE COALESCE(v.is_deleted, false) = false
+		  AND COALESCE(v.enforcement_started_at, v.created_at) >= $1
+		  AND COALESCE(v.enforcement_started_at, v.created_at) < $2
 		ORDER BY COALESCE(v.enforcement_started_at, v.created_at) DESC
 		LIMIT 10
-	`)
+	`, startAt, endExclusive)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -265,6 +278,34 @@ func (s *Server) handleOverview(w http.ResponseWriter, _ *http.Request) {
 		"sites":             sites,
 		"recent_violations": recentViolations,
 	})
+}
+
+func overviewDateRange(r *http.Request) (time.Time, time.Time, error) {
+	now := time.Now()
+	defaultEnd := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	defaultStart := defaultEnd.AddDate(0, 0, -30)
+
+	startAt := defaultStart
+	endAt := defaultEnd
+	var err error
+
+	query := r.URL.Query()
+	if value := strings.TrimSpace(query.Get("start_date")); value != "" {
+		startAt, err = time.ParseInLocation("2006-01-02", value, time.Local)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+	}
+	if value := strings.TrimSpace(query.Get("end_date")); value != "" {
+		endAt, err = time.ParseInLocation("2006-01-02", value, time.Local)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+	}
+	if endAt.Before(startAt) {
+		return time.Time{}, time.Time{}, errInvalidDateRange
+	}
+	return startAt, endAt.AddDate(0, 0, 1), nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

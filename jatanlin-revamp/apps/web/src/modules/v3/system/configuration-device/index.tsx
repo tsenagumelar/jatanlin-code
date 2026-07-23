@@ -379,6 +379,7 @@ export function V3ConfigurationDeviceModule() {
         body: JSON.stringify({
           start_date: syncStartDate,
           end_date: syncEndDate,
+          full_sync: true,
         }),
       });
       const payload = (await response.json()) as DataCenterSyncResponse;
@@ -387,7 +388,7 @@ export function V3ConfigurationDeviceModule() {
       }
       setLastSyncResult(payload.data?.counts ?? null);
       showToast(
-        "Data center sync queued. Sync agent will upsert the selected range.",
+        "Data center full sync queued. Sync agent will upsert local data.",
         "success",
       );
     } catch (error) {
@@ -625,8 +626,8 @@ export function V3ConfigurationDeviceModule() {
                 Sync to Data Center
               </h2>
               <p className="text-sm leading-6 text-slate-500">
-                Queue transaction data in the selected date range for upsert by
-                the running sync agent. Default range is today.
+                Queue all local master and transaction data for upsert by the
+                running sync agent. The date range is kept for audit context.
               </p>
               {lastSyncResult && (
                 <p className="mt-2 text-xs font-semibold text-slate-500">

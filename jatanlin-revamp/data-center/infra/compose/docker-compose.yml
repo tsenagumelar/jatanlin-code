@@ -68,7 +68,7 @@ services:
       /bin/sh -c "
       mc alias set dc-minio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
       mc mb --ignore-existing dc-minio/$${MINIO_BUCKET};
-      mc anonymous set none dc-minio/$${MINIO_BUCKET};
+      mc anonymous set download dc-minio/$${MINIO_BUCKET};
       "
     restart: "no"
 

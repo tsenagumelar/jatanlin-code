@@ -89,7 +89,7 @@ export function V3LoginPage() {
                   Sign in to Jatanlin
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Use your registered operator or admin account.
+                  Insert the VEAM license flashdisk before signing in.
                 </p>
               </div>
 
@@ -154,7 +154,7 @@ export function V3LoginPage() {
                   disabled={isLoading}
                   className="flex h-11 w-full items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {isLoading ? "Processing..." : "Sign In"}
+                  {isLoading ? "Checking VEAM..." : "Check VEAM & Sign In"}
                 </button>
               </form>
 

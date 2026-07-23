@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log"
 	"strings"
 	"wim-service/internal/auth"
@@ -43,6 +44,13 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	response, err := h.AuthService.Authenticate(usernameOrEmail, req.Password)
 	if err != nil {
 		log.Printf("[AUTH] Login failed for user: %s - %v", usernameOrEmail, err)
+		var licenseErr *auth.LicenseLoginError
+		if errors.As(err, &licenseErr) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"success": false,
+				"message": licenseErr.Message,
+			})
+		}
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"message": "Invalid username or password",

@@ -1,6 +1,10 @@
 package auth
 
-import "time"
+import (
+	"time"
+
+	"wim-service/internal/license"
+)
 
 type User struct {
 	ID             string  `json:"id"`
@@ -25,9 +29,10 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-	User      UserInfo  `json:"user"`
+	Token          string              `json:"token"`
+	ExpiresAt      time.Time           `json:"expires_at"`
+	User           UserInfo            `json:"user"`
+	LicenseChecked license.CheckResult `json:"license_checked"`
 }
 
 type UserRoleInfo struct {

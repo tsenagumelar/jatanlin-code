@@ -64,7 +64,7 @@ export function useV3Login(): UseV3LoginResult {
 
       dispatch(setUser(payload.data.user));
       dispatch(setToken(payload.data.token));
-      setAuthCookie(true);
+      setAuthCookie(true, payload.data.token);
       setAuthTokenCookie(payload.data.token);
       router.push("/dashboard");
     } catch {

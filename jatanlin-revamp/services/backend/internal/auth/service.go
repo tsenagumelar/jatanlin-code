@@ -3,22 +3,35 @@ package auth
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strings"
+
+	"wim-service/internal/license"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
-	DB        *sql.DB
-	SecretKey string
+	DB             *sql.DB
+	SecretKey      string
+	LicenseService *license.Service
 }
 
-func NewAuthService(db *sql.DB, secretKey string) *AuthService {
+type LicenseLoginError struct {
+	Message string
+}
+
+func (e *LicenseLoginError) Error() string {
+	return e.Message
+}
+
+func NewAuthService(db *sql.DB, secretKey string, licenseService *license.Service) *AuthService {
 	return &AuthService{
-		DB:        db,
-		SecretKey: secretKey,
+		DB:             db,
+		SecretKey:      secretKey,
+		LicenseService: licenseService,
 	}
 }
 
@@ -35,6 +48,11 @@ func (s *AuthService) Authenticate(username, password string) (*LoginResponse, e
 		return nil, errors.New("invalid username or password")
 	}
 
+	licenseCheck, err := s.validateLoginLicense()
+	if err != nil {
+		return nil, err
+	}
+
 	token, expiresAt, err := GenerateToken(user, s.SecretKey)
 	if err != nil {
 		return nil, err
@@ -45,10 +63,71 @@ func (s *AuthService) Authenticate(username, password string) (*LoginResponse, e
 	}
 
 	return &LoginResponse{
-		Token:     token,
-		ExpiresAt: expiresAt,
-		User:      user.ToUserInfo(),
+		Token:          token,
+		ExpiresAt:      expiresAt,
+		User:           user.ToUserInfo(),
+		LicenseChecked: licenseCheck,
 	}, nil
+}
+
+func (s *AuthService) validateLoginLicense() (license.CheckResult, error) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("VEAM_LOGIN_CHECK_ENABLED")), "true") {
+		return s.validateUSBLoginLicense()
+	}
+
+	return license.CheckResult{
+		Status:    license.StatusActive,
+		Valid:     true,
+		Message:   "VEAM login check disabled",
+		Source:    "bypass",
+		CheckedAt: "bypass",
+	}, nil
+}
+
+func (s *AuthService) validateUSBLoginLicense() (license.CheckResult, error) {
+	if s.LicenseService == nil {
+		return license.CheckResult{}, &LicenseLoginError{Message: "Service lisensi VEAM belum dikonfigurasi di backend"}
+	}
+
+	roots := license.USBScanRoots()
+	var scanned []string
+	var invalidResult *license.CheckResult
+
+	for _, root := range roots {
+		scanned = append(scanned, root)
+		found := license.FindUSBLicenseFile(root)
+		if found == nil {
+			continue
+		}
+
+		result := s.LicenseService.Validate(found.Content, found.Path)
+		if result.Valid {
+			return result, nil
+		}
+		invalidResult = &result
+	}
+
+	if invalidResult != nil {
+		return *invalidResult, &LicenseLoginError{Message: invalidResult.Message}
+	}
+
+	if len(scanned) == 0 {
+		scannedText := strings.Join(scanned, ", ")
+		if scannedText == "" {
+			scannedText = "tidak ada mount USB terdeteksi"
+		}
+		return license.CheckResult{}, &LicenseLoginError{
+			Message: fmt.Sprintf("Flashdisk lisensi VEAM tidak ditemukan. Masukkan flashdisk lalu coba login lagi. Scan: %s", scannedText),
+		}
+	}
+
+	scannedText := strings.Join(scanned, ", ")
+	if scannedText == "" {
+		scannedText = "tidak ada mount USB terdeteksi"
+	}
+	return license.CheckResult{}, &LicenseLoginError{
+		Message: fmt.Sprintf("File lisensi VEAM tidak ditemukan di flashdisk. Scan: %s", scannedText),
+	}
 }
 
 func (s *AuthService) updateActiveSiteOperator(user *User) error {

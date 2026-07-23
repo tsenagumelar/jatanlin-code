@@ -202,13 +202,17 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                     Print Violation
                   </button>
                 )}
-                <Link
-                  href={`/transaction/jatanlin/verify/${detail.record.id}`}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800"
-                >
-                  <CheckmarkCircle20Regular />
-                  Verify
-                </Link>
+                {(detail.latestStatus?.status === "pending" ||
+                  detail.latestStatus?.status === "draft" ||
+                  !detail.latestStatus?.status) && (
+                  <Link
+                    href={`/transaction/jatanlin/verify/${detail.record.id}`}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800"
+                  >
+                    <CheckmarkCircle20Regular />
+                    Verify
+                  </Link>
+                )}
               </div>
             </div>
           </div>

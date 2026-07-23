@@ -23,7 +23,7 @@ type Server struct {
 }
 
 func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.AttachmentHandler, licenseService *license.Service, authEnabled bool) *Server {
-	authService := auth.NewAuthService(db, jwtSecret)
+	authService := auth.NewAuthService(db, jwtSecret, licenseService)
 
 	server := &Server{
 		App:               newFiberApp(),

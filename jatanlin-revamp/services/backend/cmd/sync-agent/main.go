@@ -538,24 +538,39 @@ func (a *syncAgent) syncAttachmentBatch(ctx context.Context) (bool, error) {
 	}
 
 	records := make([]attachmentCompleteRecord, 0, len(candidates))
+	skipped := 0
 	for _, candidate := range candidates {
-		record, err := a.copyAttachment(ctx, candidate)
+		record, copied, err := a.copyAttachment(ctx, candidate)
 		if err != nil {
 			return false, err
+		}
+		if !copied {
+			skipped++
+			log.Printf(
+				"[SYNC] attachment skipped source=%s id=%s type=%s object=%s/%s",
+				candidate.SourceTable,
+				candidate.SourceID,
+				candidate.AttachmentType,
+				candidate.SourceBucket,
+				candidate.SourceObjectKey,
+			)
+			continue
 		}
 		records = append(records, record)
 	}
 
-	payload := map[string]any{
-		"site_code": a.siteCode,
-		"records":   records,
-	}
-	var result batchResult
-	if err := a.postJSON(ctx, "/api/sync/attachments/complete", payload, &result); err != nil {
-		return false, err
-	}
-	if result.RecordsFailed > 0 {
-		return false, fmt.Errorf("data center accepted partial attachment batch: %d failed", result.RecordsFailed)
+	if len(records) > 0 {
+		payload := map[string]any{
+			"site_code": a.siteCode,
+			"records":   records,
+		}
+		var result batchResult
+		if err := a.postJSON(ctx, "/api/sync/attachments/complete", payload, &result); err != nil {
+			return false, err
+		}
+		if result.RecordsFailed > 0 {
+			return false, fmt.Errorf("data center accepted partial attachment batch: %d failed", result.RecordsFailed)
+		}
 	}
 
 	if advanceCursor {
@@ -566,11 +581,11 @@ func (a *syncAgent) syncAttachmentBatch(ctx context.Context) (bool, error) {
 	}
 
 	if advanceCursor {
-		log.Printf("[SYNC] attachments synced %d object(s), cursor=%s", len(records), a.state.Tables["attachment:minio"])
+		log.Printf("[SYNC] attachments synced %d object(s), skipped %d object(s), cursor=%s", len(records), skipped, a.state.Tables["attachment:minio"])
 	} else {
-		log.Printf("[SYNC] attachments replayed %d object(s), cursor=%s", len(records), cursorValue)
+		log.Printf("[SYNC] attachments replayed %d object(s), skipped %d object(s), cursor=%s", len(records), skipped, cursorValue)
 	}
-	return advanceCursor && len(records) >= a.cfg.BatchSize, nil
+	return advanceCursor && len(candidates) >= a.cfg.BatchSize, nil
 }
 
 func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string) ([]attachmentCandidate, time.Time, bool, error) {
@@ -721,24 +736,30 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 	return candidates, maxCursor, nil
 }
 
-func (a *syncAgent) copyAttachment(ctx context.Context, candidate attachmentCandidate) (attachmentCompleteRecord, error) {
+func (a *syncAgent) copyAttachment(ctx context.Context, candidate attachmentCandidate) (attachmentCompleteRecord, bool, error) {
 	sourceClient := a.sourceMinIO[candidate.SourceBucket]
 	if sourceClient == nil {
-		return attachmentCompleteRecord{}, fmt.Errorf("no source MinIO client configured for bucket %s", candidate.SourceBucket)
+		return attachmentCompleteRecord{}, false, nil
 	}
 	if a.dataCenterMinIO == nil {
-		return attachmentCompleteRecord{}, fmt.Errorf("data center MinIO client is not configured")
+		return attachmentCompleteRecord{}, false, fmt.Errorf("data center MinIO client is not configured")
 	}
 
 	object, err := sourceClient.GetObject(ctx, candidate.SourceBucket, candidate.SourceObjectKey, minio.GetObjectOptions{})
 	if err != nil {
-		return attachmentCompleteRecord{}, fmt.Errorf("get source object %s/%s: %w", candidate.SourceBucket, candidate.SourceObjectKey, err)
+		if isMinIOMissing(err) {
+			return attachmentCompleteRecord{}, false, nil
+		}
+		return attachmentCompleteRecord{}, false, fmt.Errorf("get source object %s/%s: %w", candidate.SourceBucket, candidate.SourceObjectKey, err)
 	}
 	defer object.Close()
 
 	stat, err := object.Stat()
 	if err != nil {
-		return attachmentCompleteRecord{}, fmt.Errorf("stat source object %s/%s: %w", candidate.SourceBucket, candidate.SourceObjectKey, err)
+		if isMinIOMissing(err) {
+			return attachmentCompleteRecord{}, false, nil
+		}
+		return attachmentCompleteRecord{}, false, fmt.Errorf("stat source object %s/%s: %w", candidate.SourceBucket, candidate.SourceObjectKey, err)
 	}
 
 	targetObjectKey := a.targetAttachmentObjectKey(candidate)
@@ -746,7 +767,7 @@ func (a *syncAgent) copyAttachment(ctx context.Context, candidate attachmentCand
 		ContentType: candidate.MimeType,
 	})
 	if err != nil {
-		return attachmentCompleteRecord{}, fmt.Errorf("put data center object %s/%s: %w", a.cfg.DataCenterMinIOBucket, targetObjectKey, err)
+		return attachmentCompleteRecord{}, false, fmt.Errorf("put data center object %s/%s: %w", a.cfg.DataCenterMinIOBucket, targetObjectKey, err)
 	}
 
 	fileSize := stat.Size
@@ -764,7 +785,12 @@ func (a *syncAgent) copyAttachment(ctx context.Context, candidate attachmentCand
 		SourceUpdatedAt:   candidate.SourceUpdatedAt,
 		RawPayload:        candidate.RawPayload,
 		IsDeleted:         false,
-	}, nil
+	}, true, nil
+}
+
+func isMinIOMissing(err error) bool {
+	resp := minio.ToErrorResponse(err)
+	return resp.Code == "NoSuchKey" || resp.Code == "NoSuchBucket"
 }
 
 func (a *syncAgent) targetAttachmentObjectKey(candidate attachmentCandidate) string {

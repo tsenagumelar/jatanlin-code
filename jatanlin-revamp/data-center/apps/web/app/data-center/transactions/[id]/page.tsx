@@ -1,5 +1,8 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -7,6 +10,21 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:28001";
 
 type RawRecord = Record<string, unknown> | null;
+
+type Attachment = {
+  id: string;
+  attachment_type: string;
+  bucket: string;
+  object_key: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number | null;
+  checksum: string;
+  upload_status: string;
+  source_updated_at: string | null;
+  synced_at: string | null;
+  public_url: string;
+};
 
 type TransactionDetail = {
   transaction: {
@@ -51,23 +69,22 @@ type TransactionDetail = {
     vehicle_actual: RawRecord;
     vehicle_status: RawRecord;
   };
-  attachments: Array<{
-    id: string;
-    attachment_type: string;
-    bucket: string;
-    object_key: string;
-    file_name: string;
-    mime_type: string;
-    file_size: number | null;
-    checksum: string;
-    upload_status: string;
-    source_updated_at: string | null;
-    synced_at: string | null;
-    public_url: string;
-  }>;
+  attachments: Attachment[];
 };
 
-function formatDateTime(value: string | null) {
+type DetailField = {
+  label: string;
+  value: ReactNode;
+};
+
+type MediaItem = {
+  title: string;
+  subtitle: string;
+  url: string;
+  type: "image" | "video" | "file";
+};
+
+function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("id-ID", {
     day: "2-digit",
@@ -78,9 +95,28 @@ function formatDateTime(value: string | null) {
   });
 }
 
-function formatNumber(value: number | null, suffix = "") {
-  if (value === null || Number.isNaN(value)) return "-";
-  return `${new Intl.NumberFormat("id-ID").format(value)}${suffix}`;
+function formatNumber(value?: string | number | null, fractionDigits = 2) {
+  if (value === null || value === undefined || value === "") return "-";
+  const numberValue = Number(value);
+  if (Number.isNaN(numberValue)) return "-";
+  return numberValue.toLocaleString("id-ID", {
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
+function formatWeight(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "-";
+  return `${formatNumber(value / 1000)} ton`;
+}
+
+function formatDimensions(detail?: TransactionDetail | null) {
+  const length = detail?.transaction.length_mm;
+  const width = detail?.transaction.width_mm;
+  const height = detail?.transaction.height_mm;
+  if (length === null || length === undefined || width === null || width === undefined || height === null || height === undefined) {
+    return "-";
+  }
+  return `${formatNumber(length, 1)} x ${formatNumber(width, 1)} x ${formatNumber(height, 1)} m`;
 }
 
 function formatBytes(value: number | null) {
@@ -98,54 +134,165 @@ function valueFrom(record: RawRecord, key: string) {
   return String(value);
 }
 
-function InfoCard({
+function statusLabel(status?: string | null) {
+  if (status === "verified") return "Verified";
+  if (status === "rejected") return "Rejected";
+  if (status === "draft") return "Draft";
+  return "Pending";
+}
+
+function statusTone(status?: string | null) {
+  if (status === "verified") return "bg-emerald-50 text-emerald-700";
+  if (status === "rejected") return "bg-red-50 text-red-700";
+  if (status === "draft") return "bg-sky-50 text-sky-700";
+  return "bg-amber-50 text-amber-700";
+}
+
+function violationLabel(detail?: TransactionDetail | null) {
+  const status = detail?.transaction.violation_status ?? "pending";
+  if (status === "normal") return "Normal";
+  if (status === "pending" || status === "draft") return "Pending";
+  return detail?.transaction.violation_notes || "Violation";
+}
+
+function violationTone(value: string) {
+  if (value === "Normal") return "bg-emerald-50 text-emerald-700";
+  if (value === "Pending") return "bg-amber-50 text-amber-700";
+  if (value.includes("&")) return "bg-purple-50 text-purple-700";
+  if (value.toLowerCase().includes("loading")) return "bg-red-50 text-red-700";
+  return "bg-orange-50 text-orange-700";
+}
+
+function isVideoAttachment(attachment: Attachment) {
+  return (
+    attachment.mime_type.startsWith("video/") ||
+    /\.(mp4|webm|ogg|mov|m4v)$/i.test(attachment.object_key)
+  );
+}
+
+function isImageAttachment(attachment: Attachment) {
+  return (
+    attachment.mime_type.startsWith("image/") ||
+    /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(attachment.object_key)
+  );
+}
+
+function mediaItems(attachments: Attachment[]): MediaItem[] {
+  return attachments
+    .filter((attachment) => isImageAttachment(attachment) || isVideoAttachment(attachment))
+    .map((attachment) => ({
+      title: attachment.attachment_type.replaceAll("_", " ").toUpperCase(),
+      subtitle: attachment.file_name || `${attachment.bucket}/${attachment.object_key}`,
+      url: attachment.public_url,
+      type: isVideoAttachment(attachment) ? "video" : "image",
+    }));
+}
+
+function FieldGrid({ fields }: { fields: DetailField[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {fields.map((field) => (
+        <div key={field.label}>
+          <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+            {field.label}
+          </p>
+          <div className="min-h-11 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold leading-5 text-slate-800">
+            {field.value || "-"}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionCard({
   title,
-  items,
+  subtitle,
+  children,
 }: {
   title: string;
-  items: Array<{ label: string; value: string | number }>;
+  subtitle?: string;
+  children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-xl font-black text-slate-950">{title}</h2>
-      <div className="mt-4 grid gap-3">
-        {items.map((item) => (
-          <div
-            key={item.label}
-            className="flex items-start justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3"
-          >
-            <span className="text-sm font-black uppercase tracking-wide text-slate-400">
-              {item.label}
-            </span>
-            <span className="max-w-[60%] text-right text-base font-black text-slate-800">
-              {item.value || "-"}
-            </span>
-          </div>
-        ))}
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-4 py-3">
+        <p className="text-base font-extrabold text-slate-950">{title}</p>
+        {subtitle ? (
+          <p className="mt-0.5 text-sm font-medium text-slate-500">
+            {subtitle}
+          </p>
+        ) : null}
       </div>
+      <div className="p-4">{children}</div>
     </section>
   );
 }
 
+function MediaPreview({ item }: { item: MediaItem }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-extrabold text-slate-900">
+            {item.title}
+          </p>
+          <p className="truncate text-xs font-semibold text-slate-500">
+            {item.subtitle}
+          </p>
+        </div>
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noreferrer"
+          className="shrink-0 rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700"
+        >
+          Open
+        </a>
+      </div>
+      <div className="relative h-56 w-full bg-slate-100">
+        {item.type === "video" ? (
+          <video src={item.url} controls className="h-full w-full object-cover" />
+        ) : (
+          <Image
+            src={item.url}
+            alt={item.title}
+            fill
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            className="object-cover"
+            unoptimized
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SourceBlock({ title, fields }: { title: string; fields: DetailField[] }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="mb-3 text-sm font-extrabold text-slate-950">{title}</p>
+      <FieldGrid fields={fields} />
+    </div>
+  );
+}
+
 function RawSection({ title, record }: { title: string; record: RawRecord }) {
-  if (!record) {
-    return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-black text-slate-900">{title}</h2>
-        <p className="mt-3 text-sm font-semibold text-slate-400">
+  return (
+    <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <summary className="cursor-pointer px-4 py-3 text-sm font-extrabold text-slate-900">
+        {title}
+      </summary>
+      {record ? (
+        <pre className="max-h-72 overflow-auto border-t border-slate-100 bg-slate-950 p-4 text-xs font-semibold leading-5 text-slate-100">
+          {JSON.stringify(record, null, 2)}
+        </pre>
+      ) : (
+        <p className="border-t border-slate-100 px-4 py-5 text-sm font-semibold text-slate-500">
           Data belum tersinkron untuk modul ini.
         </p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-black text-slate-900">{title}</h2>
-      <pre className="mt-3 max-h-72 overflow-auto rounded-xl bg-slate-950 p-4 text-xs font-semibold leading-5 text-slate-100">
-        {JSON.stringify(record, null, 2)}
-      </pre>
-    </section>
+      )}
+    </details>
   );
 }
 
@@ -189,239 +336,238 @@ export default function TransactionDetailPage() {
       .finally(() => setLoading(false));
   }, [router, transactionID]);
 
-  const violationLabel = useMemo(() => {
-    const status = detail?.transaction.violation_status ?? "pending";
-    if (status === "normal") return "Normal";
-    if (status === "pending") return "Pending";
-    return "Violation";
-  }, [detail]);
+  const violation = violationLabel(detail);
+  const latestStatus = String(valueFrom(detail?.raw.vehicle_status ?? null, "status")).toLowerCase();
+  const evidence = useMemo(
+    () => mediaItems(detail?.attachments ?? []),
+    [detail?.attachments],
+  );
+
+  const metrics = detail
+    ? [
+        {
+          label: "Plate Number",
+          value: detail.transaction.plate_no || "-",
+          helper: "Detected by ANPR",
+          tone: "bg-blue-50 text-blue-700",
+        },
+        {
+          label: "Actual Weight",
+          value: formatWeight(detail.transaction.total_weight),
+          helper: "Vehicle actual weight",
+          tone: "bg-red-50 text-red-700",
+        },
+        {
+          label: "Actual Axle",
+          value: String(detail.transaction.axle_count ?? "-"),
+          helper: "Axle sensor result",
+          tone: "bg-emerald-50 text-emerald-700",
+        },
+        {
+          label: "Dimensions",
+          value: formatDimensions(detail),
+          helper: "Length x width x height",
+          tone: "bg-violet-50 text-violet-700",
+        },
+      ]
+    : [];
 
   return (
     <main className="min-h-screen bg-[#eef2f7] text-slate-900">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <button
-              type="button"
-              onClick={() => router.push("/data-center")}
-              className="mb-2 text-sm font-black text-blue-700 hover:text-blue-800"
+            <Link
+              href="/data-center"
+              className="mb-2 inline-flex text-sm font-black text-blue-700 hover:text-blue-800"
             >
-              ← Kembali ke Data Center
-            </button>
+              Back to Data Center
+            </Link>
             <h1 className="text-3xl font-black tracking-tight">
-              Detail Transaksi
+              Data Center Transaction Detail
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Data hasil sync dari site, termasuk source raw dan attachment.
+              Read-only transaction data, source records, and synchronized attachments.
             </p>
           </div>
-
-          {detail ? (
-            <span
-              className={`rounded-full px-4 py-2 text-sm font-black ${
-                detail.transaction.violation_status === "normal"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : detail.transaction.violation_status === "pending"
-                    ? "bg-slate-100 text-slate-600"
-                    : "bg-red-50 text-red-700"
-              }`}
-            >
-              {violationLabel}
-            </span>
-          ) : null}
         </div>
       </header>
 
       <section className="p-6">
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-base font-bold text-slate-500 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500 shadow-sm">
             Memuat detail transaksi...
           </div>
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-base font-bold text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {error}
           </div>
         ) : null}
 
         {detail ? (
-          <div className="space-y-5">
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm font-black uppercase tracking-wide text-slate-400">
-                  Plate No
-                </p>
-                <p className="mt-2 text-4xl font-black text-slate-950">
-                  {detail.transaction.plate_no || "-"}
-                </p>
-                <p className="mt-2 text-sm font-semibold text-slate-500">
-                  {detail.transaction.source_id}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm font-black uppercase tracking-wide text-slate-400">
-                  Site
-                </p>
-                <p className="mt-2 text-3xl font-black text-slate-950">
-                  {detail.site.site_code}
-                </p>
-                <p className="mt-2 text-base font-bold text-slate-500">
-                  {detail.site.site_name}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm font-black uppercase tracking-wide text-slate-400">
-                  Total Weight
-                </p>
-                <p className="mt-2 text-4xl font-black text-slate-950">
-                  {formatNumber(detail.transaction.total_weight, " kg")}
-                </p>
-                <p className="mt-2 text-base font-bold text-slate-500">
-                  {detail.transaction.axle_count ?? "-"} axle
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm font-black uppercase tracking-wide text-slate-400">
-                  Synced At
-                </p>
-                <p className="mt-2 text-2xl font-black text-slate-950">
-                  {formatDateTime(detail.transaction.synced_at)}
-                </p>
-                <p className="mt-2 text-base font-bold text-slate-500">
-                  {detail.attachments.length} attachment
-                </p>
-              </div>
-            </section>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-2xl font-black text-blue-700">
+                    T
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-mono text-2xl font-black tracking-tight text-slate-950">
+                        {detail.transaction.plate_no || "-"}
+                      </h2>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${violationTone(violation)}`}
+                      >
+                        {violation}
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${statusTone(latestStatus)}`}
+                      >
+                        {statusLabel(latestStatus)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Synced {formatDateTime(detail.transaction.synced_at)} from{" "}
+                      {detail.site.site_code} - {detail.site.site_name}
+                    </p>
+                  </div>
+                </div>
 
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-              <InfoCard
-                title="Transaksi"
-                items={[
-                  {
-                    label: "Waktu Penindakan",
-                    value: formatDateTime(
-                      detail.transaction.enforcement_started_at,
-                    ),
-                  },
-                  {
-                    label: "Operator",
-                    value: detail.transaction.operator_name || "-",
-                  },
-                  {
-                    label: "Status",
-                    value: detail.transaction.violation_status,
-                  },
-                  {
-                    label: "Catatan",
-                    value: detail.transaction.violation_notes || "-",
-                  },
-                ]}
-              />
-              <InfoCard
-                title="Pengukuran"
-                items={[
-                  {
-                    label: "Panjang",
-                    value: formatNumber(detail.transaction.length_mm, " mm"),
-                  },
-                  {
-                    label: "Lebar",
-                    value: formatNumber(detail.transaction.width_mm, " mm"),
-                  },
-                  {
-                    label: "Tinggi",
-                    value: formatNumber(detail.transaction.height_mm, " mm"),
-                  },
-                  {
-                    label: "Kelas",
-                    value: detail.transaction.vehicle_class || "-",
-                  },
-                ]}
-              />
-              <InfoCard
-                title="Lokasi & Site"
-                items={[
-                  {
-                    label: "Lokasi",
-                    value:
-                      detail.transaction.location_address ||
-                      `${detail.site.city}, ${detail.site.province}`,
-                  },
-                  {
-                    label: "Koordinat",
-                    value:
-                      detail.transaction.location_lat &&
-                      detail.transaction.location_lng
-                        ? `${detail.transaction.location_lat}, ${detail.transaction.location_lng}`
-                        : "-",
-                  },
-                  {
-                    label: "Status Site",
-                    value: detail.site.operational_status,
-                  },
-                  {
-                    label: "Last Sync",
-                    value: formatDateTime(detail.site.last_sync_at),
-                  },
-                ]}
-              />
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 px-5 py-4">
-                <h2 className="text-xl font-black text-slate-950">
-                  Attachment
-                </h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  File evidence yang sudah dikirim dari MinIO site ke MinIO data
-                  center.
-                </p>
+                <Link
+                  href="/data-center"
+                  className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Back
+                </Link>
               </div>
-              <div className="overflow-auto">
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {metrics.map((metric) => (
+                <div
+                  key={metric.label}
+                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                >
+                  <div className={`mb-3 inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${metric.tone}`}>
+                    {metric.label}
+                  </div>
+                  <p className="text-xl font-black text-slate-950">
+                    {metric.value}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    {metric.helper}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+              <SectionCard
+                title="Evidence Preview"
+                subtitle="Synchronized media from ANPR, axle, and site attachments."
+              >
+                {evidence.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {evidence.map((item) => (
+                      <MediaPreview key={`${item.title}-${item.url}`} item={item} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-slate-500">
+                    No evidence media available.
+                  </div>
+                )}
+              </SectionCard>
+
+              <div className="space-y-4">
+                <SectionCard title="Transaction Summary">
+                  <FieldGrid
+                    fields={[
+                      { label: "Source Transaction ID", value: detail.transaction.source_id },
+                      { label: "Event Time", value: formatDateTime(detail.transaction.enforcement_started_at) },
+                      { label: "Location", value: detail.transaction.location_address || "-" },
+                      { label: "Operator", value: detail.transaction.operator_name || "-" },
+                      { label: "Site", value: `${detail.site.site_code} - ${detail.site.site_name}` },
+                      { label: "Last Updated", value: formatDateTime(detail.transaction.source_updated_at) },
+                    ]}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Latest Verification">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+                        Status
+                      </p>
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1.5 text-sm font-bold ${statusTone(latestStatus)}`}
+                      >
+                        {statusLabel(latestStatus)}
+                      </span>
+                    </div>
+                    <FieldGrid
+                      fields={[
+                        { label: "Result", value: detail.transaction.violation_notes || violation },
+                        { label: "Notes", value: valueFrom(detail.raw.vehicle_status, "notes") },
+                      ]}
+                    />
+                  </div>
+                </SectionCard>
+              </div>
+            </div>
+
+            <SectionCard
+              title="Attachment"
+              subtitle="Files copied from site MinIO into data-center MinIO."
+            >
+              <div className="overflow-x-auto">
                 <table className="w-full min-w-[960px] text-sm">
-                  <thead className="bg-slate-50 uppercase tracking-wide text-slate-400">
+                  <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
                     <tr>
-                      <th className="px-5 py-3 text-left">Type</th>
-                      <th className="px-5 py-3 text-left">File</th>
-                      <th className="px-5 py-3 text-left">Size</th>
-                      <th className="px-5 py-3 text-left">Status</th>
-                      <th className="px-5 py-3 text-left">Synced</th>
-                      <th className="px-5 py-3 text-right">Action</th>
+                      <th className="px-4 py-3 text-left">Type</th>
+                      <th className="px-4 py-3 text-left">File</th>
+                      <th className="px-4 py-3 text-left">Size</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">Synced</th>
+                      <th className="px-4 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {detail.attachments.length > 0 ? (
                       detail.attachments.map((attachment) => (
-                        <tr key={attachment.id}>
-                          <td className="px-5 py-4 font-black text-slate-700">
+                        <tr key={attachment.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 font-bold text-slate-700">
                             {attachment.attachment_type}
                           </td>
-                          <td className="px-5 py-4">
-                            <p className="font-bold text-slate-700">
+                          <td className="px-4 py-3">
+                            <p className="font-semibold text-slate-800">
                               {attachment.file_name || "-"}
                             </p>
-                            <p className="mt-1 max-w-[520px] truncate text-xs font-semibold text-slate-400">
+                            <p className="mt-1 max-w-[560px] truncate text-xs font-semibold text-slate-400">
                               {attachment.bucket}/{attachment.object_key}
                             </p>
                           </td>
-                          <td className="px-5 py-4 font-bold text-slate-600">
+                          <td className="px-4 py-3 text-slate-600">
                             {formatBytes(attachment.file_size)}
                           </td>
-                          <td className="px-5 py-4">
-                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                          <td className="px-4 py-3">
+                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
                               {attachment.upload_status}
                             </span>
                           </td>
-                          <td className="px-5 py-4 font-bold text-slate-600">
+                          <td className="px-4 py-3 text-slate-600">
                             {formatDateTime(attachment.synced_at)}
                           </td>
-                          <td className="px-5 py-4 text-right">
+                          <td className="px-4 py-3 text-right">
                             <a
                               href={attachment.public_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-700"
+                              className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700"
                             >
                               Open
                             </a>
@@ -430,10 +576,7 @@ export default function TransactionDetailPage() {
                       ))
                     ) : (
                       <tr>
-                        <td
-                          colSpan={6}
-                          className="px-5 py-8 text-center font-bold text-slate-400"
-                        >
+                        <td colSpan={6} className="px-4 py-8 text-center text-sm font-semibold text-slate-500">
                           Belum ada attachment untuk transaksi ini.
                         </td>
                       </tr>
@@ -441,54 +584,53 @@ export default function TransactionDetailPage() {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </SectionCard>
 
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <InfoCard
-                title="ANPR"
-                items={[
-                  { label: "Plate", value: valueFrom(detail.raw.anpr, "plate_no") },
-                  {
-                    label: "Confidence",
-                    value: valueFrom(detail.raw.anpr, "confidence"),
-                  },
-                  {
-                    label: "Captured",
-                    value: formatDateTime(
-                      (detail.raw.anpr?.captured_at as string | undefined) ??
-                        null,
-                    ),
-                  },
-                  {
-                    label: "Camera",
-                    value: valueFrom(detail.raw.anpr, "camera_id"),
-                  },
-                ]}
-              />
-              <InfoCard
-                title="AXLE / WIM"
-                items={[
-                  {
-                    label: "Axle",
-                    value: valueFrom(detail.raw.axle, "total_axles"),
-                  },
-                  {
-                    label: "Wheels",
-                    value: valueFrom(detail.raw.axle, "total_wheels"),
-                  },
-                  {
-                    label: "Category",
-                    value: valueFrom(detail.raw.axle, "vehicle_category"),
-                  },
-                  {
-                    label: "Weight",
-                    value: valueFrom(detail.raw.weighing, "total_weight"),
-                  },
-                ]}
-              />
-            </section>
+            <SectionCard
+              title="Source Data"
+              subtitle="Read-only data synchronized from each connected device."
+            >
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <SourceBlock
+                  title="ANPR"
+                  fields={[
+                    { label: "Plate Number", value: valueFrom(detail.raw.anpr, "plate_no") },
+                    { label: "Confidence", value: valueFrom(detail.raw.anpr, "confidence") },
+                    { label: "Camera ID", value: valueFrom(detail.raw.anpr, "camera_id") },
+                    { label: "Captured At", value: formatDateTime(valueFrom(detail.raw.anpr, "captured_at")) },
+                  ]}
+                />
+                <SourceBlock
+                  title="Axle"
+                  fields={[
+                    { label: "Plate Number", value: valueFrom(detail.raw.axle, "plate_no") },
+                    { label: "Total Axles", value: valueFrom(detail.raw.axle, "total_axles") },
+                    { label: "Total Wheels", value: valueFrom(detail.raw.axle, "total_wheels") },
+                    { label: "Vehicle Type", value: valueFrom(detail.raw.axle, "vehicle_body_type") },
+                  ]}
+                />
+                <SourceBlock
+                  title="WIM"
+                  fields={[
+                    { label: "Total Weight", value: valueFrom(detail.raw.weighing, "total_weight") },
+                    { label: "Total Axle", value: valueFrom(detail.raw.weighing, "total_axle") },
+                    { label: "Created Time", value: formatDateTime(valueFrom(detail.raw.weighing, "created_date")) },
+                    { label: "Session", value: valueFrom(detail.raw.session, "code") },
+                  ]}
+                />
+                <SourceBlock
+                  title="Dimension"
+                  fields={[
+                    { label: "Length", value: valueFrom(detail.raw.dimension, "length") },
+                    { label: "Width", value: valueFrom(detail.raw.dimension, "width") },
+                    { label: "Height", value: valueFrom(detail.raw.dimension, "height") },
+                    { label: "Created Time", value: formatDateTime(valueFrom(detail.raw.dimension, "created_date")) },
+                  ]}
+                />
+              </div>
+            </SectionCard>
 
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <RawSection title="Raw Vehicle Actual" record={detail.raw.vehicle_actual} />
               <RawSection title="Raw Vehicle Status" record={detail.raw.vehicle_status} />
               <RawSection title="Raw ANPR Capture" record={detail.raw.anpr} />
@@ -497,7 +639,7 @@ export default function TransactionDetailPage() {
               <RawSection title="Raw Weighing" record={detail.raw.weighing} />
               <RawSection title="Raw CCTV" record={detail.raw.cctv} />
               <RawSection title="Raw WIM Session" record={detail.raw.session} />
-            </section>
+            </div>
           </div>
         ) : null}
       </section>

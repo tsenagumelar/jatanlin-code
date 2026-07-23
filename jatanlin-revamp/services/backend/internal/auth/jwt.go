@@ -17,7 +17,15 @@ type JWTClaims struct {
 }
 
 func GenerateToken(user *User, secretKey string) (string, time.Time, error) {
-	expirationTime := time.Now().Add(72 * time.Hour)
+	return GenerateTokenUntil(user, secretKey, EndOfDayExpiry(time.Now()))
+}
+
+func EndOfDayExpiry(now time.Time) time.Time {
+	year, month, day := now.Date()
+	return time.Date(year, month, day, 23, 59, 59, int(time.Second-time.Nanosecond), now.Location())
+}
+
+func GenerateTokenUntil(user *User, secretKey string, expirationTime time.Time) (string, time.Time, error) {
 	hasuraRole := normalizeHasuraRole(user)
 	email := ""
 	if user.Email != nil {

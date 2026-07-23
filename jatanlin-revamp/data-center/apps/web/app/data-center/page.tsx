@@ -103,6 +103,33 @@ function formatDateTime(value: string | null) {
   });
 }
 
+function dateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function defaultDateRange() {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 30);
+  return {
+    start: dateInputValue(start),
+    end: dateInputValue(end),
+  };
+}
+
+function displayDateRange(start: string, end: string) {
+  const format = (value: string) =>
+    new Date(`${value}T00:00:00`).toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  return `${format(start)} - ${format(end)}`;
+}
+
 function minutesAgo(value: string | null) {
   if (!value) return Number.POSITIVE_INFINITY;
   return Math.max(
@@ -462,7 +489,7 @@ export default function DataCenterPage() {
   const [selectedSite, setSelectedSite] = useState<string | null>(null);
   const [siteSearch, setSiteSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [analyticsDateRange, setAnalyticsDateRange] = useState("7d");
+  const [dateRange, setDateRange] = useState(defaultDateRange);
   const [analyticsSiteFilter, setAnalyticsSiteFilter] = useState("all");
   const [analyticsViolationFilter, setAnalyticsViolationFilter] =
     useState("all");
@@ -474,7 +501,12 @@ export default function DataCenterPage() {
       return;
     }
 
-    fetch(`${API_BASE_URL}/api/data-center/overview`, {
+    const params = new URLSearchParams({
+      start_date: dateRange.start,
+      end_date: dateRange.end,
+    });
+
+    fetch(`${API_BASE_URL}/api/data-center/overview?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (response) => {
@@ -487,7 +519,7 @@ export default function DataCenterPage() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Gagal mengambil data");
       });
-  }, [router]);
+  }, [dateRange.end, dateRange.start, router]);
 
   const units = useMemo<UnitRow[]>(() => {
     if (!overview) return [];
@@ -645,7 +677,7 @@ export default function DataCenterPage() {
         Math.round((violations * (0.5 + factor * 0.09)) / 1.13),
       );
       return {
-        label: index === 6 ? "Hari ini" : `H-${6 - index}`,
+        label: index === 6 ? "Akhir range" : `R-${6 - index}`,
         total: value,
         violations: violationValue,
       };
@@ -653,13 +685,13 @@ export default function DataCenterPage() {
   }, [analyticsTotals]);
 
   const now = new Date();
+  const dateRangeLabel = displayDateRange(dateRange.start, dateRange.end);
   const activeCount = units.filter((unit) => unit.status === "online").length;
   const totalSites = overview?.summary.total_sites ?? 0;
   const totalVehicles = overview?.summary.today_transactions ?? 0;
   const totalViolations = overview?.summary.today_violations ?? 0;
   const onlineRate =
     totalSites > 0 ? Math.round((activeCount / totalSites) * 100) : 0;
-  const vehicleRate = totalVehicles > 0 ? 100 : 0;
   const violationRate =
     totalVehicles > 0 ? Math.round((totalViolations / totalVehicles) * 100) : 0;
   const analyticsDistributionTotal = Math.max(
@@ -711,16 +743,16 @@ export default function DataCenterPage() {
         icon="site"
       />
       <KpiTile
-        label="Vehicles Today"
+        label="Vehicles in Range"
         value={totalVehicles}
-        detail={`${vehicleRate}% total kendaraan`}
+        detail={dateRangeLabel}
         tone="green"
         icon="vehicle"
       />
       <KpiTile
         label="Violation Rate"
         value={`${violationRate}%`}
-        detail={`${totalViolations} of ${totalVehicles}`}
+        detail={`${totalViolations} dari ${totalVehicles} periode`}
         tone="red"
         icon="rate"
       />
@@ -775,7 +807,38 @@ export default function DataCenterPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+                Range
+              </span>
+              <input
+                type="date"
+                value={dateRange.start}
+                max={dateRange.end}
+                onChange={(event) =>
+                  setDateRange((current) => ({
+                    ...current,
+                    start: event.target.value,
+                  }))
+                }
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-400"
+              />
+              <span className="text-sm font-black text-slate-400">to</span>
+              <input
+                type="date"
+                value={dateRange.end}
+                min={dateRange.start}
+                max={dateInputValue(new Date())}
+                onChange={(event) =>
+                  setDateRange((current) => ({
+                    ...current,
+                    end: event.target.value,
+                  }))
+                }
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-400"
+              />
+            </div>
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700">
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
               {activeCount} online
@@ -881,8 +944,8 @@ export default function DataCenterPage() {
                       <th className="px-5 py-4 text-left">Lokasi</th>
                       <th className="px-5 py-4 text-left">Operator</th>
                       <th className="px-5 py-4 text-left">Status</th>
-                      <th className="px-5 py-4 text-left">Kendaraan Hari Ini</th>
-                      <th className="px-5 py-4 text-left">Pelanggaran Hari Ini</th>
+                      <th className="px-5 py-4 text-left">Kendaraan Periode</th>
+                      <th className="px-5 py-4 text-left">Pelanggaran Periode</th>
                       <th className="px-5 py-4 text-left">Terakhir Update</th>
                       <th className="px-5 py-4 text-left">Aksi</th>
                     </tr>
@@ -1158,7 +1221,7 @@ export default function DataCenterPage() {
               <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-5 py-4">
                 <p className="text-sm font-semibold text-slate-500">
                   Menampilkan {filteredUnits.length} site dengan total{" "}
-                  {totalViolations} pelanggaran hari ini
+                  {totalViolations} pelanggaran dalam periode
                 </p>
                 <p className="text-sm font-black text-slate-600">
                   POV: violation monitoring
@@ -1264,8 +1327,8 @@ export default function DataCenterPage() {
         ) : null}
 
         {overview && activeTab === "analytics" ? (
-          <div className="flex h-full min-h-0 flex-col gap-4 overflow-auto">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="shrink-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-sm font-black text-slate-500">
@@ -1280,17 +1343,6 @@ export default function DataCenterPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={analyticsDateRange}
-                    onChange={(event) =>
-                      setAnalyticsDateRange(event.target.value)
-                    }
-                    className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-base font-bold text-slate-600 outline-none focus:border-blue-400"
-                  >
-                    <option value="today">Hari ini</option>
-                    <option value="7d">7 hari terakhir</option>
-                    <option value="30d">30 hari terakhir</option>
-                  </select>
                   <select
                     value={analyticsSiteFilter}
                     onChange={(event) =>
@@ -1321,7 +1373,7 @@ export default function DataCenterPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               {[
                 {
                   label: "ODOL Vehicles",
@@ -1342,7 +1394,7 @@ export default function DataCenterPage() {
                   icon: "sync" as const,
                 },
                 {
-                  label: "Today's Violations",
+                  label: "Range Violations",
                   value: analyticsTotals.todayViolations,
                   tone: "blue",
                   icon: "last" as const,
@@ -1352,21 +1404,15 @@ export default function DataCenterPage() {
                   key={item.label}
                   label={item.label}
                   value={item.value}
-                  detail={
-                    analyticsDateRange === "today"
-                      ? "filter hari ini"
-                      : analyticsDateRange === "30d"
-                        ? "filter 30 hari"
-                        : "filter 7 hari"
-                  }
+                  detail={dateRangeLabel}
                   tone={item.tone as "blue" | "green" | "red" | "amber"}
                   icon={item.icon}
                 />
               ))}
             </div>
 
-            <div className="grid min-h-[380px] gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(420px,0.75fr)]">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="grid h-[32vh] min-h-[280px] max-h-[360px] shrink-0 gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(420px,0.75fr)]">
+              <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="text-2xl font-black text-slate-900">
                   Enforcement Total - Last 7 Days
                 </h2>
@@ -1374,7 +1420,7 @@ export default function DataCenterPage() {
                   Over dimension, over loading, and normal vehicles per day.
                 </p>
 
-                <div className="mt-5 h-[280px] rounded-xl bg-white">
+                <div className="mt-3 min-h-0 flex-1 rounded-xl bg-white">
                   <svg
                     viewBox="0 0 900 260"
                     className="h-full w-full overflow-visible"
@@ -1474,7 +1520,7 @@ export default function DataCenterPage() {
                   </svg>
                 </div>
 
-                <div className="mt-3 flex items-center gap-6 text-sm font-black text-slate-500">
+                <div className="mt-2 flex shrink-0 flex-wrap items-center gap-6 text-sm font-black text-slate-500">
                   <span className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full bg-red-500" />
                     Over Dimension
@@ -1490,7 +1536,7 @@ export default function DataCenterPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="text-2xl font-black text-slate-900">
                   Violation Distribution
                 </h2>
@@ -1498,18 +1544,18 @@ export default function DataCenterPage() {
                   Over dimension, over loading, and normal.
                 </p>
 
-                <div className="mt-6 flex items-center justify-center">
+                <div className="mt-4 flex min-h-0 flex-1 items-center justify-center">
                   <div
-                    className="h-52 w-52 rounded-full"
+                    className="flex h-40 w-40 items-center justify-center rounded-full xl:h-44 xl:w-44 2xl:h-48 2xl:w-48"
                     style={{
                       background: `conic-gradient(#ef4444 0 ${analyticsOverDimensionPct}%, #f59e0b ${analyticsOverDimensionPct}% ${analyticsOverDimensionPct + analyticsOverLoadingPct}%, #059669 ${analyticsOverDimensionPct + analyticsOverLoadingPct}% 100%)`,
                     }}
                   >
-                    <div className="m-12 h-28 w-28 rounded-full bg-white" />
+                    <div className="h-20 w-20 rounded-full bg-white xl:h-24 xl:w-24 2xl:h-28 2xl:w-28" />
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-3">
+                <div className="mt-3 shrink-0 space-y-2">
                   {analyticsDistribution.map((item) => (
                     <div
                       key={item.label}
@@ -1526,8 +1572,8 @@ export default function DataCenterPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 px-5 py-4">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="shrink-0 border-b border-slate-100 px-5 py-4">
                 <h2 className="text-2xl font-black text-slate-900">
                   Latest 10 Violation Summary
                 </h2>
@@ -1535,9 +1581,9 @@ export default function DataCenterPage() {
                   Latest vehicles detected with violations.
                 </p>
               </div>
-              <div className="overflow-auto">
+              <div className="min-h-0 flex-1 overflow-auto">
                 <table className="w-full min-w-[1280px] text-base">
-                  <thead className="bg-slate-50 text-sm uppercase tracking-[0.2em] text-slate-400">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-sm uppercase tracking-[0.2em] text-slate-400">
                     <tr>
                       <th className="px-5 py-4 text-left">No</th>
                       <th className="px-5 py-4 text-left">Time</th>

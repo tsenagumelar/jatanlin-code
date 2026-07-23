@@ -1,6 +1,14 @@
 import type { ChangeEvent, FormEvent } from "react";
 import type { LoginFormData, User } from "@/src/modules/login/types";
 
+interface BackendLicenseCheck {
+  status: string;
+  valid: boolean;
+  message: string;
+  source?: string;
+  checked_at: string;
+}
+
 export interface BackendLoginResponse {
   success: boolean;
   message: string;
@@ -8,6 +16,7 @@ export interface BackendLoginResponse {
     token: string;
     expires_at: string;
     user: User;
+    license_checked?: BackendLicenseCheck;
   };
 }
 
