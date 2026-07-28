@@ -20,12 +20,13 @@ GO ?= go
 GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 DOTNET ?= /opt/homebrew/opt/dotnet@8/bin/dotnet
 
-.PHONY: help env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check services dev dev-full
+.PHONY: help site-apply env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check services dev dev-full
 
 help:
 	@printf '%s\n' 'Jatanlin Revamp'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Environment targets:'
+	@printf '%s\n' '  make site-apply     Apply site.json values into .env files and local service defaults'
 	@printf '%s\n' '  make env-init       Create missing .env files from .env.example'
 	@printf '%s\n' '  make env-force      Overwrite all .env files from .env.example'
 	@printf '%s\n' ''
@@ -81,6 +82,9 @@ help:
 	@printf '%s\n' '  make dev            Start all services and web'
 	@printf '%s\n' '  make dev-full       Start infra, then all services and web'
 
+site-apply:
+	./scripts/site-apply.sh
+
 env-init:
 	@for example in $(ENV_EXAMPLE_FILES); do \
 		target=$$(dirname "$$example")/.env; \
@@ -92,6 +96,7 @@ env-init:
 			printf 'create %s\n' "$$target"; \
 		fi; \
 	done
+	@$(MAKE) site-apply
 
 env-force:
 	@for example in $(ENV_EXAMPLE_FILES); do \
@@ -100,8 +105,9 @@ env-force:
 		cp "$$example" "$$target"; \
 		printf 'write %s\n' "$$target"; \
 	done
+	@$(MAKE) site-apply
 
-docker-up:
+docker-up: site-apply
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d --build
 
 docker-bootstrap: docker-up infra-migrate infra-seed docker-config
@@ -110,10 +116,10 @@ docker-bootstrap: docker-up infra-migrate infra-seed docker-config
 docker-bootstrap-dev: docker-up infra-migrate infra-seed-with-transactions docker-config
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) restart backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent web
 
-docker-config:
+docker-config: site-apply
 	./scripts/db-docker-config.sh
 
-docker-build:
+docker-build: site-apply
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) build
 
 docker-down:
@@ -128,7 +134,7 @@ docker-logs:
 docker-restart:
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) restart
 
-infra-up:
+infra-up: site-apply
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d $(INFRA_SERVICES)
 
 infra-bootstrap: infra-up infra-migrate infra-seed

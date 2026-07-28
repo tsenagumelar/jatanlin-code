@@ -9,6 +9,14 @@ if [ -f "$ROOT_DIR/.env" ]; then
   set +a
 fi
 
+NODE_BIN="${NODE:-node}"
+if ! command -v "$NODE_BIN" >/dev/null 2>&1 && [ -x "/opt/homebrew/opt/node@20/bin/node" ]; then
+  NODE_BIN="/opt/homebrew/opt/node@20/bin/node"
+fi
+if command -v "$NODE_BIN" >/dev/null 2>&1 && [ -f "$ROOT_DIR/site.json" ]; then
+  eval "$("$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" shell "$ROOT_DIR/site.json")"
+fi
+
 COMPOSE_FILE="$ROOT_DIR/infra/compose/docker-compose.yml"
 PROJECT_NAME="${PROJECT_NAME:-jatanlin-revamp}"
 POSTGRES_USER="${POSTGRES_USER:-jatanlin}"

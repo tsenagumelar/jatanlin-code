@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Alert20Regular,
   BookQuestionMark24Filled,
   BookQuestionMark24Regular,
   Calendar20Regular,
@@ -402,17 +401,6 @@ export function V3AppShell({ children }: V3LayoutProps) {
           </div>
 
           <div className="flex-1" />
-
-          <button
-            type="button"
-            className="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-            aria-label="Notification"
-          >
-            <Alert20Regular />
-            <span className="absolute right-1 top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-bold leading-none text-white">
-              3
-            </span>
-          </button>
 
           <div className="relative">
             <button

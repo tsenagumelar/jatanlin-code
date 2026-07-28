@@ -18,7 +18,6 @@ import {
   SignOut24Regular,
   Navigation20Regular,
   Search20Regular,
-  Alert20Regular,
   Calendar20Regular,
   ChevronDown16Regular,
   Circle12Filled,
@@ -114,15 +113,6 @@ export const V2Navbar: React.FC<V2NavbarProps> = ({ isCollapsed, onToggle }) => 
         <span className="text-[11px] text-slate-700 font-medium whitespace-nowrap">{dateStr}</span>
         <span className="text-[11px] text-slate-400 whitespace-nowrap">{timeStr}</span>
       </div>
-
-      {/* Notifications */}
-      <Tooltip content="Notifikasi" relationship="label">
-        <button className="relative w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">
-          <Alert20Regular />
-          <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-red-500 text-white text-[7px] font-bold
-            rounded-full flex items-center justify-center leading-none">3</span>
-        </button>
-      </Tooltip>
 
       {/* Profile */}
       <Menu>

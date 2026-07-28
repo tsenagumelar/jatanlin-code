@@ -51,6 +51,39 @@ File Docker Compose utama ada di `infra/compose/docker-compose.yml`. Compose ini
 
 ### 0. Setup environment
 
+Identitas site disimpan di `site.json`. Untuk deploy ke site baru, ubah file ini dulu:
+
+```json
+{
+  "id": "628f033e-49b2-4ba0-b1e8-12af4b3895ee",
+  "code": "MST-25-00001",
+  "name": "Mampang Revamp Local",
+  "location": "Central Office",
+  "region": "Default",
+  "address": "Jl. Mampang Prapatan Raya, Jakarta Selatan",
+  "city": "Jakarta Selatan",
+  "province": "DKI Jakarta",
+  "timezone": "Asia/Jakarta"
+}
+```
+
+Field di `site.json` dipakai untuk:
+
+- `.env` utama dan `.env.example`.
+- `apps/web/.env` dan `apps/web/.env.example` (`NEXT_PUBLIC_SITE_*`).
+- `services/backend/.env` dan `.env.example`.
+- `services/wb-agent/.env`, `.env.example`, dan `appsettings.json`.
+- Seed database (`master_site`, `master_config`, `system_runtime_config`).
+- Generate/check VEAM license.
+
+Apply nilai `site.json` ke semua env file:
+
+```bash
+make site-apply
+```
+
+`make env-init`, `make env-force`, `make docker-up`, `make docker-bootstrap`, `make docker-bootstrap-dev`, `make infra-up`, dan `make docker-config` otomatis menjalankan `site-apply` lebih dulu.
+
 Semua template environment disimpan sebagai `.env.example`. Untuk membuat semua `.env` yang dibutuhkan:
 
 ```bash
@@ -256,7 +289,7 @@ Database bootstrap:
 Seed master data berisi data dasar yang diperlukan untuk site:
 
 - Role canonical hanya 2: `ADMIN` dan `OPERATOR`.
-- Site aktif sesuai `.env` (`SITE_ID`, `SITE_CODE`, `SITE_NAME`, dan metadata lokasi).
+- Site aktif sesuai `site.json` (`SITE_ID`, `SITE_CODE`, `SITE_NAME`, dan metadata lokasi).
 - Device type, vehicle class, runtime config, master config, default device lokal, user admin, dan user operator.
 - Seed ini juga merapikan legacy seed role/user demo lama supaya dropdown role tidak berisi `VIEWER`, `SUPERVISOR`, `Administrator`, `Supervisor`, atau `Operator` duplikat.
 
@@ -424,14 +457,14 @@ Mode full Docker sudah tersedia lewat `make docker-bootstrap` atau `make docker-
 
 Flow awal yang dipakai sekarang adalah generate file lisensi, lalu upload manual dari website. Validasi via USB akan dilakukan setelah flow upload manual aman.
 
-Generate file lisensi untuk `SITE_ID` aktif:
+Generate file lisensi untuk site aktif di `site.json`:
 
 ```bash
 cd jatanlin-revamp
 make veam-license-generate
 ```
 
-Generate dengan parameter custom:
+Generate dengan parameter custom tetap bisa, tapi default-nya akan mengikuti `site.json`:
 
 ```bash
 SITE_ID=628f033e-49b2-4ba0-b1e8-12af4b3895ee \
