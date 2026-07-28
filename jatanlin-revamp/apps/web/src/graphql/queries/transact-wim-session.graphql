@@ -22,3 +22,4 @@ mutation UpdateTransactWimSession(
     updated_date
   }
 }
+

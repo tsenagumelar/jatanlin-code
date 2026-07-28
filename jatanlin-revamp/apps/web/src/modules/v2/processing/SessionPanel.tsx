@@ -39,7 +39,7 @@ const GET_ACTIVE_SESSION = gql`
 `;
 
 const CREATE_SESSION = gql`
-  mutation CreateSession($site_id: uuid!, $session_name: String) {
+  mutation CreateSession($site_id: uuid!, $session_name: String, $code: String!) {
     insert_transact_wim_session_one(
       object: {
         site_id: $site_id
@@ -134,8 +134,8 @@ export const SessionPanel: React.FC = () => {
     if (!siteId) return;
     setCreating(true);
     try {
-      const name = sessionName.trim() || `Sesi ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`;
-      await createSession({ variables: { site_id: siteId, session_name: name } });
+      const now = new Date();`r`n      const name = sessionName.trim() || `Sesi ${now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`;
+      await createSession({ variables: { site_id: siteId, session_name: name, code: formatSessionCode(now) } });
       setSessionName("");
       await refetch();
     } catch (e: any) {
@@ -269,3 +269,7 @@ export const SessionPanel: React.FC = () => {
 };
 
 export default SessionPanel;
+
+
+
+

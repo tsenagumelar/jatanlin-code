@@ -40,6 +40,8 @@ func USBScanRoots() []string {
 			}
 		}
 		return paths
+	case "windows":
+		return windowsUSBScanRoots()
 	default:
 		var paths []string
 		for _, base := range []string{"/media", "/run/media"} {
