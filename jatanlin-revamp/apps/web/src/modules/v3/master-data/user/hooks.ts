@@ -79,7 +79,7 @@ function mapUserToForm(user: V3UserRow): V3UserFormData {
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
 
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -89,7 +89,7 @@ function formatDateTime(value?: string | null) {
 }
 
 function formatUserStatus(isActive?: boolean | null) {
-  return isActive ? "Active" : "Inactive";
+  return isActive ? "Aktif" : "Tidak Aktif";
 }
 
 function getExportRows(users: V3UserRow[], formatDate: typeof formatDateTime) {
@@ -126,7 +126,7 @@ async function parseApiResponse(response: Response) {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok || !payload?.success) {
-    throw new Error(payload?.message || "Backend request failed.");
+    throw new Error(payload?.message || "Permintaan ke backend gagal.");
   }
 
   return payload;
@@ -238,13 +238,13 @@ export function useV3MasterUser() {
     if (!file) return;
 
     if (!["image/jpeg", "image/png"].includes(file.type)) {
-      setUploadError("Please upload a JPG or PNG image file.");
+      setUploadError("Unggah file gambar JPG atau PNG.");
       event.target.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setUploadError("Photo size must be 5MB or less.");
+      setUploadError("Ukuran foto maksimal 5MB.");
       event.target.value = "";
       return;
     }
@@ -268,10 +268,10 @@ export function useV3MasterUser() {
       if (result.success && result.file_path) {
         updateForm("profilePicture", result.file_path);
       } else {
-        setUploadError(result.message || "Unable to upload photo.");
+        setUploadError(result.message || "Tidak dapat mengunggah foto.");
       }
     } catch {
-      setUploadError("Unable to upload photo. Please try again.");
+      setUploadError("Tidak dapat mengunggah foto. Silakan coba lagi.");
     } finally {
       setIsUploadingPhoto(false);
       event.target.value = "";
@@ -279,14 +279,14 @@ export function useV3MasterUser() {
   };
 
   const validateForm = () => {
-    if (!formData.username.trim()) return "Username is required.";
-    if (!formData.fullName.trim()) return "Full name is required.";
-    if (!formData.roleId) return "Role is required.";
+    if (!formData.username.trim()) return "Nama pengguna wajib diisi.";
+    if (!formData.fullName.trim()) return "Nama lengkap wajib diisi.";
+    if (!formData.roleId) return "Peran wajib dipilih.";
     if (modal.mode === "create" && !formData.password.trim()) {
-      return "Password is required.";
+      return "Kata sandi wajib diisi.";
     }
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      return "Email format is invalid.";
+      return "Format email tidak valid.";
     }
     return null;
   };
@@ -375,7 +375,7 @@ export function useV3MasterUser() {
       setFormError(
         submitError instanceof Error
           ? submitError.message
-          : "Unable to save user data.",
+          : "Tidak dapat menyimpan data pengguna.",
       );
     } finally {
       setIsSavingUser(false);
@@ -384,7 +384,7 @@ export function useV3MasterUser() {
 
   const handleDelete = async (user: V3UserRow) => {
     const confirmed = window.confirm(
-      `Delete user "${user.username}"? This action will deactivate the user.`,
+      `Hapus pengguna "${user.username}"? Aksi ini akan menonaktifkan pengguna.`,
     );
     if (!confirmed) return;
 
@@ -405,7 +405,7 @@ export function useV3MasterUser() {
       setFormError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Unable to delete user.",
+          : "Tidak dapat menghapus pengguna.",
       );
     } finally {
       setIsDeletingUser(false);
@@ -415,19 +415,19 @@ export function useV3MasterUser() {
   const handleExport = (format: "csv" | "pdf") => {
     const headers = [
       "No",
-      "Username",
-      "Full Name",
-      "Badge No",
+      "Nama Pengguna",
+      "Nama Lengkap",
+      "No. Badge",
       "Email",
-      "Phone",
-      "Role",
+      "Telepon",
+      "Peran",
       "Status",
-      "Last Updated",
+      "Terakhir Diperbarui",
     ];
     const rows = getExportRows(users, formatDateTime);
 
     if (rows.length === 0) {
-      window.alert("No user data to export.");
+      window.alert("Tidak ada data pengguna untuk diekspor.");
       return;
     }
 
@@ -438,7 +438,7 @@ export function useV3MasterUser() {
 
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(14);
-    doc.text("Master Data Users", 14, 14);
+    doc.text("Master Data Pengguna", 14, 14);
     autoTable(doc, {
       head: [headers],
       body: rows,

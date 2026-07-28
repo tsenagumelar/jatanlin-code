@@ -27,7 +27,7 @@ function StatusPill({ isActive }: { isActive?: boolean | null }) {
           : "bg-slate-100 text-slate-500"
       }`}
     >
-      {isActive ? "Active" : "Inactive"}
+      {isActive ? "Aktif" : "Tidak Aktif"}
     </span>
   );
 }
@@ -37,9 +37,9 @@ export function V3VehicleClassesPage() {
 
   return (
     <V3DefaultPage
-      title="Vehicle Classes"
-      breadcrumbs={[{ label: "Master Data" }, { label: "Vehicle Classes" }]}
-      description="Manage vehicle class references, weights, dimensions, and active status."
+      title="Kelas Kendaraan"
+      breadcrumbs={[{ label: "Master Data" }, { label: "Kelas Kendaraan" }]}
+      description="Kelola referensi kelas kendaraan, berat, dimensi, dan status aktif."
     >
       {vehicleClass.error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -50,7 +50,7 @@ export function V3VehicleClassesPage() {
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(260px,1fr)_180px_auto_auto]">
           <label className="relative block">
-            <span className="sr-only">Search vehicle classes</span>
+            <span className="sr-only">Cari kelas kendaraan</span>
             <Search20Regular className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
@@ -58,7 +58,7 @@ export function V3VehicleClassesPage() {
               onChange={(event) =>
                 vehicleClass.updateFilter("search", event.target.value)
               }
-              placeholder="Search code, type, or description"
+              placeholder="Cari kode, tipe, atau deskripsi"
               className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
           </label>
@@ -70,9 +70,9 @@ export function V3VehicleClassesPage() {
             }
             className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
           >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="">Semua Status</option>
+            <option value="active">Aktif</option>
+            <option value="inactive">Tidak Aktif</option>
           </select>
 
           <div className="flex justify-end">
@@ -82,7 +82,7 @@ export function V3VehicleClassesPage() {
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
                 <TableSimple20Regular />
-                Export Data
+                Ekspor Data
               </button>
               <div className="invisible absolute right-0 top-12 z-20 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
                 <button
@@ -91,7 +91,7 @@ export function V3VehicleClassesPage() {
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <TableSimple20Regular />
-                  Export as CSV
+                  Ekspor sebagai CSV
                 </button>
                 <button
                   type="button"
@@ -99,7 +99,7 @@ export function V3VehicleClassesPage() {
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <DocumentPdf20Regular />
-                  Export as PDF
+                  Ekspor sebagai PDF
                 </button>
               </div>
             </div>
@@ -111,7 +111,7 @@ export function V3VehicleClassesPage() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-100"
           >
             <Add20Regular />
-            Add Vehicle Class
+            Tambah Kelas Kendaraan
           </button>
         </div>
       </div>
@@ -122,16 +122,16 @@ export function V3VehicleClassesPage() {
             <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
               <tr>
                 <th className="px-4 py-3">No</th>
-                <th className="px-4 py-3">Image</th>
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Description</th>
-                <th className="px-4 py-3">Total Axle</th>
-                <th className="px-4 py-3">Weight</th>
-                <th className="px-4 py-3">Dimensions</th>
+                <th className="px-4 py-3">Gambar</th>
+                <th className="px-4 py-3">Kode</th>
+                <th className="px-4 py-3">Tipe</th>
+                <th className="px-4 py-3">Deskripsi</th>
+                <th className="px-4 py-3">Total Sumbu</th>
+                <th className="px-4 py-3">Berat</th>
+                <th className="px-4 py-3">Dimensi</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Last Updated</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-4 py-3">Terakhir Diperbarui</th>
+                <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -186,7 +186,7 @@ export function V3VehicleClassesPage() {
                             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
                           >
                             <Edit20Regular />
-                            Edit
+                            Ubah
                           </button>
                           <button
                             type="button"
@@ -195,7 +195,7 @@ export function V3VehicleClassesPage() {
                             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Delete20Regular />
-                            Delete
+                            Hapus
                           </button>
                         </div>
                       </td>
@@ -207,8 +207,8 @@ export function V3VehicleClassesPage() {
                   <td colSpan={11} className="px-4 py-10 text-center">
                     <p className="text-sm font-semibold text-slate-500">
                       {vehicleClass.isLoading
-                        ? "Loading vehicle class data..."
-                        : "No vehicle class data available."}
+                        ? "Memuat data kelas kendaraan..."
+                        : "Data kelas kendaraan tidak tersedia."}
                     </p>
                   </td>
                 </tr>
@@ -219,13 +219,13 @@ export function V3VehicleClassesPage() {
 
         <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div className="font-semibold">
-            Showing {vehicleClass.startRow.toLocaleString("en-US")}-
-            {vehicleClass.endRow.toLocaleString("en-US")} of{" "}
-            {vehicleClass.totalCount.toLocaleString("en-US")}
+            Menampilkan {vehicleClass.startRow.toLocaleString("id-ID")}-
+            {vehicleClass.endRow.toLocaleString("id-ID")} dari{" "}
+            {vehicleClass.totalCount.toLocaleString("id-ID")}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 font-semibold">
-              <span>Rows per page</span>
+              <span>Baris per halaman</span>
               <select
                 value={vehicleClass.rowsPerPage}
                 onChange={(event) =>
@@ -240,8 +240,8 @@ export function V3VehicleClassesPage() {
               </select>
             </label>
             <span className="font-semibold">
-              Page {(vehicleClass.page + 1).toLocaleString("en-US")} of{" "}
-              {vehicleClass.totalPages.toLocaleString("en-US")}
+              Halaman {(vehicleClass.page + 1).toLocaleString("id-ID")} dari{" "}
+              {vehicleClass.totalPages.toLocaleString("id-ID")}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -250,7 +250,7 @@ export function V3VehicleClassesPage() {
                 disabled={vehicleClass.page === 0 || vehicleClass.isLoading}
                 className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Previous
+                Sebelumnya
               </button>
               <button
                 type="button"
@@ -262,7 +262,7 @@ export function V3VehicleClassesPage() {
                 }
                 className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Next
+                Berikutnya
               </button>
             </div>
           </div>
@@ -278,19 +278,19 @@ export function V3VehicleClassesPage() {
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                  Master Data Vehicle Classes
+                  Master Data Kelas Kendaraan
                 </p>
                 <h2 className="mt-1 text-lg font-bold text-slate-950">
                   {vehicleClass.modal.mode === "create"
-                    ? "Add Vehicle Class"
-                    : "Edit Vehicle Class"}
+                    ? "Tambah Kelas Kendaraan"
+                    : "Ubah Kelas Kendaraan"}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={vehicleClass.closeModal}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
-                aria-label="Close vehicle class form"
+                aria-label="Tutup formulir kelas kendaraan"
               >
                 <Dismiss24Regular />
               </button>
@@ -306,7 +306,7 @@ export function V3VehicleClassesPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Vehicle Type
+                    Tipe Kendaraan
                   </span>
                   <input
                     value={vehicleClass.formData.type}
@@ -318,7 +318,7 @@ export function V3VehicleClassesPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Total Axle
+                    Total Sumbu
                   </span>
                   <input
                     type="number"
@@ -332,7 +332,7 @@ export function V3VehicleClassesPage() {
 
                 <label className="block md:col-span-2">
                   <span className="text-sm font-semibold text-slate-700">
-                    Description
+                    Deskripsi
                   </span>
                   <textarea
                     value={vehicleClass.formData.description}
@@ -345,7 +345,7 @@ export function V3VehicleClassesPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Minimum Weight (kg)
+                    Berat Minimum (kg)
                   </span>
                   <input
                     type="number"
@@ -358,7 +358,7 @@ export function V3VehicleClassesPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Maximum Weight (kg)
+                    Berat Maksimum (kg)
                   </span>
                   <input
                     type="number"
@@ -371,7 +371,7 @@ export function V3VehicleClassesPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Length (m)
+                    Panjang (m)
                   </span>
                   <input
                     type="number"
@@ -385,7 +385,7 @@ export function V3VehicleClassesPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Width (m)
+                    Lebar (m)
                   </span>
                   <input
                     type="number"
@@ -399,7 +399,7 @@ export function V3VehicleClassesPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Height (m)
+                    Tinggi (m)
                   </span>
                   <input
                     type="number"
@@ -413,7 +413,7 @@ export function V3VehicleClassesPage() {
 
                 <div className="md:col-span-2">
                   <span className="text-sm font-semibold text-slate-700">
-                    Vehicle Image
+                    Gambar Kendaraan
                   </span>
                   <div className="mt-2 flex flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
                     <Avatar
@@ -428,11 +428,11 @@ export function V3VehicleClassesPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-slate-700">
-                        Upload a JPG or PNG vehicle image.
+                        Unggah gambar kendaraan JPG atau PNG.
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        Maximum file size is 5MB. The uploaded file path will be
-                        saved to the vehicle class.
+                        Ukuran file maksimal 5MB. Path file unggahan akan
+                        disimpan ke kelas kendaraan.
                       </p>
                       {vehicleClass.uploadError && (
                         <p className="mt-2 text-xs font-semibold text-red-600">
@@ -450,8 +450,8 @@ export function V3VehicleClassesPage() {
                       <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800">
                         <ArrowUpload20Regular />
                         {vehicleClass.isUploadingImage
-                          ? "Uploading..."
-                          : "Upload Image"}
+                          ? "Mengunggah..."
+                          : "Unggah Gambar"}
                         <input
                           type="file"
                           accept=".png,.jpg,.jpeg,image/png,image/jpeg"
@@ -469,7 +469,7 @@ export function V3VehicleClassesPage() {
                           onClick={() => vehicleClass.updateForm("image", "")}
                           className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                         >
-                          Remove
+                          Hapus
                         </button>
                       )}
                     </div>
@@ -484,7 +484,7 @@ export function V3VehicleClassesPage() {
                     className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-600"
                   />
                   <span className="text-sm font-semibold text-slate-700">
-                    Active vehicle class
+                    Kelas kendaraan aktif
                   </span>
                 </label>
               </div>
@@ -496,14 +496,14 @@ export function V3VehicleClassesPage() {
                 onClick={vehicleClass.closeModal}
                 className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="submit"
                 disabled={vehicleClass.isSubmitting}
                 className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {vehicleClass.isSubmitting ? "Saving..." : "Save Vehicle Class"}
+                {vehicleClass.isSubmitting ? "Menyimpan..." : "Simpan Kelas Kendaraan"}
               </button>
             </div>
           </form>

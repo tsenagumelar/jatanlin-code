@@ -24,7 +24,7 @@ function StatusPill({ isActive }: { isActive?: boolean | null }) {
           : "bg-slate-100 text-slate-500"
       }`}
     >
-      {isActive ? "Active" : "Inactive"}
+      {isActive ? "Aktif" : "Tidak Aktif"}
     </span>
   );
 }
@@ -34,9 +34,9 @@ export function V3MasterUserPage() {
 
   return (
     <V3DefaultPage
-      title="User"
-      breadcrumbs={[{ label: "Master Data" }, { label: "User" }]}
-      description="Manage user accounts, roles, contact information, and account status."
+      title="Pengguna"
+      breadcrumbs={[{ label: "Master Data" }, { label: "Pengguna" }]}
+      description="Kelola akun pengguna, peran, informasi kontak, dan status akun."
     >
       {user.error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -47,7 +47,7 @@ export function V3MasterUserPage() {
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(260px,1fr)_220px_180px_auto_auto]">
           <label className="relative block">
-            <span className="sr-only">Search user</span>
+            <span className="sr-only">Cari pengguna</span>
             <Search20Regular className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
@@ -55,7 +55,7 @@ export function V3MasterUserPage() {
               onChange={(event) =>
                 user.updateFilter("search", event.target.value)
               }
-              placeholder="Search username, full name, badge, or email"
+              placeholder="Cari nama pengguna, nama lengkap, badge, atau email"
               className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
           </label>
@@ -67,7 +67,7 @@ export function V3MasterUserPage() {
             }
             className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
           >
-            <option value="">All Roles</option>
+            <option value="">Semua Peran</option>
             {user.roles.map((role) => (
               <option key={role.id} value={role.id}>
                 {role.role_name}
@@ -82,9 +82,9 @@ export function V3MasterUserPage() {
             }
             className="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
           >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="">Semua Status</option>
+            <option value="active">Aktif</option>
+            <option value="inactive">Tidak Aktif</option>
           </select>
 
           <div className="flex justify-end">
@@ -94,7 +94,7 @@ export function V3MasterUserPage() {
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
                 <TableSimple20Regular />
-                Export Data
+                Ekspor Data
               </button>
               <div className="invisible absolute right-0 top-12 z-20 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
                 <button
@@ -103,7 +103,7 @@ export function V3MasterUserPage() {
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <TableSimple20Regular />
-                  Export as CSV
+                  Ekspor sebagai CSV
                 </button>
                 <button
                   type="button"
@@ -111,7 +111,7 @@ export function V3MasterUserPage() {
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <DocumentPdf20Regular />
-                  Export as PDF
+                  Ekspor sebagai PDF
                 </button>
               </div>
             </div>
@@ -123,7 +123,7 @@ export function V3MasterUserPage() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-100"
           >
             <Add20Regular />
-            Add New User
+            Tambah Pengguna Baru
           </button>
         </div>
       </div>
@@ -134,16 +134,16 @@ export function V3MasterUserPage() {
             <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
               <tr>
                 <th className="px-4 py-3">No</th>
-                <th className="px-4 py-3">Photo</th>
-                <th className="px-4 py-3">Username</th>
-                <th className="px-4 py-3">Full Name</th>
-                <th className="px-4 py-3">Badge No</th>
+                <th className="px-4 py-3">Foto</th>
+                <th className="px-4 py-3">Nama Pengguna</th>
+                <th className="px-4 py-3">Nama Lengkap</th>
+                <th className="px-4 py-3">No. Badge</th>
                 <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Telepon</th>
+                <th className="px-4 py-3">Peran</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Last Updated</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-4 py-3">Terakhir Diperbarui</th>
+                <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -197,7 +197,7 @@ export function V3MasterUserPage() {
                           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
                         >
                           <Edit20Regular />
-                          Edit
+                          Ubah
                         </button>
                         <button
                           type="button"
@@ -206,7 +206,7 @@ export function V3MasterUserPage() {
                           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <Delete20Regular />
-                          Delete
+                          Hapus
                         </button>
                       </div>
                     </td>
@@ -217,8 +217,8 @@ export function V3MasterUserPage() {
                   <td colSpan={11} className="px-4 py-10 text-center">
                     <p className="text-sm font-semibold text-slate-500">
                       {user.isLoading
-                        ? "Loading user data..."
-                        : "No user data available."}
+                        ? "Memuat data pengguna..."
+                        : "Data pengguna tidak tersedia."}
                     </p>
                   </td>
                 </tr>
@@ -228,13 +228,13 @@ export function V3MasterUserPage() {
         </div>
         <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div className="font-semibold">
-            Showing {user.startRow.toLocaleString("en-US")}-
-            {user.endRow.toLocaleString("en-US")} of{" "}
-            {user.totalCount.toLocaleString("en-US")}
+            Menampilkan {user.startRow.toLocaleString("id-ID")}-
+            {user.endRow.toLocaleString("id-ID")} dari{" "}
+            {user.totalCount.toLocaleString("id-ID")}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 font-semibold">
-              <span>Rows per page</span>
+              <span>Baris per halaman</span>
               <select
                 value={user.rowsPerPage}
                 onChange={(event) => user.changeRowsPerPage(event.target.value)}
@@ -247,8 +247,8 @@ export function V3MasterUserPage() {
               </select>
             </label>
             <span className="font-semibold">
-              Page {(user.page + 1).toLocaleString("en-US")} of{" "}
-              {user.totalPages.toLocaleString("en-US")}
+              Halaman {(user.page + 1).toLocaleString("id-ID")} dari{" "}
+              {user.totalPages.toLocaleString("id-ID")}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -257,7 +257,7 @@ export function V3MasterUserPage() {
                 disabled={user.page === 0 || user.isLoading}
                 className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Previous
+                Sebelumnya
               </button>
               <button
                 type="button"
@@ -269,7 +269,7 @@ export function V3MasterUserPage() {
                 }
                 className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Next
+                Berikutnya
               </button>
             </div>
           </div>
@@ -285,17 +285,17 @@ export function V3MasterUserPage() {
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                  Master Data User
+                  Master Data Pengguna
                 </p>
                 <h2 className="mt-1 text-lg font-bold text-slate-950">
-                  {user.modal.mode === "create" ? "Add New User" : "Edit User"}
+                  {user.modal.mode === "create" ? "Tambah Pengguna Baru" : "Ubah Pengguna"}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={user.closeModal}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
-                aria-label="Close user form"
+                aria-label="Tutup formulir pengguna"
               >
                 <Dismiss24Regular />
               </button>
@@ -311,7 +311,7 @@ export function V3MasterUserPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Username
+                    Nama Pengguna
                   </span>
                   <input
                     value={user.formData.username}
@@ -324,7 +324,7 @@ export function V3MasterUserPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Full Name
+                    Nama Lengkap
                   </span>
                   <input
                     value={user.formData.fullName}
@@ -336,7 +336,7 @@ export function V3MasterUserPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Badge No
+                    No. Badge
                   </span>
                   <input
                     value={user.formData.badgeNo}
@@ -359,7 +359,7 @@ export function V3MasterUserPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Phone
+                    Telepon
                   </span>
                   <input
                     value={user.formData.phone}
@@ -370,7 +370,7 @@ export function V3MasterUserPage() {
 
                 <label className="block">
                   <span className="text-sm font-semibold text-slate-700">
-                    Role
+                    Peran
                   </span>
                   <select
                     value={user.formData.roleId}
@@ -378,7 +378,7 @@ export function V3MasterUserPage() {
                     required
                     className="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
                   >
-                    <option value="">Select role</option>
+                    <option value="">Pilih peran</option>
                     {user.roles.map((role) => (
                       <option key={role.id} value={role.id}>
                         {role.role_name}
@@ -389,7 +389,7 @@ export function V3MasterUserPage() {
 
                 <div className="md:col-span-2">
                   <span className="text-sm font-semibold text-slate-700">
-                    Profile Photo
+                    Foto Profil
                   </span>
                   <div className="mt-2 flex flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
                     <Avatar
@@ -402,11 +402,11 @@ export function V3MasterUserPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-slate-700">
-                        Upload a JPG or PNG profile photo.
+                        Unggah foto profil JPG atau PNG.
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        Maximum file size is 5MB. The uploaded file path will be
-                        saved to the user profile.
+                        Ukuran file maksimal 5MB. Path file unggahan akan
+                        disimpan ke profil pengguna.
                       </p>
                       {user.uploadError && (
                         <p className="mt-2 text-xs font-semibold text-red-600">
@@ -422,7 +422,7 @@ export function V3MasterUserPage() {
                     <div className="flex flex-wrap gap-2">
                       <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800">
                         <ArrowUpload20Regular />
-                        {user.isUploadingPhoto ? "Uploading..." : "Upload Image"}
+                        {user.isUploadingPhoto ? "Mengunggah..." : "Unggah Gambar"}
                         <input
                           type="file"
                           accept=".png,.jpg,.jpeg,image/png,image/jpeg"
@@ -437,7 +437,7 @@ export function V3MasterUserPage() {
                           onClick={() => user.updateForm("profilePicture", "")}
                           className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                         >
-                          Remove
+                          Hapus
                         </button>
                       )}
                     </div>
@@ -447,8 +447,8 @@ export function V3MasterUserPage() {
                 <label className="block md:col-span-2">
                   <span className="text-sm font-semibold text-slate-700">
                     {user.modal.mode === "create"
-                      ? "Password"
-                      : "Password (optional)"}
+                      ? "Kata Sandi"
+                      : "Kata sandi (opsional)"}
                   </span>
                   <input
                     type="password"
@@ -457,8 +457,8 @@ export function V3MasterUserPage() {
                     required={user.modal.mode === "create"}
                     placeholder={
                       user.modal.mode === "create"
-                        ? "Enter password"
-                        : "Leave blank to keep current password"
+                        ? "Masukkan kata sandi"
+                        : "Kosongkan untuk mempertahankan kata sandi saat ini"
                     }
                     className="mt-2 h-11 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
                   />
@@ -472,7 +472,7 @@ export function V3MasterUserPage() {
                     className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-600"
                   />
                   <span className="text-sm font-semibold text-slate-700">
-                    Active user
+                    Pengguna aktif
                   </span>
                 </label>
               </div>
@@ -484,14 +484,14 @@ export function V3MasterUserPage() {
                 onClick={user.closeModal}
                 className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="submit"
                 disabled={user.isSubmitting}
                 className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {user.isSubmitting ? "Saving..." : "Save User"}
+                {user.isSubmitting ? "Menyimpan..." : "Simpan Pengguna"}
               </button>
             </div>
           </form>

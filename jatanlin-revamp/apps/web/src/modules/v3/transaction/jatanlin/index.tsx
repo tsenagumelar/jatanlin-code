@@ -21,8 +21,8 @@ export function V3JatanlinPage() {
   return (
     <V3DefaultPage
       title="Jatanlin"
-      breadcrumbs={[{ label: "Transaction" }, { label: "Jatanlin" }]}
-      description="Monitor vehicle transaction records and continue verification workflow."
+      breadcrumbs={[{ label: "Transaksi" }, { label: "Jatanlin" }]}
+      description="Pantau catatan transaksi kendaraan dan lanjutkan alur verifikasi."
     >
       {jatanlin.error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -38,10 +38,10 @@ export function V3JatanlinPage() {
             </div>
             <div>
               <p className="text-base font-extrabold text-slate-950">
-                Transaction List
+                Daftar Transaksi
               </p>
               <p className="text-sm font-semibold text-slate-500">
-                {jatanlin.totalCount.toLocaleString("en-US")} records found
+                {jatanlin.totalCount.toLocaleString("id-ID")} data ditemukan
               </p>
             </div>
           </div>
@@ -51,13 +51,13 @@ export function V3JatanlinPage() {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 text-sm font-bold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-100"
           >
             <Play20Regular />
-            Start System / Processing
+            Mulai Sistem / Pemrosesan
           </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-2 p-3 xl:grid-cols-[minmax(240px,1fr)_190px_155px_155px_auto]">
           <label className="relative block">
-            <span className="sr-only">Search Jatanlin</span>
+            <span className="sr-only">Cari Jatanlin</span>
             <Search20Regular className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
@@ -65,7 +65,7 @@ export function V3JatanlinPage() {
               onChange={(event) =>
                 jatanlin.updateFilter("search", event.target.value)
               }
-              placeholder="Search plate number"
+              placeholder="Cari nomor plat"
               className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
           </label>
@@ -109,7 +109,7 @@ export function V3JatanlinPage() {
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
                 <TableSimple20Regular />
-                Export Data
+                Ekspor Data
               </button>
               <div className="invisible absolute right-0 top-12 z-20 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
                 <button
@@ -118,7 +118,7 @@ export function V3JatanlinPage() {
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <TableSimple20Regular />
-                  Export as CSV
+                  Ekspor sebagai CSV
                 </button>
                 <button
                   type="button"
@@ -126,7 +126,7 @@ export function V3JatanlinPage() {
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <DocumentPdf20Regular />
-                  Export as PDF
+                  Ekspor sebagai PDF
                 </button>
               </div>
             </div>
@@ -139,7 +139,7 @@ export function V3JatanlinPage() {
             onClick={jatanlin.resetDates}
             className="mx-3 mb-3 text-xs font-bold text-red-600 hover:text-red-700"
           >
-            Reset date filter
+            Reset filter tanggal
           </button>
         )}
       </div>
@@ -150,16 +150,16 @@ export function V3JatanlinPage() {
             <thead className="sticky top-0 z-10 bg-slate-50 text-xs font-bold uppercase tracking-[0.1em] text-slate-400 shadow-[inset_0_-1px_0_#e2e8f0]">
               <tr>
                 <th className="px-3 py-2">No</th>
-                <th className="px-3 py-2">Photo</th>
-                <th className="px-3 py-2">Plate No</th>
-                <th className="px-3 py-2">Time</th>
-                <th className="px-3 py-2">Location</th>
-                <th className="px-3 py-2">Axle</th>
-                <th className="px-3 py-2">Weight</th>
-                <th className="px-3 py-2">Dimensions</th>
-                <th className="px-3 py-2">Violation</th>
+                <th className="px-3 py-2">Foto</th>
+                <th className="px-3 py-2">No. Plat</th>
+                <th className="px-3 py-2">Waktu</th>
+                <th className="px-3 py-2">Lokasi</th>
+                <th className="px-3 py-2">Sumbu</th>
+                <th className="px-3 py-2">Berat</th>
+                <th className="px-3 py-2">Dimensi</th>
+                <th className="px-3 py-2">Pelanggaran</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2 text-right">Action</th>
+                <th className="px-3 py-2 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -211,7 +211,7 @@ export function V3JatanlinPage() {
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-bold ${jatanlin.getViolationTone(row.violationType)}`}
                         >
-                          {row.violationType}
+                          {jatanlin.getViolationLabel(row.violationType)}
                         </span>
                       </td>
                       <td className="px-3 py-2">
@@ -228,7 +228,7 @@ export function V3JatanlinPage() {
                             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
                           >
                             <ArrowRight20Regular />
-                            View
+                            Lihat
                           </Link>
                           {(row.latestStatus === "pending" ||
                             row.latestStatus === "draft") && (
@@ -237,7 +237,7 @@ export function V3JatanlinPage() {
                               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
                             >
                               <CheckmarkCircle20Regular />
-                              Verify
+                              Verifikasi
                             </Link>
                           )}
                           {jatanlin.isAdmin && (
@@ -248,7 +248,7 @@ export function V3JatanlinPage() {
                               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               <Delete20Regular />
-                              {jatanlin.isDeleting ? "Deleting..." : "Delete"}
+                              {jatanlin.isDeleting ? "Menghapus..." : "Hapus"}
                             </button>
                           )}
                         </div>
@@ -261,8 +261,8 @@ export function V3JatanlinPage() {
                   <td colSpan={11} className="px-4 py-10 text-center">
                     <p className="text-sm font-semibold text-slate-500">
                       {jatanlin.isLoading
-                        ? "Loading Jatanlin data..."
-                        : "No Jatanlin data available."}
+                        ? "Memuat data Jatanlin..."
+                        : "Data Jatanlin tidak tersedia."}
                     </p>
                   </td>
                 </tr>
@@ -273,14 +273,14 @@ export function V3JatanlinPage() {
 
         <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div className="font-semibold">
-            Showing {jatanlin.startRow.toLocaleString("en-US")}-
-            {jatanlin.endRow.toLocaleString("en-US")} of{" "}
-            {jatanlin.totalCount.toLocaleString("en-US")}
+            Menampilkan {jatanlin.startRow.toLocaleString("id-ID")}-
+            {jatanlin.endRow.toLocaleString("id-ID")} dari{" "}
+            {jatanlin.totalCount.toLocaleString("id-ID")}
           </div>
           <div className="flex items-center gap-3">
             <span className="font-semibold">
-              Page {(jatanlin.page + 1).toLocaleString("en-US")} of{" "}
-              {jatanlin.totalPages.toLocaleString("en-US")}
+              Halaman {(jatanlin.page + 1).toLocaleString("id-ID")} dari{" "}
+              {jatanlin.totalPages.toLocaleString("id-ID")}
             </span>
             <button
               type="button"
@@ -288,7 +288,7 @@ export function V3JatanlinPage() {
               disabled={jatanlin.page === 0 || jatanlin.isLoading}
               className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Previous
+              Sebelumnya
             </button>
             <button
               type="button"
@@ -304,7 +304,7 @@ export function V3JatanlinPage() {
               }
               className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Next
+              Berikutnya
             </button>
           </div>
         </div>
@@ -314,7 +314,7 @@ export function V3JatanlinPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
           <button
             type="button"
-            aria-label="Close delete confirmation"
+            aria-label="Tutup konfirmasi hapus"
             onClick={jatanlin.closeDeleteModal}
             disabled={jatanlin.isDeleting}
             className="absolute inset-0 cursor-default"
@@ -332,10 +332,10 @@ export function V3JatanlinPage() {
                 </div>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-red-700">
-                    Delete Transaction
+                    Hapus Transaksi
                   </p>
                   <h2 id="delete-transaction-title" className="mt-1 text-lg font-bold text-slate-950">
-                    Delete {jatanlin.getPlate(jatanlin.deleteTarget)}?
+                    Hapus {jatanlin.getPlate(jatanlin.deleteTarget)}?
                   </h2>
                 </div>
               </div>
@@ -344,14 +344,14 @@ export function V3JatanlinPage() {
                 onClick={jatanlin.closeDeleteModal}
                 disabled={jatanlin.isDeleting}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Close delete confirmation"
+                aria-label="Tutup konfirmasi hapus"
               >
                 <Dismiss24Regular />
               </button>
             </div>
             <div className="px-5 py-4">
               <p className="text-sm font-semibold leading-6 text-slate-600">
-                This transaction will be removed from the active list and can no longer be processed from this page.
+                Transaksi ini akan dihapus dari daftar aktif dan tidak dapat lagi diproses dari halaman ini.
               </p>
             </div>
             <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
@@ -361,7 +361,7 @@ export function V3JatanlinPage() {
                 disabled={jatanlin.isDeleting}
                 className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="button"
@@ -370,7 +370,7 @@ export function V3JatanlinPage() {
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-red-300"
               >
                 <Delete20Regular />
-                {jatanlin.isDeleting ? "Deleting..." : "Delete Transaction"}
+                {jatanlin.isDeleting ? "Menghapus..." : "Hapus Transaksi"}
               </button>
             </div>
           </section>

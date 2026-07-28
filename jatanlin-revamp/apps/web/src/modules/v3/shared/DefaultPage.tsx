@@ -22,7 +22,7 @@ export function V3DefaultPage({
   description,
   children,
 }: V3DefaultPageProps) {
-  const lastUpdated = new Date().toLocaleString("en-US", {
+  const lastUpdated = new Date().toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -73,7 +73,7 @@ export function V3DefaultPage({
 
         <div className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-500 shadow-sm">
           <ArrowClockwise20Regular className="h-4 w-4 text-blue-700" />
-          <span>Last updated</span>
+          <span>Terakhir diperbarui</span>
           <span className="text-slate-800">{lastUpdated}</span>
         </div>
       </header>
@@ -81,8 +81,8 @@ export function V3DefaultPage({
       {children || (
         <div className="min-h-[520px] w-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-medium text-slate-500">
-            The {title} page is available in v3 routing. Feature implementation
-            will continue according to the specification.
+            Halaman {title} tersedia di routing v3. Implementasi fitur akan
+            dilanjutkan sesuai spesifikasi.
           </p>
         </div>
       )}

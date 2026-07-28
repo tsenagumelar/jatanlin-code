@@ -12,13 +12,13 @@ export default function V3JatanlinVerifyPage({
   const { id } = use(params);
   return (
     <V3DefaultPage
-      title="Jatanlin Verification"
+      title="Verifikasi Jatanlin"
       breadcrumbs={[
-        { label: "Transaction" },
+        { label: "Transaksi" },
         { label: "Jatanlin", href: "/transaction/jatanlin" },
-        { label: "Verify" },
+        { label: "Verifikasi" },
       ]}
-      description="Verify source data, actual vehicle data, evidence, and violation result."
+      description="Verifikasi data sumber, data aktual kendaraan, bukti, dan hasil pelanggaran."
     >
       <div className="v3-legacy-page v3-jatanlin-workflow h-full">
         <JatanlinVerifyModule id={id} hideHeader />

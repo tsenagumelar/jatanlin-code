@@ -106,6 +106,7 @@ export function V3LicenseGate({ children }: { children: ReactNode }) {
       !isAdmin &&
       pathname !== "/login",
   );
+  const lockMessage = licenseChecked?.message || "Lisensi USB belum ditemukan.";
 
   return (
     <>
@@ -127,7 +128,7 @@ export function V3LicenseGate({ children }: { children: ReactNode }) {
                   atau logout dari sesi ini.
                 </p>
                 <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
-                  {rescanMessage || licenseChecked.message}
+                  {rescanMessage || lockMessage}
                 </p>
               </div>
             </div>
@@ -138,7 +139,7 @@ export function V3LicenseGate({ children }: { children: ReactNode }) {
                 onClick={handleLogout}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
               >
-                Logout
+                Keluar
               </button>
               <button
                 type="button"
@@ -146,7 +147,7 @@ export function V3LicenseGate({ children }: { children: ReactNode }) {
                 disabled={isRescanning}
                 className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
-                {isRescanning ? "Scanning..." : "Rescan USB"}
+                {isRescanning ? "Memindai..." : "Pindai Ulang USB"}
               </button>
             </div>
           </div>

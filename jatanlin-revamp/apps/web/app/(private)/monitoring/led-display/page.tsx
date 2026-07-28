@@ -58,7 +58,7 @@ export default function LedDisplayPage() {
   const ledStepsRef = useRef<LedStep[]>([]);
   const previousStartedRef = useRef(false);
 
-  const weightMetric = processing.metrics.find((metric) => metric.label === "Weight");
+  const weightMetric = processing.metrics.find((metric) => metric.label === "Berat");
   const lengthMetric = processing.metrics.find((metric) => metric.label === "Length");
   const widthMetric = processing.metrics.find((metric) => metric.label === "Width");
   const heightMetric = processing.metrics.find((metric) => metric.label === "Height");
@@ -460,9 +460,9 @@ export default function LedDisplayPage() {
 
   return (
     <V3DefaultPage
-      title="LED Display"
-      breadcrumbs={[{ label: "Monitoring" }, { label: "LED Display" }]}
-      description="Step-by-step external LED display for active processing."
+      title="Tampilan LED"
+      breadcrumbs={[{ label: "Monitoring" }, { label: "Tampilan LED" }]}
+      description="Tampilan LED eksternal bertahap untuk pemrosesan aktif."
     >
       {content}
     </V3DefaultPage>

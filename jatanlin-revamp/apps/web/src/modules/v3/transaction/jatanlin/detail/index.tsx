@@ -120,13 +120,13 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
 
   return (
     <V3DefaultPage
-      title="Jatanlin Detail"
+      title="Detail Jatanlin"
       breadcrumbs={[
-        { label: "Transaction" },
+        { label: "Transaksi" },
         { label: "Jatanlin", href: "/transaction/jatanlin" },
         { label: "Detail" },
       ]}
-      description="Review vehicle transaction data, evidence, and verification status."
+      description="Tinjau data transaksi kendaraan, bukti, dan status verifikasi."
     >
       {detail.error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -136,16 +136,16 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
 
       {detail.isLoading && !detail.record ? (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500 shadow-sm">
-          Loading Jatanlin detail...
+          Memuat detail Jatanlin...
         </div>
       ) : !detail.record ? (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <VehicleTruckProfile24Regular className="mx-auto mb-3 h-8 w-8 text-slate-300" />
           <p className="text-base font-bold text-slate-900">
-            Transaction not found
+            Transaksi tidak ditemukan
           </p>
           <p className="mt-1 text-sm font-medium text-slate-500">
-            The selected Jatanlin transaction could not be loaded.
+            Transaksi Jatanlin yang dipilih tidak dapat dimuat.
           </p>
         </div>
       ) : (
@@ -164,7 +164,7 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-bold ${detail.getViolationTone(detail.violation)}`}
                     >
-                      {detail.violation}
+                      {detail.getViolationLabel(detail.violation)}
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-bold ${detail.getStatusTone(detail.latestStatus?.status)}`}
@@ -173,7 +173,7 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                     </span>
                   </div>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Created {detail.formatDateTime(detail.record.created_date)}
+                    Dibuat {detail.formatDateTime(detail.record.created_date)}
                   </p>
                 </div>
               </div>
@@ -184,7 +184,7 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
                   <ArrowLeft20Regular />
-                  Back
+                  Kembali
                 </Link>
                 {canPrintViolation && (
                   <button
@@ -199,7 +199,7 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800"
                   >
                     <Print20Regular />
-                    Print Violation
+                    Cetak Pelanggaran
                   </button>
                 )}
                 {(detail.latestStatus?.status === "pending" ||
@@ -210,7 +210,7 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800"
                   >
                     <CheckmarkCircle20Regular />
-                    Verify
+                    Verifikasi
                   </Link>
                 )}
               </div>
@@ -238,8 +238,8 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <SectionCard
-              title="Evidence Preview"
-              subtitle="Captured media from ANPR, axle, and CCTV devices."
+              title="Pratinjau Bukti"
+              subtitle="Media tangkapan dari perangkat ANPR, sumbu, dan CCTV."
             >
               {detail.mediaItems.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -249,17 +249,17 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-slate-500">
-                  No evidence media available.
+                  Media bukti tidak tersedia.
                 </div>
               )}
             </SectionCard>
 
             <div className="space-y-4">
-              <SectionCard title="Transaction Summary">
+              <SectionCard title="Ringkasan Transaksi">
                 <FieldGrid fields={detail.summaryFields} />
               </SectionCard>
 
-              <SectionCard title="Latest Verification">
+              <SectionCard title="Verifikasi Terbaru">
                 <div className="space-y-3">
                   <div>
                     <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
@@ -274,11 +274,11 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                   <FieldGrid
                     fields={[
                       {
-                        label: "Result",
-                        value: detail.latestStatus?.result || detail.violation,
+                        label: "Hasil",
+                        value: detail.getViolationLabel(detail.latestStatus?.result || detail.violation),
                       },
                       {
-                        label: "Notes",
+                        label: "Catatan",
                         value: detail.latestStatus?.notes || "-",
                       },
                     ]}
@@ -289,15 +289,15 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
           </div>
 
           <SectionCard
-            title="Source Data"
-            subtitle="Read-only data from each connected device."
+            title="Data Sumber"
+            subtitle="Data baca-saja dari setiap perangkat yang terhubung."
           >
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <SourceBlock title="ANPR" fields={detail.sourceFields.anpr} />
-              <SourceBlock title="Axle" fields={detail.sourceFields.axle} />
+              <SourceBlock title="Sumbu" fields={detail.sourceFields.axle} />
               <SourceBlock title="WIM" fields={detail.sourceFields.wim} />
               <SourceBlock
-                title="Dimension"
+                title="Dimensi"
                 fields={detail.sourceFields.dimension}
               />
             </div>
@@ -306,10 +306,10 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-4 py-3">
               <p className="text-base font-extrabold text-slate-950">
-                Status History
+                Riwayat Status
               </p>
               <p className="mt-0.5 text-sm font-medium text-slate-500">
-                Verification trail for this transaction.
+                Jejak verifikasi untuk transaksi ini.
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -317,10 +317,10 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                 <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
                   <tr>
                     <th className="px-4 py-3">No</th>
-                    <th className="px-4 py-3">Time</th>
+                    <th className="px-4 py-3">Waktu</th>
                     <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Result</th>
-                    <th className="px-4 py-3">Notes</th>
+                    <th className="px-4 py-3">Hasil</th>
+                    <th className="px-4 py-3">Catatan</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -341,7 +341,7 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-semibold text-slate-700">
-                          {status.result || "-"}
+                          {status.result ? detail.getViolationLabel(status.result) : "-"}
                         </td>
                         <td className="px-4 py-3 text-slate-600">
                           {status.notes || "-"}
@@ -351,7 +351,7 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                   ) : (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-sm font-semibold text-slate-500">
-                        No status history available.
+                        Riwayat status tidak tersedia.
                       </td>
                     </tr>
                   )}

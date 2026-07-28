@@ -73,9 +73,9 @@ type UnitRow = {
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "overview", label: "Peta Unit" },
-  { id: "transactions", label: "Transactions" },
-  { id: "sites", label: "Sites" },
-  { id: "analytics", label: "Analytics" },
+  { id: "transactions", label: "Transaksi" },
+  { id: "sites", label: "Situs" },
+  { id: "analytics", label: "Analitik" },
 ];
 
 const fallbackCoordinates = [
@@ -127,7 +127,7 @@ function displayDateRange(start: string, end: string) {
       month: "short",
       year: "numeric",
     });
-  return `${format(start)} - ${format(end)}`;
+  return `${format(start)} sampai ${format(end)}`;
 }
 
 function minutesAgo(value: string | null) {
@@ -140,12 +140,12 @@ function minutesAgo(value: string | null) {
 
 function relativeTime(value: string | null) {
   const minutes = minutesAgo(value);
-  if (!Number.isFinite(minutes)) return "never";
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (!Number.isFinite(minutes)) return "belum pernah";
+  if (minutes < 1) return "baru saja";
+  if (minutes < 60) return `${minutes} menit lalu`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
 }
 
 function healthScore(unit: {
@@ -164,21 +164,28 @@ function healthScore(unit: {
 function statusStyle(status: SiteStatus) {
   return {
     online: {
-      label: "Online",
+      label: "Aktif",
       dot: "bg-emerald-500",
       chip: "border-emerald-200 bg-emerald-50 text-emerald-700",
     },
     warning: {
-      label: "Warning",
+      label: "Peringatan",
       dot: "bg-amber-500",
       chip: "border-amber-200 bg-amber-50 text-amber-700",
     },
     offline: {
-      label: "Offline",
+      label: "Tidak Aktif",
       dot: "bg-red-500",
       chip: "border-red-200 bg-red-50 text-red-700",
     },
   }[status];
+}
+
+function verificationStatusLabel(status?: string | null) {
+  if (status === "verified") return "Terverifikasi";
+  if (status === "rejected") return "Ditolak";
+  if (status === "draft") return "Draf";
+  return "Menunggu";
 }
 
 function KpiTile({
@@ -399,10 +406,10 @@ function CommandMap({
               <div style="font-weight:900;font-size:14px;color:#0f172a">${unit.name}</div>
               <div style="font-size:12px;color:#64748b;margin-top:2px">${unit.code} - ${unit.city}, ${unit.province}</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px">
-                <div><span style="color:#64748b">Health</span><br/><strong>${unit.healthScore}%</strong></div>
-                <div><span style="color:#64748b">Transactions</span><br/><strong>${unit.totalToday}</strong></div>
-                <div><span style="color:#64748b">Violations</span><br/><strong style="color:#dc2626">${unit.violations}</strong></div>
-                <div><span style="color:#64748b">Sync</span><br/><strong>${unit.lastSyncLabel}</strong></div>
+                <div><span style="color:#64748b">Kesehatan</span><br/><strong>${unit.healthScore}%</strong></div>
+                <div><span style="color:#64748b">Transaksi</span><br/><strong>${unit.totalToday}</strong></div>
+                <div><span style="color:#64748b">Pelanggaran</span><br/><strong style="color:#dc2626">${unit.violations}</strong></div>
+                <div><span style="color:#64748b">Sinkronisasi</span><br/><strong>${unit.lastSyncLabel}</strong></div>
               </div>
               <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155">
                 Operator: <strong>${unit.operatorName}</strong>
@@ -457,24 +464,24 @@ function CommandMap({
       <div ref={mapRef} className="h-full w-full" />
       <div className="absolute left-4 top-4 z-[1000] rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
         <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-          {mode === "transactions" ? "Enforcement Map" : "Site Health Map"}
+          {mode === "transactions" ? "Peta Penindakan" : "Peta Kesehatan Situs"}
         </p>
         <p className="mt-1 text-sm font-semibold text-slate-700">
-          Marker: {mode === "transactions" ? "violation count" : "health score"}
+          Penanda: {mode === "transactions" ? "jumlah pelanggaran" : "skor kesehatan"}
         </p>
       </div>
       <div className="absolute right-4 top-4 z-[1000] flex items-center gap-4 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 text-sm font-bold shadow-sm backdrop-blur">
         <span className="flex items-center gap-1.5 text-emerald-700">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          Online
+          Aktif
         </span>
         <span className="flex items-center gap-1.5 text-amber-700">
           <span className="h-2 w-2 rounded-full bg-amber-500" />
-          Warning
+          Peringatan
         </span>
         <span className="flex items-center gap-1.5 text-red-700">
           <span className="h-2 w-2 rounded-full bg-red-500" />
-          Critical
+          Kritis
         </span>
       </div>
     </div>
@@ -736,44 +743,44 @@ export default function DataCenterPage() {
   const operationalKpiGrid = (
     <section className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
       <KpiTile
-        label="Sites Online"
+        label="Situs Aktif"
         value={`${activeCount}/${totalSites}`}
-        detail={`${onlineRate}% active`}
+        detail={`${onlineRate}% aktif`}
         tone="blue"
         icon="site"
       />
       <KpiTile
-        label="Vehicles in Range"
+        label="Kendaraan dalam Rentang"
         value={totalVehicles}
         detail={dateRangeLabel}
         tone="green"
         icon="vehicle"
       />
       <KpiTile
-        label="Violation Rate"
+        label="Rasio Pelanggaran"
         value={`${violationRate}%`}
         detail={`${totalViolations} dari ${totalVehicles} periode`}
         tone="red"
         icon="rate"
       />
       <KpiTile
-        label="Sync Healthy"
+        label="Sinkronisasi Sehat"
         value={`${syncHealthyCount}/${totalSites}`}
-        detail={`${syncHealthyRate}% under 15m`}
+        detail={`${syncHealthyRate}% di bawah 15 menit`}
         tone="green"
         icon="sync"
       />
       <KpiTile
-        label="Critical Sites"
+        label="Situs Kritis"
         value={criticalSites}
-        detail="offline / delayed"
+        detail="tidak aktif / terlambat"
         tone={criticalSites > 0 ? "amber" : "slate"}
         icon="critical"
       />
       <KpiTile
-        label="Last Data"
+        label="Data Terakhir"
         value={lastDataSite?.lastSyncLabel ?? "-"}
-        detail={lastDataSite?.code ?? "no data"}
+        detail={lastDataSite?.code ?? "tidak ada data"}
         tone="slate"
         icon="last"
       />
@@ -788,7 +795,7 @@ export default function DataCenterPage() {
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-black tracking-tight">Data Center</h1>
               <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-blue-700">
-                Command Center
+                Pusat Komando
               </span>
             </div>
             <p className="mt-1 text-sm font-semibold text-slate-500">
@@ -810,7 +817,7 @@ export default function DataCenterPage() {
           <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">
-                Range
+                Rentang
               </span>
               <input
                 type="date"
@@ -824,7 +831,7 @@ export default function DataCenterPage() {
                 }
                 className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-400"
               />
-              <span className="text-sm font-black text-slate-400">to</span>
+              <span className="text-sm font-black text-slate-400">sampai</span>
               <input
                 type="date"
                 value={dateRange.end}
@@ -841,14 +848,14 @@ export default function DataCenterPage() {
             </div>
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700">
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
-              {activeCount} online
+              {activeCount} aktif
             </span>
             <button
               type="button"
               onClick={logout}
               className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-50"
             >
-              Logout
+              Keluar
             </button>
           </div>
         </div>
@@ -924,12 +931,12 @@ export default function DataCenterPage() {
                     <option value="all">Semua Status</option>
                     <option value="online">Aktif</option>
                     <option value="warning">Peringatan</option>
-                    <option value="offline">Offline</option>
+                    <option value="offline">Tidak Aktif</option>
                   </select>
                   <button
                     type="button"
                     className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-black text-slate-400"
-                    title="Download"
+                    title="Unduh"
                   >
                     DL
                   </button>
@@ -1026,7 +1033,7 @@ export default function DataCenterPage() {
                                   : "text-slate-400"
                               }`}
                             >
-                              {unit.status === "online" ? "Online" : "Offline"}
+                              {unit.status === "online" ? "Aktif" : "Tidak Aktif"}
                             </p>
                           </td>
                           <td className="px-5 py-5">
@@ -1106,14 +1113,14 @@ export default function DataCenterPage() {
                     Data Pelanggaran per Unit
                   </h2>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Fokus transaksi pelanggaran berdasarkan site pengirim data
+                    Fokus transaksi pelanggaran berdasarkan situs pengirim data
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
                     value={siteSearch}
                     onChange={(event) => setSiteSearch(event.target.value)}
-                    placeholder="Cari site atau lokasi..."
+                    placeholder="Cari situs atau lokasi..."
                     className="h-11 w-80 rounded-xl border border-slate-200 bg-slate-50 px-4 text-base font-semibold outline-none focus:border-blue-400 focus:bg-white"
                   />
                   <select
@@ -1124,7 +1131,7 @@ export default function DataCenterPage() {
                     <option value="all">Semua Status</option>
                     <option value="online">Aktif</option>
                     <option value="warning">Peringatan</option>
-                    <option value="offline">Offline</option>
+                    <option value="offline">Tidak Aktif</option>
                   </select>
                 </div>
               </div>
@@ -1137,10 +1144,10 @@ export default function DataCenterPage() {
                       <th className="px-5 py-4 text-left">Lokasi</th>
                       <th className="px-5 py-4 text-left">Kendaraan</th>
                       <th className="px-5 py-4 text-left">Pelanggaran</th>
-                      <th className="px-5 py-4 text-left">Violation Rate</th>
+                      <th className="px-5 py-4 text-left">Rasio Pelanggaran</th>
                       <th className="px-5 py-4 text-left">Operator</th>
-                      <th className="px-5 py-4 text-left">Last Sync</th>
-                      <th className="px-5 py-4 text-left">Status Site</th>
+                      <th className="px-5 py-4 text-left">Sinkronisasi Terakhir</th>
+                      <th className="px-5 py-4 text-left">Status Situs</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1159,7 +1166,7 @@ export default function DataCenterPage() {
                             {unit.city}, {unit.province}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-slate-400">
-                            Last location from site sync
+                            Lokasi terakhir dari sinkronisasi situs
                           </p>
                         </td>
                         <td className="px-5 py-5">
@@ -1220,11 +1227,11 @@ export default function DataCenterPage() {
 
               <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-5 py-4">
                 <p className="text-sm font-semibold text-slate-500">
-                  Menampilkan {filteredUnits.length} site dengan total{" "}
+                  Menampilkan {filteredUnits.length} situs dengan total{" "}
                   {totalViolations} pelanggaran dalam periode
                 </p>
                 <p className="text-sm font-black text-slate-600">
-                  POV: violation monitoring
+                  Tampilan: pemantauan pelanggaran
                 </p>
               </div>
             </div>
@@ -1238,17 +1245,17 @@ export default function DataCenterPage() {
             <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
               <div>
                 <h2 className="text-2xl font-black text-slate-900">
-                  Site Operations
+                  Operasional Situs
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Status online/offline, lokasi terakhir, dan operator aktif
+                  Status aktif/tidak aktif, lokasi terakhir, dan operator aktif
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <input
                   value={siteSearch}
                   onChange={(event) => setSiteSearch(event.target.value)}
-                  placeholder="Cari site..."
+                  placeholder="Cari situs..."
                   className="h-11 w-80 rounded-xl border border-slate-200 bg-slate-50 px-4 text-base font-semibold outline-none focus:border-blue-400 focus:bg-white"
                 />
                 <select
@@ -1259,7 +1266,7 @@ export default function DataCenterPage() {
                   <option value="all">Semua Status</option>
                   <option value="online">Aktif</option>
                   <option value="warning">Peringatan</option>
-                  <option value="offline">Offline</option>
+                  <option value="offline">Tidak Aktif</option>
                 </select>
               </div>
             </div>
@@ -1303,7 +1310,7 @@ export default function DataCenterPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-xl bg-slate-50 px-4 py-3">
                           <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                            Last Seen
+                            Terakhir Terlihat
                           </p>
                           <p className="mt-1 text-lg font-black text-slate-800">
                             {unit.lastSeenLabel}
@@ -1311,7 +1318,7 @@ export default function DataCenterPage() {
                         </div>
                         <div className="rounded-xl bg-slate-50 px-4 py-3">
                           <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                            Last Sync
+                            Sinkronisasi Terakhir
                           </p>
                           <p className="mt-1 text-lg font-black text-slate-800">
                             {unit.lastSyncLabel}
@@ -1332,13 +1339,13 @@ export default function DataCenterPage() {
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-sm font-black text-slate-500">
-                    Analytics
+                    Analitik
                   </p>
                   <h2 className="mt-1 text-3xl font-black text-slate-950">
                     Jatanlin
                   </h2>
                   <p className="mt-1 text-base font-semibold text-slate-500">
-                    Operational summary for ODOL vehicles and violations.
+                    Ringkasan operasional kendaraan ODOL dan pelanggaran.
                   </p>
                 </div>
 
@@ -1350,7 +1357,7 @@ export default function DataCenterPage() {
                     }
                     className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-base font-bold text-slate-600 outline-none focus:border-blue-400"
                   >
-                    <option value="all">Semua Site</option>
+                    <option value="all">Semua Situs</option>
                     {units.map((unit) => (
                       <option key={unit.id} value={unit.code}>
                         {unit.code} - {unit.name}
@@ -1376,25 +1383,25 @@ export default function DataCenterPage() {
             <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               {[
                 {
-                  label: "ODOL Vehicles",
+                  label: "Kendaraan ODOL",
                   value: analyticsTotals.visibleViolations,
                   tone: "red",
                   icon: "vehicle" as const,
                 },
                 {
-                  label: "Total Violations",
+                  label: "Total Pelanggaran",
                   value: analyticsTotals.violations,
                   tone: "amber",
                   icon: "critical" as const,
                 },
                 {
-                  label: "Normal Vehicles",
+                  label: "Kendaraan Normal",
                   value: analyticsTotals.normal,
                   tone: "green",
                   icon: "sync" as const,
                 },
                 {
-                  label: "Range Violations",
+                  label: "Pelanggaran Rentang",
                   value: analyticsTotals.todayViolations,
                   tone: "blue",
                   icon: "last" as const,
@@ -1414,10 +1421,10 @@ export default function DataCenterPage() {
             <div className="grid h-[32vh] min-h-[280px] max-h-[360px] shrink-0 gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(420px,0.75fr)]">
               <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="text-2xl font-black text-slate-900">
-                  Enforcement Total - Last 7 Days
+                  Total Penindakan - 7 Hari Terakhir
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Over dimension, over loading, and normal vehicles per day.
+                  Over Dimension, Over Loading, dan kendaraan normal per hari.
                 </p>
 
                 <div className="mt-3 min-h-0 flex-1 rounded-xl bg-white">
@@ -1425,7 +1432,7 @@ export default function DataCenterPage() {
                     viewBox="0 0 900 260"
                     className="h-full w-full overflow-visible"
                     role="img"
-                    aria-label="Enforcement trend chart"
+                    aria-label="Grafik tren penindakan"
                   >
                     {[0, 1, 2, 3, 4].map((row) => (
                       <line
@@ -1538,10 +1545,10 @@ export default function DataCenterPage() {
 
               <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="text-2xl font-black text-slate-900">
-                  Violation Distribution
+                  Distribusi Pelanggaran
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Over dimension, over loading, and normal.
+                  Over Dimension, Over Loading, dan normal.
                 </p>
 
                 <div className="mt-4 flex min-h-0 flex-1 items-center justify-center">
@@ -1575,10 +1582,10 @@ export default function DataCenterPage() {
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="shrink-0 border-b border-slate-100 px-5 py-4">
                 <h2 className="text-2xl font-black text-slate-900">
-                  Latest 10 Violation Summary
+                  Ringkasan 10 Pelanggaran Terbaru
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Latest vehicles detected with violations.
+                  Kendaraan terbaru yang terdeteksi melakukan pelanggaran.
                 </p>
               </div>
               <div className="min-h-0 flex-1 overflow-auto">
@@ -1586,14 +1593,14 @@ export default function DataCenterPage() {
                   <thead className="sticky top-0 z-10 bg-slate-50 text-sm uppercase tracking-[0.2em] text-slate-400">
                     <tr>
                       <th className="px-5 py-4 text-left">No</th>
-                      <th className="px-5 py-4 text-left">Time</th>
-                      <th className="px-5 py-4 text-left">Plate No</th>
-                      <th className="px-5 py-4 text-left">Location</th>
-                      <th className="px-5 py-4 text-left">Violation Type</th>
-                      <th className="px-5 py-4 text-left">Article</th>
-                      <th className="px-5 py-4 text-left">Officer</th>
+                      <th className="px-5 py-4 text-left">Waktu</th>
+                      <th className="px-5 py-4 text-left">No. Polisi</th>
+                      <th className="px-5 py-4 text-left">Lokasi</th>
+                      <th className="px-5 py-4 text-left">Jenis Pelanggaran</th>
+                      <th className="px-5 py-4 text-left">Pasal</th>
+                      <th className="px-5 py-4 text-left">Petugas</th>
                       <th className="px-5 py-4 text-left">Status</th>
-                      <th className="px-5 py-4 text-right">Action</th>
+                      <th className="px-5 py-4 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1621,10 +1628,10 @@ export default function DataCenterPage() {
                                       .includes("loading")
                                   ? "Over Loading"
                                   : "Over Dimension"
-                                : "Pending"}
+                                : "Menunggu"}
                           </td>
                           <td className="px-5 py-5 font-bold text-slate-600">
-                            {row.violation_notes || "Article 277"}
+                            {row.violation_notes || "Pasal 277"}
                           </td>
                           <td className="px-5 py-5 font-bold text-slate-600">
                             {row.officer || "-"}
@@ -1639,7 +1646,7 @@ export default function DataCenterPage() {
                                     : "bg-amber-50 text-amber-700"
                               }`}
                             >
-                              {row.verification_status || "pending"}
+                              {verificationStatusLabel(row.verification_status)}
                             </span>
                           </td>
                           <td className="px-5 py-5 text-right">
@@ -1650,7 +1657,7 @@ export default function DataCenterPage() {
                               }
                               className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600"
                             >
-                              View
+                              Lihat
                             </button>
                           </td>
                         </tr>

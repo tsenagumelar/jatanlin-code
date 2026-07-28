@@ -312,7 +312,7 @@ function parseAxleDetail(detail: unknown): V3ProcessingPanelItem[] {
         const weight = row.weight ?? row.axle_weight ?? row.value ?? row.total_weight;
 
         return {
-          label: `Axle ${axleNo}`,
+          label: `Sumbu ${axleNo}`,
           value: Number.isFinite(Number(weight))
             ? `${formatNumber(Number(weight) / 1000, 2)} ton`
             : "-",
@@ -324,7 +324,7 @@ function parseAxleDetail(detail: unknown): V3ProcessingPanelItem[] {
       return Object.entries(parsed as Record<string, unknown>)
         .slice(0, 12)
         .map(([key, value]) => ({
-          label: `Axle ${key}`,
+          label: `Sumbu ${key}`,
           value: Number.isFinite(Number(value))
             ? `${formatNumber(Number(value) / 1000, 2)} ton`
             : "-",
@@ -402,13 +402,13 @@ function isLocationAllowedOrigin() {
 function requestProcessingLocation(): Promise<ProcessingLocation> {
   if (!browserSupportsLocation()) {
     return Promise.reject(
-      new Error("Location access is not available in this browser."),
+      new Error("Akses lokasi tidak tersedia di browser ini."),
     );
   }
   if (!isLocationAllowedOrigin()) {
     return Promise.reject(
       new Error(
-        "Location access requires HTTPS for site.jatanlin.test, or open the app from localhost.",
+        "Akses lokasi memerlukan HTTPS untuk site.jatanlin.test, atau buka aplikasi dari localhost.",
       ),
     );
   }
@@ -425,13 +425,13 @@ function requestProcessingLocation(): Promise<ProcessingLocation> {
         if (error.code === error.PERMISSION_DENIED) {
           reject(
             new Error(
-              "Location permission is required before starting processing.",
+              "Izin lokasi wajib diberikan sebelum memulai pemrosesan.",
             ),
           );
           return;
         }
         if (error.code === error.TIMEOUT) {
-          reject(new Error("Location detection timed out. Try again."));
+          reject(new Error("Deteksi lokasi timeout. Silakan coba lagi."));
           return;
         }
         reject(new Error("Failed to detect current location."));
@@ -815,14 +815,14 @@ export function useV3Processing() {
     {
       key: "anpr",
       label: "ANPR",
-      description: "License plate reader",
+      description: "Pembaca plat nomor",
       status: statusFromTimestamp(anpr?.created_date || vehicleAnpr?.created_date),
       lastSeen: formatTime(anpr?.created_date || vehicleAnpr?.created_date),
     },
     {
       key: "axle",
-      label: "Axle",
-      description: "Axle and dimension sensor",
+      label: "Sumbu",
+      description: "Sensor sumbu dan dimensi",
       status: statusFromTimestamp(
         axle?.created_date ||
           axle?.captured_at ||
@@ -839,14 +839,14 @@ export function useV3Processing() {
     {
       key: "cctv",
       label: "CCTV",
-      description: "Evidence recorder",
+      description: "Perekam bukti",
       status: statusFromTimestamp(cctv?.created_date),
       lastSeen: formatTime(cctv?.created_date),
     },
     {
       key: "wim",
       label: "WIM",
-      description: "Weight in motion",
+      description: "Penimbangan bergerak",
       status: statusFromTimestamp(weighing?.created_date || vehicle?.created_date),
       lastSeen: formatTime(weighing?.created_date || vehicle?.created_date),
     },
@@ -861,25 +861,25 @@ export function useV3Processing() {
 
   const metrics: V3ProcessingMetric[] = [
     {
-      label: "Weight",
+      label: "Berat",
       actual: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-",
       limit: legalWeightTon ? `${formatNumber(legalWeightTon, 2)} ton` : "-",
       status: metricStatus(actualWeightTon, legalWeightTon),
     },
     {
-      label: "Length",
+      label: "Panjang",
       actual: actualLength ? `${formatNumber(actualLength, 2)} m` : "-",
       limit: legalLength ? `${formatNumber(legalLength, 2)} m` : "-",
       status: metricStatus(actualLength, legalLength),
     },
     {
-      label: "Width",
+      label: "Lebar",
       actual: actualWidth ? `${formatNumber(actualWidth, 2)} m` : "-",
       limit: legalWidth ? `${formatNumber(legalWidth, 2)} m` : "-",
       status: metricStatus(actualWidth, legalWidth),
     },
     {
-      label: "Height",
+      label: "Tinggi",
       actual: actualHeight ? `${formatNumber(actualHeight, 2)} m` : "-",
       limit: legalHeight ? `${formatNumber(legalHeight, 2)} m` : "-",
       status: metricStatus(actualHeight, legalHeight),
@@ -887,41 +887,41 @@ export function useV3Processing() {
   ];
 
   const anprItems: V3ProcessingPanelItem[] = [
-    { label: "Plate No", value: asString(liveAnpr?.plate_no) || "-" },
-    { label: "Length", value: actualLength ? `${formatNumber(actualLength, 2)} m` : "-" },
-    { label: "Width", value: actualWidth ? `${formatNumber(actualWidth, 2)} m` : "-" },
-    { label: "Height", value: actualHeight ? `${formatNumber(actualHeight, 2)} m` : "-" },
+    { label: "No. Plat", value: asString(liveAnpr?.plate_no) || "-" },
+    { label: "Panjang", value: actualLength ? `${formatNumber(actualLength, 2)} m` : "-" },
+    { label: "Lebar", value: actualWidth ? `${formatNumber(actualWidth, 2)} m` : "-" },
+    { label: "Tinggi", value: actualHeight ? `${formatNumber(actualHeight, 2)} m` : "-" },
   ];
 
   const axleItems: V3ProcessingPanelItem[] = [
-    { label: "Total Axle", value: axleCount ? `${axleCount}` : "-" },
-    { label: "Total Wheels", value: asString(liveAxle?.total_wheels) || "-" },
-    { label: "Vehicle Type", value: asString(liveAxle?.vehicle_category || vehicleClass?.type) || "-" },
-    { label: "Body Type", value: asString(liveAxle?.vehicle_body_type) || "-" },
-    { label: "Detected Length", value: actualLength ? `${formatNumber(actualLength, 2)} m` : "-" },
+    { label: "Total Sumbu", value: axleCount ? `${axleCount}` : "-" },
+    { label: "Total Roda", value: asString(liveAxle?.total_wheels) || "-" },
+    { label: "Tipe Kendaraan", value: asString(liveAxle?.vehicle_category || vehicleClass?.type) || "-" },
+    { label: "Tipe Bodi", value: asString(liveAxle?.vehicle_body_type) || "-" },
+    { label: "Panjang Terdeteksi", value: actualLength ? `${formatNumber(actualLength, 2)} m` : "-" },
   ];
 
   const wimItems: V3ProcessingPanelItem[] = [
-    { label: "Actual Weight", value: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-" },
-    { label: "Legal Weight", value: legalWeightTon ? `${formatNumber(legalWeightTon, 2)} ton` : "-" },
-    { label: "Vehicle Class", value: asString(vehicleClass?.type) || "-" },
-    { label: "Axle Count", value: axleCount ? `${axleCount}` : "-" },
-    { label: "Weighing Time", value: formatDateTime(liveWeight?.created_date) },
+    { label: "Berat Aktual", value: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-" },
+    { label: "Berat Legal", value: legalWeightTon ? `${formatNumber(legalWeightTon, 2)} ton` : "-" },
+    { label: "Kelas Kendaraan", value: asString(vehicleClass?.type) || "-" },
+    { label: "Jumlah Sumbu", value: axleCount ? `${axleCount}` : "-" },
+    { label: "Waktu Timbang", value: formatDateTime(liveWeight?.created_date) },
   ];
   const wimAxleItems = parseAxleDetail(liveWeight?.axle_detail);
   const wimLiveItems: V3ProcessingPanelItem[] = [
-    { label: "Total Weight", value: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-" },
-    { label: "Axle Count", value: axleCount ? `${axleCount}` : "-" },
+    { label: "Total Berat", value: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-" },
+    { label: "Jumlah Sumbu", value: axleCount ? `${axleCount}` : "-" },
     ...(wimAxleItems.length > 0
       ? wimAxleItems
-      : [{ label: "Weight per Axle", value: "-" }]),
+      : [{ label: "Berat per Sumbu", value: "-" }]),
   ];
 
   const cctvItems: V3ProcessingPanelItem[] = [
-    { label: "Filename", value: asString(liveCctv?.filename) || "-" },
-    { label: "Plate No", value: asString(liveAnpr?.plate_no) || "-" },
-    { label: "Recorded At", value: formatDateTime(liveCctv?.created_date) },
-    { label: "Status", value: liveCctv ? "Evidence available" : "Waiting for evidence" },
+    { label: "Nama File", value: asString(liveCctv?.filename) || "-" },
+    { label: "No. Plat", value: asString(liveAnpr?.plate_no) || "-" },
+    { label: "Waktu Rekam", value: formatDateTime(liveCctv?.created_date) },
+    { label: "Status", value: liveCctv ? "Bukti tersedia" : "Menunggu bukti" },
   ];
 
   const checkConnection = async () => {

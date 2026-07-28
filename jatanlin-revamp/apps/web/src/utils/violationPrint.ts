@@ -113,7 +113,7 @@ html, body { margin: 0; padding: 0; width: 100mm; height: 62mm; font-family: Ari
 
   const printWindow = window.open("", "PRINT_STICKER", "width=1400,height=900");
   if (!printWindow) {
-    window.alert("Popup was blocked. Please allow popups to print the sticker.");
+    window.alert("Popup diblokir. Izinkan popup untuk mencetak stiker.");
     return;
   }
 

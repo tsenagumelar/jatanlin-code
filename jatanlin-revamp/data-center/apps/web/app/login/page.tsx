@@ -51,14 +51,14 @@ export default function LoginPage() {
             Data Center
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Masuk untuk melihat ringkasan site dan transaksi yang tersinkron.
+            Masuk untuk melihat ringkasan situs dan transaksi yang tersinkron.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">
-              Username
+              Nama Pengguna
             </span>
             <input
               value={username}
@@ -70,7 +70,7 @@ export default function LoginPage() {
 
           <label className="block">
             <span className="text-sm font-semibold text-slate-700">
-              Password
+              Kata Sandi
             </span>
             <input
               value={password}

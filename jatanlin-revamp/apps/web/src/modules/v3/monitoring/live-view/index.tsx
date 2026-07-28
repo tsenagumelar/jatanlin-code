@@ -206,25 +206,25 @@ const statusConfig: Record<
   { label: string; badge: string; dot: string; icon: React.ReactNode }
 > = {
   checking: {
-    label: "Checking",
+    label: "Memeriksa",
     badge: "bg-blue-100 text-blue-700",
     dot: "bg-blue-400",
     icon: <Circle12Filled className="h-2.5 w-2.5 animate-pulse text-blue-500" />,
   },
   online: {
-    label: "Connected",
+    label: "Terhubung",
     badge: "bg-emerald-100 text-emerald-700",
     dot: "bg-emerald-400",
     icon: <CheckmarkCircle24Filled className="h-4 w-4 text-emerald-600" />,
   },
   warning: {
-    label: "Degraded",
+    label: "Terganggu",
     badge: "bg-amber-100 text-amber-700",
     dot: "bg-amber-400",
     icon: <Warning24Filled className="h-4 w-4 text-amber-600" />,
   },
   offline: {
-    label: "Disconnected",
+    label: "Terputus",
     badge: "bg-red-100 text-red-700",
     dot: "bg-red-400",
     icon: <PlugDisconnected24Regular className="h-4 w-4 text-red-600" />,
@@ -300,7 +300,7 @@ function latestTimestamp(row?: LatestRow) {
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -311,15 +311,15 @@ function formatDateTime(value?: string | null) {
 }
 
 function ageLabel(value?: string | null) {
-  if (!value) return "No data yet";
+  if (!value) return "Belum ada data";
   const diffMs = Date.now() - new Date(value).getTime();
-  if (!Number.isFinite(diffMs) || diffMs < 0) return "Just now";
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "Baru saja";
   const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "Less than 1 minute ago";
-  if (minutes < 60) return `${minutes} minutes ago`;
+  if (minutes < 1) return "Kurang dari 1 menit lalu";
+  if (minutes < 60) return `${minutes} menit lalu`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hours ago`;
-  return `${Math.floor(hours / 24)} days ago`;
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
 }
 
 function activityState(value?: string | null): ProbeState {
@@ -344,7 +344,7 @@ async function probeEndpoint(probe: ProbeTarget): Promise<DeviceProbe> {
     return {
       state: "offline",
       checkedAt: new Date().toISOString(),
-      message: "Endpoint is not configured",
+      message: "Endpoint belum dikonfigurasi",
     };
   }
 
@@ -368,13 +368,13 @@ async function probeEndpoint(probe: ProbeTarget): Promise<DeviceProbe> {
       state: payload.ok ? "online" : "offline",
       latencyMs: payload.latencyMs,
       checkedAt: payload.checkedAt || new Date().toISOString(),
-      message: payload.message || (payload.ok ? "Probe responded" : "Probe failed"),
+      message: payload.message || (payload.ok ? "Probe merespons" : "Probe gagal"),
     };
   } catch (error) {
     return {
       state: "offline",
       checkedAt: new Date().toISOString(),
-      message: error instanceof Error ? error.message : "Probe failed",
+      message: error instanceof Error ? error.message : "Probe gagal",
     };
   }
 }
@@ -401,7 +401,7 @@ function LivePlaceholder({ icon }: { icon: React.ReactNode }) {
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300">
           {icon}
         </div>
-        <p className="mt-4 text-sm font-bold text-slate-400">Waiting live signal</p>
+        <p className="mt-4 text-sm font-bold text-slate-400">Menunggu sinyal langsung</p>
       </div>
     </div>
   );
@@ -451,13 +451,13 @@ function LiveViewPanel({ feed }: { feed: LiveFeed }) {
 
       <div className="absolute inset-x-0 bottom-0 grid gap-2 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-4 sm:grid-cols-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">Stream</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">Aliran</p>
           <p className="mt-1 truncate font-mono text-xs font-semibold text-white/75">
-            {feed.streamUrl || "Direct stream URL not configured"}
+            {feed.streamUrl || "URL stream langsung belum dikonfigurasi"}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">Last Data</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">Data Terakhir</p>
           <p className="mt-1 text-xs font-semibold text-white/75">{feed.device.latestLabel}</p>
         </div>
         <div>
@@ -471,19 +471,19 @@ function LiveViewPanel({ feed }: { feed: LiveFeed }) {
 
 function formatWeightRawKg(value?: number | null) {
   if (typeof value !== "number") return "-";
-  return `${value.toLocaleString("en-US")} kg`;
+  return `${value.toLocaleString("id-ID")} kg`;
 }
 
 export function V3LiveViewPage() {
   const [probes, setProbes] = useState<Record<DeviceKey, DeviceProbe>>({
-    anpr: { state: "checking", message: "Waiting for first probe" },
-    axle: { state: "checking", message: "Waiting for first probe" },
-    cctv: { state: "checking", message: "Waiting for first probe" },
-    wim: { state: "checking", message: "Waiting for first probe" },
+    anpr: { state: "checking", message: "Menunggu probe pertama" },
+    axle: { state: "checking", message: "Menunggu probe pertama" },
+    cctv: { state: "checking", message: "Menunggu probe pertama" },
+    wim: { state: "checking", message: "Menunggu probe pertama" },
   });
   const [wimLive, setWimLive] = useState<WimLiveState>({
     connected: false,
-    connectionState: "Opening stream",
+    connectionState: "Membuka stream",
     updatedAt: null,
   });
   const { data, error } = useQuery<DeviceConnectionData>(
@@ -506,9 +506,9 @@ export function V3LiveViewPage() {
       const timer = window.setTimeout(() => {
         setWimLive({
           connected: false,
-          connectionState: "Not configured",
+          connectionState: "Belum dikonfigurasi",
           updatedAt: new Date().toISOString(),
-          error: "WIM stream endpoint is not configured",
+          error: "Endpoint stream WIM belum dikonfigurasi",
         });
       }, 0);
       return () => window.clearTimeout(timer);
@@ -527,7 +527,7 @@ export function V3LiveViewPage() {
       } catch {
         setWimLive((current) => ({
           ...current,
-          error: "Invalid WIM stream payload",
+          error: "Payload stream WIM tidak valid",
           updatedAt: new Date().toISOString(),
         }));
       }
@@ -540,8 +540,8 @@ export function V3LiveViewPage() {
       setWimLive((current) => ({
         ...current,
         connected: false,
-        connectionState: "Stream disconnected",
-        error: "Cannot connect to WIM stream endpoint",
+        connectionState: "Aliran terputus",
+        error: "Tidak dapat terhubung ke endpoint stream WIM",
         updatedAt: new Date().toISOString(),
       }));
     };
@@ -575,10 +575,10 @@ export function V3LiveViewPage() {
 
   const runProbes = useCallback(async () => {
     setProbes((current) => ({
-      anpr: { ...current.anpr, state: "checking", message: "Checking network" },
-      axle: { ...current.axle, state: "checking", message: "Checking network" },
-      cctv: { ...current.cctv, state: "checking", message: "Checking network" },
-      wim: { ...current.wim, state: "checking", message: "Checking network" },
+      anpr: { ...current.anpr, state: "checking", message: "Memeriksa jaringan" },
+      axle: { ...current.axle, state: "checking", message: "Memeriksa jaringan" },
+      cctv: { ...current.cctv, state: "checking", message: "Memeriksa jaringan" },
+      wim: { ...current.wim, state: "checking", message: "Memeriksa jaringan" },
     }));
 
     const entries = await Promise.all(
@@ -616,7 +616,7 @@ export function V3LiveViewPage() {
       {
         key: "anpr",
         label: "ANPR",
-        role: "License plate reader and FTP watcher source",
+        role: "Sumber pembaca plat nomor dan FTP watcher",
         endpoint: probeByDevice.anpr.target,
         source: configs.ANPR_IP || configs.ANPR_FTP_HOST || "-",
         latestAt: latestByDevice.anpr,
@@ -624,7 +624,7 @@ export function V3LiveViewPage() {
       {
         key: "axle",
         label: "AXLE / VAC",
-        role: "Axle counter and vehicle dimension source",
+        role: "Sumber penghitung sumbu dan dimensi kendaraan",
         endpoint: probeByDevice.axle.target,
         source: configs.AXLE_IP || configs.AXLE_FTP_HOST || "-",
         latestAt: latestByDevice.axle,
@@ -632,7 +632,7 @@ export function V3LiveViewPage() {
       {
         key: "cctv",
         label: "CCTV",
-        role: "Evidence recorder service",
+        role: "Layanan perekam bukti",
         endpoint: probeByDevice.cctv.target,
         source: configs.CCTV_IP || configs.CCTV_TRIGGER_URL || "-",
         latestAt: latestByDevice.cctv,
@@ -640,7 +640,7 @@ export function V3LiveViewPage() {
       {
         key: "wim",
         label: "WIM",
-        role: "Weight in Motion trigger and weighing data",
+        role: "Trigger penimbangan bergerak dan data penimbangan",
         endpoint: probeByDevice.wim.target,
         source: configs.WIM_IP || configs.WEIGHING_TRIGGER_URL || "-",
         latestAt: latestByDevice.wim,
@@ -664,8 +664,8 @@ export function V3LiveViewPage() {
         checkedAt: device.key === "wim" ? wimLive.updatedAt || probe?.checkedAt : probe?.checkedAt,
         message:
           device.key === "wim"
-            ? wimLive.error || wimLive.connectionState || probe?.message || "Waiting for WIM stream"
-            : probe?.message ?? "Waiting for probe",
+            ? wimLive.error || wimLive.connectionState || probe?.message || "Menunggu stream WIM"
+            : probe?.message ?? "Menunggu probe",
         latestLabel: ageLabel(device.latestAt),
       };
     });
@@ -688,51 +688,51 @@ export function V3LiveViewPage() {
   const liveFeeds: LiveFeed[] = [
     {
       key: "anpr",
-      title: "ANPR Live View",
-      subtitle: "License plate reader camera",
+      title: "Tampilan Langsung ANPR",
+      subtitle: "Kamera pembaca plat nomor",
       streamUrl: configs.ANPR_STREAM_URL,
       meta: latestAnpr?.plate_no
-        ? `Plate ${latestAnpr.plate_no}`
+        ? `Plat ${latestAnpr.plate_no}`
         : latestAnpr?.camera_id
-          ? `Camera ${latestAnpr.camera_id}`
-          : "No plate capture",
+          ? `Kamera ${latestAnpr.camera_id}`
+          : "Tidak ada tangkapan plat",
       device: deviceByKey.anpr,
     },
     {
       key: "axle",
-      title: "AXLE / VAC Live View",
-      subtitle: "Axle counter and dimension capture",
+      title: "Tampilan Langsung AXLE / VAC",
+      subtitle: "Tangkapan penghitung sumbu dan dimensi",
       streamUrl: configs.AXLE_STREAM_URL,
       meta: latestAxle?.total_axles
-        ? `${latestAxle.total_axles} axles detected`
+        ? `${latestAxle.total_axles} sumbu terdeteksi`
         : latestAxle?.plate_no
-          ? `Plate ${latestAxle.plate_no}`
-          : "No axle capture",
+          ? `Plat ${latestAxle.plate_no}`
+          : "Tidak ada tangkapan sumbu",
       device: deviceByKey.axle,
     },
     {
       key: "cctv",
-      title: "CCTV Live View",
-      subtitle: "Evidence recorder stream",
+      title: "Tampilan Langsung CCTV",
+      subtitle: "Aliran perekam bukti",
       streamUrl: configs.CCTV_STREAM_URL || configs.CCTV_RTSP_URL,
-      meta: latestCctv?.filename || "No evidence video",
+      meta: latestCctv?.filename || "Tidak ada video bukti",
       device: deviceByKey.cctv,
     },
   ];
 
   return (
     <V3DefaultPage
-      title="Live View"
+      title="Tampilan Langsung"
       breadcrumbs={[
         { label: "Monitoring" },
-        { label: "Live View" },
+        { label: "Tampilan Langsung" },
       ]}
-      description="Realtime device wall for ANPR, AXLE, CCTV, and WIM streams."
+      description="Tampilan perangkat realtime untuk stream ANPR, AXLE, CCTV, dan WIM."
     >
       <div className="flex min-h-[calc(100vh-12rem)] flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
         {error && (
           <div className="mb-3 rounded-lg border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-100">
-            GraphQL status data is unavailable: {error.message}
+            Data status GraphQL tidak tersedia: {error.message}
           </div>
         )}
 
@@ -753,7 +753,7 @@ export function V3LiveViewPage() {
                   <div>
                     <h2 className="text-lg font-black">WIM</h2>
                     <p className="text-xs font-semibold text-white/45">
-                      Weight in Motion
+                      Penimbangan Bergerak
                     </p>
                   </div>
                 </div>
@@ -763,7 +763,7 @@ export function V3LiveViewPage() {
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
-                    Total Weight
+                    Total Berat
                   </p>
                   <p className="mt-2 text-2xl font-black text-white">
                     {formatWeightRawKg(wimTotalWeight)}
@@ -771,7 +771,7 @@ export function V3LiveViewPage() {
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
-                    {hasBridgeWeight ? "Bridge 1" : "Total Axle"}
+                    {hasBridgeWeight ? "Bridge 1" : "Total Sumbu"}
                   </p>
                   <p className="mt-2 text-2xl font-black text-white">
                     {hasBridgeWeight ? formatWeightRawKg(wimLive.bridge1Weight) : wimTotalAxle ?? "-"}
@@ -782,7 +782,7 @@ export function V3LiveViewPage() {
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
-                    {hasBridgeWeight ? "Bridge 2" : "Last Axle"}
+                    {hasBridgeWeight ? "Bridge 2" : "Sumbu Terakhir"}
                   </p>
                   <p className="mt-2 text-xl font-black text-white">
                     {hasBridgeWeight ? formatWeightRawKg(wimLive.bridge2Weight) : wimLastAxle ?? "-"}
@@ -806,7 +806,7 @@ export function V3LiveViewPage() {
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3 sm:col-span-2">
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
-                    Live WIM Stream
+                    Aliran WIM Langsung
                   </p>
                   <p className="mt-2 text-sm font-bold text-white">
                     {configs.WIM_STREAM_URL}
@@ -817,10 +817,10 @@ export function V3LiveViewPage() {
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3 sm:col-span-2">
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
-                    Last Raw Frame
+                    Frame Mentah Terakhir
                   </p>
                   <p className="mt-2 line-clamp-3 break-all font-mono text-xs font-semibold text-white/60">
-                    {wimLive.raw || "Waiting WIM frame"}
+                    {wimLive.raw || "Menunggu frame WIM"}
                   </p>
                 </div>
               </div>

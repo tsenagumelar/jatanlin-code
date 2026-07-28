@@ -30,12 +30,12 @@ const initialFilters: V3JatanlinFilters = {
 };
 
 const violationOptions = [
-  { value: "", label: "All Violations" },
+  { value: "", label: "Semua Pelanggaran" },
   { value: "Over Loading", label: "Over Loading" },
   { value: "Over Dimension", label: "Over Dimension" },
-  { value: "Over Dimension & Over Loading", label: "OD & OL" },
+  { value: "Over Dimension & Over Loading", label: "Over Dimension & Over Loading" },
   { value: "Normal", label: "Normal" },
-  { value: "Pending", label: "Pending" },
+  { value: "Pending", label: "Menunggu" },
 ];
 
 function buildWhere(filters: V3JatanlinFilters): Transact_Vehicle_Actual_Bool_Exp {
@@ -70,7 +70,7 @@ function buildWhere(filters: V3JatanlinFilters): Transact_Vehicle_Actual_Bool_Ex
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -81,7 +81,7 @@ function formatDateTime(value?: string | null) {
 
 function formatNumber(value?: string | number | null, fractionDigits = 2) {
   if (value === null || value === undefined || value === "") return "-";
-  return Number(value).toLocaleString("en-US", {
+  return Number(value).toLocaleString("id-ID", {
     maximumFractionDigits: fractionDigits,
   });
 }
@@ -121,10 +121,10 @@ function getPhotoUrl(row: V3JatanlinRow) {
 }
 
 function getLatestStatusLabel(status: string) {
-  if (status === "verified") return "Verified";
-  if (status === "rejected") return "Rejected";
-  if (status === "draft") return "Draft";
-  return "Pending";
+  if (status === "verified") return "Terverifikasi";
+  if (status === "rejected") return "Ditolak";
+  if (status === "draft") return "Draf";
+  return "Menunggu";
 }
 
 function getStatusTone(status: string) {
@@ -142,6 +142,16 @@ function getViolationTone(violation: string) {
   return "bg-orange-50 text-orange-700";
 }
 
+function getViolationLabel(violation: string) {
+  if (violation === "Over Dimension & Over Loading") {
+    return "Over Dimension & Over Loading";
+  }
+  if (violation === "Over Dimension") return "Over Dimension";
+  if (violation === "Over Loading") return "Over Loading";
+  if (violation === "Pending") return "Menunggu";
+  return violation;
+}
+
 function getExportRows(rows: V3JatanlinRow[]) {
   return rows.map((row, index) => [
     String(index + 1),
@@ -151,7 +161,7 @@ function getExportRows(rows: V3JatanlinRow[]) {
     String(getAxle(row)),
     getWeight(row),
     getDimensions(row),
-    row.violationType,
+    getViolationLabel(row.violationType),
     getLatestStatusLabel(row.latestStatus),
   ]);
 }
@@ -330,7 +340,7 @@ export function useV3Jatanlin() {
       setActionError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Unable to delete transaction.",
+          : "Tidak dapat menghapus transaksi.",
       );
     }
   };
@@ -338,19 +348,19 @@ export function useV3Jatanlin() {
   const handleExport = (format: "csv" | "pdf") => {
     const headers = [
       "No",
-      "Plate No",
-      "Time",
-      "Location",
-      "Axle",
-      "Weight",
-      "Dimensions",
-      "Violation",
+      "No. Plat",
+      "Waktu",
+      "Lokasi",
+      "Sumbu",
+      "Berat",
+      "Dimensi",
+      "Pelanggaran",
       "Status",
     ];
     const exportRows = getExportRows(filteredRows);
 
     if (exportRows.length === 0) {
-      window.alert("No Jatanlin data to export.");
+      window.alert("Tidak ada data Jatanlin untuk diekspor.");
       return;
     }
 
@@ -361,7 +371,7 @@ export function useV3Jatanlin() {
 
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(14);
-    doc.text("Jatanlin Transactions", 14, 14);
+    doc.text("Transaksi Jatanlin", 14, 14);
     autoTable(doc, {
       head: [headers],
       body: exportRows,
@@ -411,6 +421,7 @@ export function useV3Jatanlin() {
     getLatestStatusLabel,
     getStatusTone,
     getViolationTone,
+    getViolationLabel,
     formatDateTime,
   };
 }

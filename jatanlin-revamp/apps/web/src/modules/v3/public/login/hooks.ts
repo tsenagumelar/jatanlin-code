@@ -65,7 +65,7 @@ export function useV3Login(): UseV3LoginResult {
 
       if (!response.ok || !payload.success || !payload.data) {
         dispatch(
-          setError(payload.message || "Email/username or password is incorrect"),
+          setError(payload.message || "Email/nama pengguna atau kata sandi salah"),
         );
         return;
       }
@@ -85,7 +85,7 @@ export function useV3Login(): UseV3LoginResult {
       }
       router.push("/dashboard");
     } catch {
-      dispatch(setError("Unable to connect to the server"));
+      dispatch(setError("Tidak dapat terhubung ke server"));
     } finally {
       dispatch(setLoading(false));
     }

@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Jatanlin Data Center",
-  description: "Centralized Jatanlin data center dashboard",
+  description: "Dasbor data center Jatanlin terpusat",
 };
 
 export default function RootLayout({

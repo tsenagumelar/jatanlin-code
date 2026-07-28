@@ -135,10 +135,12 @@ function valueFrom(record: RawRecord, key: string) {
 }
 
 function statusLabel(status?: string | null) {
-  if (status === "verified") return "Verified";
-  if (status === "rejected") return "Rejected";
-  if (status === "draft") return "Draft";
-  return "Pending";
+  if (status === "verified") return "Terverifikasi";
+  if (status === "rejected") return "Ditolak";
+  if (status === "normal") return "Normal";
+  if (status === "violation") return "Pelanggaran";
+  if (status === "draft") return "Draf";
+  return "Menunggu";
 }
 
 function statusTone(status?: string | null) {
@@ -151,13 +153,13 @@ function statusTone(status?: string | null) {
 function violationLabel(detail?: TransactionDetail | null) {
   const status = detail?.transaction.violation_status ?? "pending";
   if (status === "normal") return "Normal";
-  if (status === "pending" || status === "draft") return "Pending";
-  return detail?.transaction.violation_notes || "Violation";
+  if (status === "pending" || status === "draft") return "Menunggu";
+  return detail?.transaction.violation_notes || "Pelanggaran";
 }
 
 function violationTone(value: string) {
   if (value === "Normal") return "bg-emerald-50 text-emerald-700";
-  if (value === "Pending") return "bg-amber-50 text-amber-700";
+  if (value === "Menunggu") return "bg-amber-50 text-amber-700";
   if (value.includes("&")) return "bg-purple-50 text-purple-700";
   if (value.toLowerCase().includes("loading")) return "bg-red-50 text-red-700";
   return "bg-orange-50 text-orange-700";
@@ -177,11 +179,52 @@ function isImageAttachment(attachment: Attachment) {
   );
 }
 
+function attachmentTypeLabel(value: string) {
+  const words: Record<string, string> = {
+    anpr: "ANPR",
+    axle: "Gandar",
+    cctv: "CCTV",
+    dimension: "Dimensi",
+    weighing: "Penimbangan",
+    wim: "WIM",
+    vehicle: "Kendaraan",
+    actual: "Aktual",
+    status: "Status",
+    capture: "Tangkapan",
+    image: "Gambar",
+    photo: "Foto",
+    video: "Video",
+    file: "File",
+    front: "Depan",
+    rear: "Belakang",
+    side: "Samping",
+  };
+
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((word) => words[word.toLowerCase()] ?? word)
+    .join(" ");
+}
+
+function uploadStatusLabel(value: string) {
+  const status = value.toLowerCase();
+  if (["completed", "complete", "uploaded", "synced", "success"].includes(status)) {
+    return "Selesai";
+  }
+  if (["failed", "error"].includes(status)) return "Gagal";
+  if (["uploading", "syncing", "processing"].includes(status)) {
+    return "Diproses";
+  }
+  if (status === "pending") return "Menunggu";
+  return attachmentTypeLabel(value);
+}
+
 function mediaItems(attachments: Attachment[]): MediaItem[] {
   return attachments
     .filter((attachment) => isImageAttachment(attachment) || isVideoAttachment(attachment))
     .map((attachment) => ({
-      title: attachment.attachment_type.replaceAll("_", " ").toUpperCase(),
+      title: attachmentTypeLabel(attachment.attachment_type),
       subtitle: attachment.file_name || `${attachment.bucket}/${attachment.object_key}`,
       url: attachment.public_url,
       type: isVideoAttachment(attachment) ? "video" : "image",
@@ -247,7 +290,7 @@ function MediaPreview({ item }: { item: MediaItem }) {
           rel="noreferrer"
           className="shrink-0 rounded-lg border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700"
         >
-          Open
+          Buka
         </a>
       </div>
       <div className="relative h-56 w-full bg-slate-100">
@@ -320,7 +363,7 @@ export default function TransactionDetailPage() {
         try {
           payload = body ? JSON.parse(body) : {};
         } catch {
-          throw new Error(body || "Response detail transaksi tidak valid");
+          throw new Error(body || "Respons detail transaksi tidak valid");
         }
         if (!response.ok) {
           const errorMessage = "error" in payload ? payload.error : undefined;
@@ -346,27 +389,27 @@ export default function TransactionDetailPage() {
   const metrics = detail
     ? [
         {
-          label: "Plate Number",
+          label: "Nomor Polisi",
           value: detail.transaction.plate_no || "-",
-          helper: "Detected by ANPR",
+          helper: "Terdeteksi oleh ANPR",
           tone: "bg-blue-50 text-blue-700",
         },
         {
-          label: "Actual Weight",
+          label: "Berat Aktual",
           value: formatWeight(detail.transaction.total_weight),
-          helper: "Vehicle actual weight",
+          helper: "Berat aktual kendaraan",
           tone: "bg-red-50 text-red-700",
         },
         {
-          label: "Actual Axle",
+          label: "Gandar Aktual",
           value: String(detail.transaction.axle_count ?? "-"),
-          helper: "Axle sensor result",
+          helper: "Hasil sensor gandar",
           tone: "bg-emerald-50 text-emerald-700",
         },
         {
-          label: "Dimensions",
+          label: "Dimensi",
           value: formatDimensions(detail),
-          helper: "Length x width x height",
+          helper: "Panjang x lebar x tinggi",
           tone: "bg-violet-50 text-violet-700",
         },
       ]
@@ -381,13 +424,13 @@ export default function TransactionDetailPage() {
               href="/data-center"
               className="mb-2 inline-flex text-sm font-black text-blue-700 hover:text-blue-800"
             >
-              Back to Data Center
+              Kembali ke Data Center
             </Link>
             <h1 className="text-3xl font-black tracking-tight">
-              Data Center Transaction Detail
+              Detail Transaksi Data Center
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Read-only transaction data, source records, and synchronized attachments.
+              Data transaksi, catatan sumber, dan lampiran tersinkron hanya-baca.
             </p>
           </div>
         </div>
@@ -431,7 +474,7 @@ export default function TransactionDetailPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-sm font-semibold text-slate-500">
-                      Synced {formatDateTime(detail.transaction.synced_at)} from{" "}
+                      Tersinkron {formatDateTime(detail.transaction.synced_at)} dari{" "}
                       {detail.site.site_code} - {detail.site.site_name}
                     </p>
                   </div>
@@ -441,7 +484,7 @@ export default function TransactionDetailPage() {
                   href="/data-center"
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
-                  Back
+                  Kembali
                 </Link>
               </div>
             </div>
@@ -467,8 +510,8 @@ export default function TransactionDetailPage() {
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
               <SectionCard
-                title="Evidence Preview"
-                subtitle="Synchronized media from ANPR, axle, and site attachments."
+                title="Pratinjau Bukti"
+                subtitle="Media tersinkron dari ANPR, gandar, dan lampiran situs."
               >
                 {evidence.length > 0 ? (
                   <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -478,26 +521,26 @@ export default function TransactionDetailPage() {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-slate-500">
-                    No evidence media available.
+                    Tidak ada media bukti yang tersedia.
                   </div>
                 )}
               </SectionCard>
 
               <div className="space-y-4">
-                <SectionCard title="Transaction Summary">
+                <SectionCard title="Ringkasan Transaksi">
                   <FieldGrid
                     fields={[
-                      { label: "Source Transaction ID", value: detail.transaction.source_id },
-                      { label: "Event Time", value: formatDateTime(detail.transaction.enforcement_started_at) },
-                      { label: "Location", value: detail.transaction.location_address || "-" },
+                      { label: "ID Transaksi Sumber", value: detail.transaction.source_id },
+                      { label: "Waktu Kejadian", value: formatDateTime(detail.transaction.enforcement_started_at) },
+                      { label: "Lokasi", value: detail.transaction.location_address || "-" },
                       { label: "Operator", value: detail.transaction.operator_name || "-" },
-                      { label: "Site", value: `${detail.site.site_code} - ${detail.site.site_name}` },
-                      { label: "Last Updated", value: formatDateTime(detail.transaction.source_updated_at) },
+                      { label: "Situs", value: `${detail.site.site_code} - ${detail.site.site_name}` },
+                      { label: "Terakhir Diperbarui", value: formatDateTime(detail.transaction.source_updated_at) },
                     ]}
                   />
                 </SectionCard>
 
-                <SectionCard title="Latest Verification">
+                <SectionCard title="Verifikasi Terbaru">
                   <div className="space-y-3">
                     <div>
                       <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
@@ -511,8 +554,8 @@ export default function TransactionDetailPage() {
                     </div>
                     <FieldGrid
                       fields={[
-                        { label: "Result", value: detail.transaction.violation_notes || violation },
-                        { label: "Notes", value: valueFrom(detail.raw.vehicle_status, "notes") },
+                        { label: "Hasil", value: detail.transaction.violation_notes || violation },
+                        { label: "Catatan", value: valueFrom(detail.raw.vehicle_status, "notes") },
                       ]}
                     />
                   </div>
@@ -521,19 +564,19 @@ export default function TransactionDetailPage() {
             </div>
 
             <SectionCard
-              title="Attachment"
-              subtitle="Files copied from site MinIO into data-center MinIO."
+              title="Lampiran"
+              subtitle="File disalin dari MinIO situs ke MinIO data-center."
             >
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[960px] text-sm">
                   <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
                     <tr>
-                      <th className="px-4 py-3 text-left">Type</th>
+                      <th className="px-4 py-3 text-left">Tipe</th>
                       <th className="px-4 py-3 text-left">File</th>
-                      <th className="px-4 py-3 text-left">Size</th>
+                      <th className="px-4 py-3 text-left">Ukuran</th>
                       <th className="px-4 py-3 text-left">Status</th>
-                      <th className="px-4 py-3 text-left">Synced</th>
-                      <th className="px-4 py-3 text-right">Action</th>
+                      <th className="px-4 py-3 text-left">Tersinkron</th>
+                      <th className="px-4 py-3 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -541,7 +584,7 @@ export default function TransactionDetailPage() {
                       detail.attachments.map((attachment) => (
                         <tr key={attachment.id} className="hover:bg-slate-50">
                           <td className="px-4 py-3 font-bold text-slate-700">
-                            {attachment.attachment_type}
+                            {attachmentTypeLabel(attachment.attachment_type)}
                           </td>
                           <td className="px-4 py-3">
                             <p className="font-semibold text-slate-800">
@@ -556,7 +599,7 @@ export default function TransactionDetailPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                              {attachment.upload_status}
+                              {uploadStatusLabel(attachment.upload_status)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-slate-600">
@@ -569,7 +612,7 @@ export default function TransactionDetailPage() {
                               rel="noreferrer"
                               className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700"
                             >
-                              Open
+                              Buka
                             </a>
                           </td>
                         </tr>
@@ -577,7 +620,7 @@ export default function TransactionDetailPage() {
                     ) : (
                       <tr>
                         <td colSpan={6} className="px-4 py-8 text-center text-sm font-semibold text-slate-500">
-                          Belum ada attachment untuk transaksi ini.
+                          Belum ada lampiran untuk transaksi ini.
                         </td>
                       </tr>
                     )}
@@ -587,58 +630,58 @@ export default function TransactionDetailPage() {
             </SectionCard>
 
             <SectionCard
-              title="Source Data"
-              subtitle="Read-only data synchronized from each connected device."
+              title="Data Sumber"
+              subtitle="Data hanya-baca yang tersinkron dari tiap perangkat terhubung."
             >
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <SourceBlock
                   title="ANPR"
                   fields={[
-                    { label: "Plate Number", value: valueFrom(detail.raw.anpr, "plate_no") },
-                    { label: "Confidence", value: valueFrom(detail.raw.anpr, "confidence") },
-                    { label: "Camera ID", value: valueFrom(detail.raw.anpr, "camera_id") },
-                    { label: "Captured At", value: formatDateTime(valueFrom(detail.raw.anpr, "captured_at")) },
+                    { label: "Nomor Polisi", value: valueFrom(detail.raw.anpr, "plate_no") },
+                    { label: "Tingkat Keyakinan", value: valueFrom(detail.raw.anpr, "confidence") },
+                    { label: "ID Kamera", value: valueFrom(detail.raw.anpr, "camera_id") },
+                    { label: "Waktu Tertangkap", value: formatDateTime(valueFrom(detail.raw.anpr, "captured_at")) },
                   ]}
                 />
                 <SourceBlock
-                  title="Axle"
+                  title="Gandar"
                   fields={[
-                    { label: "Plate Number", value: valueFrom(detail.raw.axle, "plate_no") },
-                    { label: "Total Axles", value: valueFrom(detail.raw.axle, "total_axles") },
-                    { label: "Total Wheels", value: valueFrom(detail.raw.axle, "total_wheels") },
-                    { label: "Vehicle Type", value: valueFrom(detail.raw.axle, "vehicle_body_type") },
+                    { label: "Nomor Polisi", value: valueFrom(detail.raw.axle, "plate_no") },
+                    { label: "Total Gandar", value: valueFrom(detail.raw.axle, "total_axles") },
+                    { label: "Total Roda", value: valueFrom(detail.raw.axle, "total_wheels") },
+                    { label: "Tipe Kendaraan", value: valueFrom(detail.raw.axle, "vehicle_body_type") },
                   ]}
                 />
                 <SourceBlock
                   title="WIM"
                   fields={[
-                    { label: "Total Weight", value: valueFrom(detail.raw.weighing, "total_weight") },
-                    { label: "Total Axle", value: valueFrom(detail.raw.weighing, "total_axle") },
-                    { label: "Created Time", value: formatDateTime(valueFrom(detail.raw.weighing, "created_date")) },
-                    { label: "Session", value: valueFrom(detail.raw.session, "code") },
+                    { label: "Total Berat", value: valueFrom(detail.raw.weighing, "total_weight") },
+                    { label: "Total Gandar", value: valueFrom(detail.raw.weighing, "total_axle") },
+                    { label: "Waktu Dibuat", value: formatDateTime(valueFrom(detail.raw.weighing, "created_date")) },
+                    { label: "Sesi", value: valueFrom(detail.raw.session, "code") },
                   ]}
                 />
                 <SourceBlock
-                  title="Dimension"
+                  title="Dimensi"
                   fields={[
-                    { label: "Length", value: valueFrom(detail.raw.dimension, "length") },
-                    { label: "Width", value: valueFrom(detail.raw.dimension, "width") },
-                    { label: "Height", value: valueFrom(detail.raw.dimension, "height") },
-                    { label: "Created Time", value: formatDateTime(valueFrom(detail.raw.dimension, "created_date")) },
+                    { label: "Panjang", value: valueFrom(detail.raw.dimension, "length") },
+                    { label: "Lebar", value: valueFrom(detail.raw.dimension, "width") },
+                    { label: "Tinggi", value: valueFrom(detail.raw.dimension, "height") },
+                    { label: "Waktu Dibuat", value: formatDateTime(valueFrom(detail.raw.dimension, "created_date")) },
                   ]}
                 />
               </div>
             </SectionCard>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <RawSection title="Raw Vehicle Actual" record={detail.raw.vehicle_actual} />
-              <RawSection title="Raw Vehicle Status" record={detail.raw.vehicle_status} />
-              <RawSection title="Raw ANPR Capture" record={detail.raw.anpr} />
-              <RawSection title="Raw AXLE Capture" record={detail.raw.axle} />
-              <RawSection title="Raw Dimension" record={detail.raw.dimension} />
-              <RawSection title="Raw Weighing" record={detail.raw.weighing} />
-              <RawSection title="Raw CCTV" record={detail.raw.cctv} />
-              <RawSection title="Raw WIM Session" record={detail.raw.session} />
+              <RawSection title="Data Mentah Kendaraan Aktual" record={detail.raw.vehicle_actual} />
+              <RawSection title="Data Mentah Status Kendaraan" record={detail.raw.vehicle_status} />
+              <RawSection title="Data Mentah Tangkapan ANPR" record={detail.raw.anpr} />
+              <RawSection title="Data Mentah Tangkapan AXLE" record={detail.raw.axle} />
+              <RawSection title="Data Mentah Dimensi" record={detail.raw.dimension} />
+              <RawSection title="Data Mentah Penimbangan" record={detail.raw.weighing} />
+              <RawSection title="Data Mentah CCTV" record={detail.raw.cctv} />
+              <RawSection title="Data Mentah Sesi WIM" record={detail.raw.session} />
             </div>
           </div>
         ) : null}

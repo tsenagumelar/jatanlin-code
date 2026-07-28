@@ -19,7 +19,7 @@ export function V3LoginPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white shadow-lg">
                 <Image
                   src="/polantas.png"
-                  alt="Traffic Corps Logo"
+                  alt="Logo Korlantas Polri"
                   width={50}
                   height={50}
                   className="object-contain"
@@ -28,10 +28,10 @@ export function V3LoginPage() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold tracking-tight">
-                  TRAFFIC CORPS
+                  KORLANTAS POLRI
                 </h1>
                 <p className="text-xl font-bold text-neutral-100">
-                  Law Enforcement Directorate - Accident Sub Directorate
+                  Direktorat Penegakan Hukum - Subdirektorat Laka
                 </p>
               </div>
             </div>
@@ -41,8 +41,8 @@ export function V3LoginPage() {
             <div className="max-w-xl">
               <h2 className="text-4xl font-bold leading-tight">JATANLIN</h2>
               <p className="mt-4 max-w-xl text-lg font-semibold text-blue-100">
-                A fast, accurate, and transparent platform for enforcing over
-                dimension and over loading traffic violations.
+                Platform cepat, akurat, dan transparan untuk penindakan
+                pelanggaran over dimension dan over loading.
               </p>
             </div>
           </div>
@@ -54,7 +54,7 @@ export function V3LoginPage() {
               <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white">
                 <Image
                   src="/polantas.png"
-                  alt="Traffic Corps Logo"
+                  alt="Logo Korlantas Polri"
                   width={32}
                   height={32}
                   className="object-contain"
@@ -66,7 +66,7 @@ export function V3LoginPage() {
                   JATANLIN
                 </p>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                  Traffic Corps
+                  Korlantas Polri
                 </p>
               </div>
             </div>
@@ -83,13 +83,13 @@ export function V3LoginPage() {
 
               <div className="relative z-10">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                  Login
+                  Masuk
                 </p>
                 <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
-                  Sign in to Jatanlin
+                  Masuk ke Jatanlin
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Insert the VEAM license flashdisk before signing in.
+                  Pasang flashdisk lisensi VEAM sebelum masuk.
                 </p>
               </div>
 
@@ -102,7 +102,7 @@ export function V3LoginPage() {
                     htmlFor="email"
                     className="text-sm font-semibold text-slate-700"
                   >
-                    Email or username
+                    Email atau nama pengguna
                   </label>
                   <input
                     id="email"
@@ -122,13 +122,13 @@ export function V3LoginPage() {
                       htmlFor="password"
                       className="text-sm font-semibold text-slate-700"
                     >
-                      Password
+                      Kata sandi
                     </label>
                     <Link
                       href="/reset-password"
                       className="text-xs font-bold text-blue-700 hover:text-blue-800"
                     >
-                      Reset password
+                      Reset kata sandi
                     </Link>
                   </div>
                   <input
@@ -136,7 +136,7 @@ export function V3LoginPage() {
                     type="password"
                     value={formData.password}
                     onChange={handleChange("password")}
-                    placeholder="Enter your password"
+                    placeholder="Masukkan kata sandi"
                     disabled={isLoading}
                     required
                     className="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -154,19 +154,19 @@ export function V3LoginPage() {
                   disabled={isLoading}
                   className="flex h-11 w-full items-center justify-center rounded-lg bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {isLoading ? "Checking VEAM..." : "Check VEAM & Sign In"}
+                  {isLoading ? "Memeriksa VEAM..." : "Cek VEAM & Masuk"}
                 </button>
               </form>
 
-              <div className="relative z-10 mt-6 flex items-center justify-between gap-3 border-t border-slate-100 pt-5 text-sm">
-                <span className="text-slate-500">Do not have an account?</span>
+              {/* <div className="relative z-10 mt-6 flex items-center justify-between gap-3 border-t border-slate-100 pt-5 text-sm">
+                <span className="text-slate-500">Belum punya akun?</span>
                 <Link
                   href="/register"
                   className="font-bold text-blue-700 hover:text-blue-800"
                 >
-                  Register
+                  Daftar
                 </Link>
-              </div>
+              </div> */}
             </div>
           </div>
         </section>

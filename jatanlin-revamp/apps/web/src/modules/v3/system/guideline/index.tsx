@@ -15,62 +15,62 @@ import { V3DefaultPage } from "@/src/modules/v3/shared/DefaultPage";
 
 const manualTopics = [
   {
-    title: "System Introduction",
-    description: "Application overview and main feature map",
+    title: "Pengenalan Sistem",
+    description: "Gambaran aplikasi dan peta fitur utama",
   },
   {
-    title: "ODOL Inspection Process",
-    description: "Step-by-step overweight vehicle detection workflow",
+    title: "Proses Pemeriksaan ODOL",
+    description: "Alur deteksi kendaraan kelebihan muatan secara bertahap",
   },
   {
-    title: "Verification and Reporting",
-    description: "How to verify inspection data and prepare reports",
+    title: "Verifikasi dan Pelaporan",
+    description: "Cara memverifikasi data pemeriksaan dan menyiapkan laporan",
   },
   {
-    title: "System Configuration",
-    description: "Master data setup and device configuration",
+    title: "Konfigurasi Sistem",
+    description: "Pengaturan master data dan konfigurasi perangkat",
   },
 ];
 
 const videoTutorials = [
   {
-    title: "Basic Tutorial",
-    description: "Interface introduction and application navigation",
+    title: "Tutorial Dasar",
+    description: "Pengenalan antarmuka dan navigasi aplikasi",
     duration: "5:30",
   },
   {
-    title: "ODOL Inspection Process",
-    description: "How to perform a vehicle inspection",
+    title: "Proses Pemeriksaan ODOL",
+    description: "Cara melakukan pemeriksaan kendaraan",
     duration: "8:15",
   },
   {
-    title: "Data Verification",
-    description: "Guide to reviewing and confirming inspection results",
+    title: "Verifikasi Data",
+    description: "Panduan meninjau dan mengonfirmasi hasil pemeriksaan",
     duration: "6:45",
   },
   {
-    title: "Master Data Configuration",
-    description: "Vehicle class and user management setup",
+    title: "Konfigurasi Master Data",
+    description: "Pengaturan kelas kendaraan dan manajemen pengguna",
     duration: "7:20",
   },
 ];
 
 const faqs = [
   {
-    question: "How do I verify vehicle data?",
-    answer: "Open the transaction detail, complete the actual vehicle data, then select Verify.",
+    question: "Bagaimana cara memverifikasi data kendaraan?",
+    answer: "Buka detail transaksi, lengkapi data aktual kendaraan, lalu pilih Verifikasi.",
   },
   {
-    question: "Why is the status still Needs Review?",
-    answer: "The data has not been verified yet, or the verification is still saved as a draft.",
+    question: "Mengapa status masih Perlu Ditinjau?",
+    answer: "Data belum diverifikasi, atau verifikasi masih tersimpan sebagai draf.",
   },
   {
-    question: "How do I update vehicle class master data?",
-    answer: "Go to Vehicle Classes under Master Data, then edit the required record.",
+    question: "Bagaimana cara memperbarui master data kelas kendaraan?",
+    answer: "Buka Kelas Kendaraan di Master Data, lalu edit data yang diperlukan.",
   },
   {
-    question: "Why can I not upload additional evidence?",
-    answer: "Make sure the selected image file is valid and does not exceed the upload limit.",
+    question: "Mengapa saya tidak bisa mengunggah bukti tambahan?",
+    answer: "Pastikan file gambar yang dipilih valid dan tidak melebihi batas unggah.",
   },
 ];
 
@@ -139,9 +139,9 @@ export function V3GuidelineModule() {
 
   return (
     <V3DefaultPage
-      title="Guideline"
-      breadcrumbs={[{ label: "System" }, { label: "Guideline" }]}
-      description="Guides and tutorials for operating the JATANLIN application."
+      title="Panduan"
+      breadcrumbs={[{ label: "Sistem" }, { label: "Panduan" }]}
+      description="Panduan dan tutorial untuk mengoperasikan aplikasi JATANLIN."
     >
       <div className="space-y-6">
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -152,16 +152,16 @@ export function V3GuidelineModule() {
                   <Book24Regular className="h-6 w-6 text-blue-700" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-950">Manual Book</h2>
-                  <p className="text-sm font-medium text-slate-500">Complete User Guide</p>
+                  <h2 className="text-xl font-bold text-slate-950">Buku Manual</h2>
+                  <p className="text-sm font-medium text-slate-500">Panduan Pengguna Lengkap</p>
                 </div>
               </div>
 
               <p className="mb-6 leading-7 text-slate-600">
-                This manual book contains the complete guide for using JATANLIN,
-                short for Jalan Tanpa Kelewatan Muatan. It covers available
-                application features, from login, ODOL inspection, and vehicle
-                review to verification and reporting.
+                Buku manual ini berisi panduan lengkap penggunaan JATANLIN,
+                singkatan dari Jalan Tanpa Kelewatan Muatan. Panduan mencakup
+                fitur aplikasi, mulai dari login, pemeriksaan ODOL, tinjauan
+                kendaraan, hingga verifikasi dan pelaporan.
               </p>
 
               <div className="mb-6 space-y-3">
@@ -181,13 +181,13 @@ export function V3GuidelineModule() {
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800"
                 >
                   <ArrowDownload24Regular className="h-5 w-5" />
-                  Download PDF
+                  Unduh PDF
                 </button>
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
                 >
-                  Read Online
+                  Baca Online
                 </button>
               </div>
             </div>
@@ -223,7 +223,7 @@ export function V3GuidelineModule() {
                   <button
                     type="button"
                     className="group flex h-20 w-20 items-center justify-center rounded-full bg-white/95 shadow-lg transition-all hover:scale-105 hover:bg-white"
-                    aria-label="Play video tutorial"
+                    aria-label="Putar video tutorial"
                   >
                     <Play24Filled className="ml-1 h-8 w-8 text-slate-800 group-hover:text-blue-700" />
                   </button>
@@ -252,14 +252,14 @@ export function V3GuidelineModule() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-950">Video Tutorial</h2>
-                  <p className="text-sm font-medium text-slate-500">Step-by-Step Visual Guide</p>
+                  <p className="text-sm font-medium text-slate-500">Panduan Visual Bertahap</p>
                 </div>
               </div>
 
               <p className="mb-6 leading-7 text-slate-600">
-                These video tutorials help operators understand how to use
-                JATANLIN more easily. Follow each walkthrough to learn the main
-                application workflows and supporting features.
+                Video tutorial ini membantu operator memahami cara menggunakan
+                JATANLIN dengan lebih mudah. Ikuti setiap panduan untuk
+                mempelajari alur utama aplikasi dan fitur pendukung.
               </p>
 
               <div className="mb-6 space-y-4">
@@ -278,17 +278,17 @@ export function V3GuidelineModule() {
                 className="inline-flex w-fit items-center gap-2 rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-800"
               >
                 <Play24Filled className="h-5 w-5" />
-                Watch All Videos
+                Tonton Semua Video
               </button>
             </div>
           </div>
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <h3 className="text-lg font-bold text-slate-950">Need More Help?</h3>
+          <h3 className="text-lg font-bold text-slate-950">Butuh Bantuan Lain?</h3>
           <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            If you have questions or need technical assistance, contact the
-            support team or review the frequently asked questions.
+            Jika ada pertanyaan atau membutuhkan bantuan teknis, hubungi tim
+            dukungan atau lihat pertanyaan yang sering diajukan.
           </p>
           <div className="mt-4 flex justify-center gap-3">
             <button
@@ -299,7 +299,7 @@ export function V3GuidelineModule() {
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
             >
               <Chat24Regular className="h-5 w-5" />
-              Contact Support
+              Hubungi Dukungan
             </button>
             <button
               type="button"
@@ -322,7 +322,7 @@ export function V3GuidelineModule() {
                 type="button"
                 onClick={() => setFaqOpen(false)}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
-                aria-label="Close FAQ"
+                aria-label="Tutup FAQ"
               >
                 <Dismiss24Regular />
               </button>
@@ -341,7 +341,7 @@ export function V3GuidelineModule() {
                 onClick={() => setFaqOpen(false)}
                 className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
               >
-                Close
+                Tutup
               </button>
             </div>
           </div>

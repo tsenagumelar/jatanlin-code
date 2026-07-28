@@ -136,52 +136,52 @@ const UPDATE_APPLICATION_CONFIG = gql`
 
 const groupLabels: Record<string, { title: string; description: string }> = {
   SITE: {
-    title: "Site Identity",
-    description: "Site identifiers used by local services and reporting.",
+    title: "Identitas Situs",
+    description: "Identitas situs yang digunakan layanan lokal dan pelaporan.",
   },
   API: {
-    title: "Backend API",
-    description: "Backend API port and authentication behavior.",
+    title: "API Backend",
+    description: "Port API backend dan perilaku autentikasi.",
   },
   SERVICE: {
-    title: "Service Runtime",
-    description: "Backend process role, queue, and synchronization settings.",
+    title: "Runtime Layanan",
+    description: "Pengaturan peran proses backend, antrean, dan sinkronisasi.",
   },
   DEVICE_IP: {
-    title: "Device IP Address",
-    description: "Network addresses for physical devices installed at the site.",
+    title: "Alamat IP Perangkat",
+    description: "Alamat jaringan untuk perangkat fisik yang terpasang di situs.",
   },
   ANPR_FTP: {
     title: "ANPR FTP",
-    description: "FTP polling settings for ANPR camera capture files.",
+    description: "Pengaturan polling FTP untuk file tangkapan kamera ANPR.",
   },
   AXLE_FTP: {
     title: "AXLE / VAC FTP",
-    description: "FTP polling settings for axle or VAC capture files.",
+    description: "Pengaturan polling FTP untuk file tangkapan sumbu atau VAC.",
   },
   MINIO: {
-    title: "MinIO Storage",
-    description: "Object storage endpoint and bucket settings.",
+    title: "Penyimpanan MinIO",
+    description: "Pengaturan endpoint object storage dan bucket.",
   },
   CCTV: {
-    title: "CCTV Recording",
-    description: "CCTV stream, recording, and trigger settings.",
+    title: "Rekaman CCTV",
+    description: "Pengaturan stream, rekaman, dan trigger CCTV.",
   },
   DIMENSION: {
-    title: "Dimension Detection",
-    description: "Vehicle dimension processing settings.",
+    title: "Deteksi Dimensi",
+    description: "Pengaturan pemrosesan dimensi kendaraan.",
   },
   CALIBRATION: {
-    title: "Camera Calibration",
-    description: "Camera geometry and reference-object calibration values.",
+    title: "Kalibrasi Kamera",
+    description: "Nilai geometri kamera dan kalibrasi objek referensi.",
   },
   WEIGHING: {
-    title: "Weighing Trigger",
-    description: "External weighing capture trigger settings.",
+    title: "Trigger Penimbangan",
+    description: "Pengaturan trigger tangkapan penimbangan eksternal.",
   },
   VEAM: {
-    title: "VEAM License",
-    description: "License validation and storage settings.",
+    title: "Lisensi VEAM",
+    description: "Pengaturan validasi dan penyimpanan lisensi.",
   },
 };
 
@@ -281,9 +281,9 @@ export function V3ConfigurationDeviceModule() {
       await upsertConfigs({ variables: { objects } });
       await refetch();
       setDirty(false);
-      showToast("Configuration saved. Restart backend services for startup-only values.", "success");
+      showToast("Konfigurasi disimpan. Restart layanan backend untuk nilai yang hanya dibaca saat startup.", "success");
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Failed to save configuration.", "error");
+      showToast(error instanceof Error ? error.message : "Gagal menyimpan konfigurasi.", "error");
     }
   };
 
@@ -310,12 +310,12 @@ export function V3ConfigurationDeviceModule() {
           ),
       );
       await refetchApplicationConfigs();
-      showToast("Application settings saved.", "success");
+      showToast("Pengaturan aplikasi disimpan.", "success");
     } catch (error) {
       showToast(
         error instanceof Error
           ? error.message
-          : "Failed to save application settings.",
+          : "Gagal menyimpan pengaturan aplikasi.",
         "error",
       );
     }
@@ -356,11 +356,11 @@ export function V3ConfigurationDeviceModule() {
 
   const handleSyncDataCenter = async () => {
     if (!syncStartDate || !syncEndDate) {
-      showToast("Pilih start date dan end date terlebih dahulu.", "error");
+      showToast("Pilih tanggal mulai dan tanggal selesai terlebih dahulu.", "error");
       return;
     }
     if (syncEndDate < syncStartDate) {
-      showToast("End date tidak boleh lebih kecil dari start date.", "error");
+      showToast("Tanggal selesai tidak boleh lebih kecil dari tanggal mulai.", "error");
       return;
     }
 
@@ -384,18 +384,18 @@ export function V3ConfigurationDeviceModule() {
       });
       const payload = (await response.json()) as DataCenterSyncResponse;
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message || "Failed to queue data center sync.");
+        throw new Error(payload.message || "Gagal memasukkan sinkronisasi data center ke antrean.");
       }
       setLastSyncResult(payload.data?.counts ?? null);
       showToast(
-        "Data center full sync queued. Sync agent will upsert local data.",
+        "Full sync data center masuk antrean. Sync agent akan melakukan upsert data lokal.",
         "success",
       );
     } catch (error) {
       showToast(
         error instanceof Error
           ? error.message
-          : "Failed to queue data center sync.",
+          : "Gagal memasukkan sinkronisasi data center ke antrean.",
         "error",
       );
     } finally {
@@ -438,7 +438,7 @@ export function V3ConfigurationDeviceModule() {
             type="button"
             onClick={() => setVisibleSecrets((prev) => ({ ...prev, [row.config_key]: !prev[row.config_key] }))}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
-            aria-label="Toggle secret visibility"
+            aria-label="Buka/tutup visibilitas rahasia"
           >
             {visibleSecrets[row.config_key] ? <EyeOff24Regular className="h-4 w-4" /> : <Eye24Regular className="h-4 w-4" />}
           </button>
@@ -465,9 +465,9 @@ export function V3ConfigurationDeviceModule() {
             <ShieldSettings24Regular />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-950">Configuration & Device</h1>
+            <h1 className="text-xl font-bold text-slate-950">Konfigurasi & Perangkat</h1>
             <p className="mt-1 text-sm font-medium text-slate-500">
-              Maintain backend environment, device IP, port, storage, CCTV, and license settings from Hasura.
+              Kelola environment backend, IP perangkat, port, penyimpanan, CCTV, dan lisensi dari Hasura.
             </p>
           </div>
         </div>
@@ -479,7 +479,7 @@ export function V3ConfigurationDeviceModule() {
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             <ArrowClockwise24Regular className="h-4 w-4" />
-            Refresh
+            Muat Ulang
           </button>
           <button
             type="button"
@@ -488,16 +488,16 @@ export function V3ConfigurationDeviceModule() {
             className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50"
           >
             <Save24Regular className="h-4 w-4" />
-            {saving ? "Saving..." : "Save All"}
+            {saving ? "Menyimpan..." : "Simpan Semua"}
           </button>
         </div>
       </header>
 
       {rows.length === 0 && !loading && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-          No runtime configuration rows were returned. Apply migration
+          Tidak ada baris konfigurasi runtime yang dikembalikan. Jalankan migrasi
           <span className="font-mono"> 20260616_add_system_runtime_config.sql </span>
-          and track <span className="font-mono">system_runtime_config</span> in Hasura.
+          dan track <span className="font-mono">system_runtime_config</span> di Hasura.
         </div>
       )}
 
@@ -508,9 +508,9 @@ export function V3ConfigurationDeviceModule() {
               <Settings24Regular />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-950">Application Settings</h2>
+              <h2 className="text-base font-bold text-slate-950">Pengaturan Aplikasi</h2>
               <p className="text-sm text-slate-500">
-                Manage WhatsApp and ODOL tolerance values from the <span className="font-mono">apps</span> configuration table.
+                Kelola nilai WhatsApp dan toleransi ODOL dari tabel konfigurasi <span className="font-mono">apps</span>.
               </p>
             </div>
           </div>
@@ -521,7 +521,7 @@ export function V3ConfigurationDeviceModule() {
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Save24Regular className="h-4 w-4" />
-            {savingApplicationConfigs ? "Saving..." : "Save Application Settings"}
+            {savingApplicationConfigs ? "Menyimpan..." : "Simpan Pengaturan Aplikasi"}
           </button>
         </div>
 
@@ -560,7 +560,7 @@ export function V3ConfigurationDeviceModule() {
           </div>
         ) : !loadingApplicationConfigs ? (
           <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-500">
-            No active <span className="font-mono">apps</span> configuration rows were returned.
+            Tidak ada baris konfigurasi <span className="font-mono">apps</span> aktif yang dikembalikan.
           </p>
         ) : null}
       </section>
@@ -572,8 +572,8 @@ export function V3ConfigurationDeviceModule() {
               <NetworkCheck24Regular />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-950">Device Connection Test</h2>
-              <p className="text-sm text-slate-500">Browser-based reachability check for configured device IPs.</p>
+              <h2 className="text-base font-bold text-slate-950">Tes Koneksi Perangkat</h2>
+              <p className="text-sm text-slate-500">Pemeriksaan keterjangkauan IP perangkat terkonfigurasi melalui browser.</p>
             </div>
           </div>
           <button
@@ -582,7 +582,7 @@ export function V3ConfigurationDeviceModule() {
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
           >
             <ArrowClockwise24Regular className="h-4 w-4" />
-            Test All
+            Tes Semua
           </button>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
@@ -591,10 +591,10 @@ export function V3ConfigurationDeviceModule() {
             .map((row) => {
               const result = pingResults[row.config_key] ?? "idle";
               const state = {
-                idle: { label: "Not tested", className: "bg-slate-200 text-slate-500" },
-                testing: { label: "Testing", className: "bg-blue-100 text-blue-700" },
-                ok: { label: "Reachable", className: "bg-green-100 text-green-700" },
-                fail: { label: "Failed", className: "bg-red-100 text-red-700" },
+                idle: { label: "Belum dites", className: "bg-slate-200 text-slate-500" },
+                testing: { label: "Mengetes", className: "bg-blue-100 text-blue-700" },
+                ok: { label: "Terjangkau", className: "bg-green-100 text-green-700" },
+                fail: { label: "Gagal", className: "bg-red-100 text-red-700" },
                 timeout: { label: "Timeout", className: "bg-amber-100 text-amber-700" },
               }[result];
 
@@ -623,15 +623,15 @@ export function V3ConfigurationDeviceModule() {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-950">
-                Sync to Data Center
+                Sinkron ke Data Center
               </h2>
               <p className="text-sm leading-6 text-slate-500">
-                Queue all local master and transaction data for upsert by the
-                running sync agent. The date range is kept for audit context.
+                Masukkan semua data master dan transaksi lokal ke antrean upsert
+                oleh sync agent yang berjalan. Rentang tanggal disimpan untuk konteks audit.
               </p>
               {lastSyncResult && (
                 <p className="mt-2 text-xs font-semibold text-slate-500">
-                  Queued: vehicle {lastSyncResult.vehicle_actual ?? 0}, status{" "}
+                  Masuk antrean: kendaraan {lastSyncResult.vehicle_actual ?? 0}, status{" "}
                   {lastSyncResult.vehicle_status ?? 0}, ANPR{" "}
                   {lastSyncResult.anpr_capture ?? 0}, AXLE{" "}
                   {lastSyncResult.axle_capture ?? 0}, CCTV{" "}
@@ -644,7 +644,7 @@ export function V3ConfigurationDeviceModule() {
           <div className="grid gap-3 sm:grid-cols-[170px_170px_auto]">
             <label className="block">
               <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-400">
-                Start Date
+                Tanggal Mulai
               </span>
               <input
                 type="date"
@@ -655,7 +655,7 @@ export function V3ConfigurationDeviceModule() {
             </label>
             <label className="block">
               <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-400">
-                End Date
+                Tanggal Selesai
               </span>
               <input
                 type="date"
@@ -671,14 +671,14 @@ export function V3ConfigurationDeviceModule() {
               className="inline-flex h-10 items-center justify-center gap-2 self-end rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ArrowClockwise24Regular className="h-4 w-4" />
-              {syncingDataCenter ? "Queueing..." : "Sync"}
+              {syncingDataCenter ? "Memasukkan antrean..." : "Sinkron"}
             </button>
           </div>
         </div>
       </section>
 
       {orderedGroups.map((group) => {
-        const meta = groupLabels[group] ?? { title: group, description: "Runtime configuration values." };
+        const meta = groupLabels[group] ?? { title: group, description: "Nilai konfigurasi runtime." };
         return (
           <section key={group} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-start gap-3">
@@ -714,7 +714,7 @@ export function V3ConfigurationDeviceModule() {
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
           <div className="flex items-center gap-3 rounded-xl bg-slate-900 px-5 py-3 text-white shadow-xl">
             <Warning24Filled className="h-4 w-4 shrink-0 text-amber-400" />
-            <span className="text-sm font-semibold">Unsaved changes</span>
+            <span className="text-sm font-semibold">Perubahan belum disimpan</span>
             <button
               type="button"
               onClick={handleSave}
@@ -722,7 +722,7 @@ export function V3ConfigurationDeviceModule() {
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-50"
             >
               <CheckmarkCircle24Filled className="h-4 w-4" />
-              Save Now
+              Simpan Sekarang
             </button>
           </div>
         </div>

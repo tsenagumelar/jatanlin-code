@@ -87,7 +87,7 @@ function mapVehicleClassToForm(
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
 
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -98,7 +98,7 @@ function formatDateTime(value?: string | null) {
 
 function formatNumber(value?: number | string | null) {
   const numericValue = Number(value || 0);
-  return numericValue.toLocaleString("en-US", {
+  return numericValue.toLocaleString("id-ID", {
     maximumFractionDigits: 2,
   });
 }
@@ -107,7 +107,7 @@ function formatWeight(row: V3VehicleClassRow) {
   const class2 = formatNumber(row.class_2_weight);
   const class3 = formatNumber(row.class_3_weight);
 
-  if (row.total_axle >= 6) return `${class2} kg / axle`;
+  if (row.total_axle >= 6) return `${class2} kg / sumbu`;
   if (Number(row.class_2_weight) === Number(row.class_3_weight)) {
     return `± ${class2} kg`;
   }
@@ -119,7 +119,7 @@ function formatDimensions(row: V3VehicleClassRow) {
 }
 
 function formatStatus(isActive?: boolean | null) {
-  return isActive ? "Active" : "Inactive";
+  return isActive ? "Aktif" : "Tidak Aktif";
 }
 
 function getExportRows(rows: V3VehicleClassRow[]) {
@@ -259,14 +259,14 @@ export function useV3VehicleClasses() {
   };
 
   const validateForm = () => {
-    if (!formData.type.trim()) return "Vehicle type is required.";
-    if (!formData.description.trim()) return "Description is required.";
-    if (formData.totalAxle <= 0) return "Total axle must be greater than 0.";
-    if (formData.class2Weight < 0) return "Minimum weight cannot be negative.";
-    if (formData.class3Weight < 0) return "Maximum weight cannot be negative.";
-    if (formData.length < 0) return "Length cannot be negative.";
-    if (formData.width < 0) return "Width cannot be negative.";
-    if (formData.height < 0) return "Height cannot be negative.";
+    if (!formData.type.trim()) return "Tipe kendaraan wajib diisi.";
+    if (!formData.description.trim()) return "Deskripsi wajib diisi.";
+    if (formData.totalAxle <= 0) return "Total sumbu harus lebih dari 0.";
+    if (formData.class2Weight < 0) return "Berat minimum tidak boleh negatif.";
+    if (formData.class3Weight < 0) return "Berat maksimum tidak boleh negatif.";
+    if (formData.length < 0) return "Panjang tidak boleh negatif.";
+    if (formData.width < 0) return "Lebar tidak boleh negatif.";
+    if (formData.height < 0) return "Tinggi tidak boleh negatif.";
     return null;
   };
 
@@ -275,13 +275,13 @@ export function useV3VehicleClasses() {
     if (!file) return;
 
     if (!["image/jpeg", "image/png"].includes(file.type)) {
-      setUploadError("Please upload a JPG or PNG image file.");
+      setUploadError("Unggah file gambar JPG atau PNG.");
       event.target.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setUploadError("Image size must be 5MB or less.");
+      setUploadError("Ukuran gambar maksimal 5MB.");
       event.target.value = "";
       return;
     }
@@ -305,10 +305,10 @@ export function useV3VehicleClasses() {
       if (result.success && result.file_path) {
         updateForm("image", result.file_path);
       } else {
-        setUploadError(result.message || "Unable to upload image.");
+        setUploadError(result.message || "Tidak dapat mengunggah gambar.");
       }
     } catch {
-      setUploadError("Unable to upload image. Please try again.");
+      setUploadError("Tidak dapat mengunggah gambar. Silakan coba lagi.");
     } finally {
       setIsUploadingImage(false);
       event.target.value = "";
@@ -366,14 +366,14 @@ export function useV3VehicleClasses() {
       setFormError(
         submitError instanceof Error
           ? submitError.message
-          : "Unable to save vehicle class.",
+          : "Tidak dapat menyimpan kelas kendaraan.",
       );
     }
   };
 
   const handleDelete = async (vehicleClass: V3VehicleClassRow) => {
     const confirmed = window.confirm(
-      `Delete vehicle class "${vehicleClass.type}"? This action will deactivate it.`,
+      `Hapus kelas kendaraan "${vehicleClass.type}"? Aksi ini akan menonaktifkannya.`,
     );
     if (!confirmed) return;
 
@@ -389,7 +389,7 @@ export function useV3VehicleClasses() {
       setFormError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Unable to delete vehicle class.",
+          : "Tidak dapat menghapus kelas kendaraan.",
       );
     }
   };
@@ -397,19 +397,19 @@ export function useV3VehicleClasses() {
   const handleExport = (format: "csv" | "pdf") => {
     const headers = [
       "No",
-      "Code",
-      "Type",
-      "Description",
-      "Total Axle",
-      "Weight",
-      "Dimensions",
+      "Kode",
+      "Tipe",
+      "Deskripsi",
+      "Total Sumbu",
+      "Berat",
+      "Dimensi",
       "Status",
-      "Last Updated",
+      "Terakhir Diperbarui",
     ];
     const rows = getExportRows(vehicleClasses);
 
     if (rows.length === 0) {
-      window.alert("No vehicle class data to export.");
+      window.alert("Tidak ada data kelas kendaraan untuk diekspor.");
       return;
     }
 
@@ -420,7 +420,7 @@ export function useV3VehicleClasses() {
 
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(14);
-    doc.text("Vehicle Classes", 14, 14);
+    doc.text("Kelas Kendaraan", 14, 14);
     autoTable(doc, {
       head: [headers],
       body: rows,

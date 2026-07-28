@@ -37,10 +37,10 @@ import type { V3LayoutProps, V3MenuItem, V3MenuSection } from "./types";
 
 const menuSections: V3MenuSection[] = [
   {
-    label: "Main",
+    label: "Utama",
     items: [
       {
-        label: "Dashboard",
+        label: "Dasbor",
         href: "/dashboard",
         icon: <Home24Regular />,
         activeIcon: <Home24Filled />,
@@ -51,19 +51,19 @@ const menuSections: V3MenuSection[] = [
     label: "Monitoring",
     items: [
       {
-        label: "Processing",
+        label: "Pemrosesan",
         href: "/monitoring/processing",
         icon: <ArrowSync24Regular />,
         activeIcon: <ArrowSync24Filled />,
       },
       {
-        label: "Live View",
+        label: "Tampilan Langsung",
         href: "/monitoring/live-view",
         icon: <Video24Regular />,
         activeIcon: <Video24Filled />,
       },
       {
-        label: "LED Display",
+        label: "Tampilan LED",
         href: "/monitoring/led-display",
         icon: <Tv24Regular />,
         activeIcon: <Tv24Filled />,
@@ -71,7 +71,7 @@ const menuSections: V3MenuSection[] = [
     ],
   },
   {
-    label: "Transaction",
+    label: "Transaksi",
     items: [
       {
         label: "Jatanlin",
@@ -85,13 +85,13 @@ const menuSections: V3MenuSection[] = [
     label: "Master Data",
     items: [
       {
-        label: "User",
+        label: "Pengguna",
         href: "/master-data/user",
         icon: <People24Regular />,
         activeIcon: <People24Filled />,
       },
       {
-        label: "Vehicle Classes",
+        label: "Kelas Kendaraan",
         href: "/master-data/vehicle-classes",
         icon: <VehicleCar24Regular />,
         activeIcon: <VehicleCar24Filled />,
@@ -99,22 +99,22 @@ const menuSections: V3MenuSection[] = [
     ],
   },
   {
-    label: "System",
+    label: "Sistem",
     items: [
       {
-        label: "Configuration & Device",
+        label: "Konfigurasi & Perangkat",
         href: "/system/configuration-device-registration",
         icon: <PlugConnected24Regular />,
         activeIcon: <PlugConnected24Filled />,
       },
       {
-        label: "License",
+        label: "Lisensi",
         href: "/system/license",
         icon: <ShieldKeyhole24Regular />,
         activeIcon: <ShieldKeyhole24Filled />,
       },
       {
-        label: "Guideline",
+        label: "Panduan",
         href: "/system/guideline",
         icon: <BookQuestionMark24Regular />,
         activeIcon: <BookQuestionMark24Filled />,
@@ -184,7 +184,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
   const shell = useV3AppShell();
   const { user, licenseChecked } = useAppSelector((state) => state.login);
   const profilePictureUrl = getProfilePictureUrl(user?.profile_picture);
-  const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "Jatanlin Site";
+  const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "Situs Jatanlin";
   const siteCode = process.env.NEXT_PUBLIC_SITE_CODE || "-";
   const siteLocation = process.env.NEXT_PUBLIC_SITE_LOCATION || "-";
   const isAdmin = isAdminRole(
@@ -261,7 +261,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
                   {section.label}
                 </div>
               )}
-              {shell.isCollapsed && section.label !== "Main" && (
+              {shell.isCollapsed && section.label !== "Utama" && (
                 <div className="mx-4 my-2 border-t border-slate-100" />
               )}
               <div className="space-y-0.5">
@@ -281,7 +281,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
           {!shell.isCollapsed ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                Site
+                Situs
               </p>
               <p className="mt-1 truncate text-sm font-bold text-slate-800">
                 {siteName}
@@ -306,7 +306,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            aria-label="Close sidebar"
+            aria-label="Tutup sidebar"
             className="absolute inset-0 bg-slate-950/45"
             onClick={shell.closeMobileSidebar}
           />
@@ -367,7 +367,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
             <div className="shrink-0 border-t border-slate-100 p-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Site
+                Situs
                 </p>
                 <p className="mt-1 truncate text-sm font-bold text-slate-800">
                   {siteName}
@@ -390,7 +390,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
             type="button"
             onClick={shell.toggleSidebar}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-            aria-label="Toggle sidebar"
+            aria-label="Buka/tutup sidebar"
           >
             <Navigation20Regular />
           </button>
@@ -410,7 +410,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
             >
               <Image
                 src={profilePictureUrl}
-                alt={user?.full_name || "User"}
+                alt={user?.full_name || "Pengguna"}
                 width={28}
                 height={28}
                 unoptimized
@@ -418,7 +418,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
               />
               <div className="hidden min-w-0 text-left sm:block">
                 <p className="max-w-32 truncate text-xs font-bold text-slate-800">
-                  {user?.full_name || "User"}
+                  {user?.full_name || "Pengguna"}
                 </p>
                 <p className="max-w-32 truncate text-[10px] font-semibold text-slate-400">
                   {user?.master_role?.role_name || "-"}
@@ -435,7 +435,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
                   className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   <Person24Regular className="h-5 w-5 text-slate-400" />
-                  Profile
+                  Profil
                 </button>
                 <button
                   type="button"
@@ -443,7 +443,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
                   className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
                 >
                   <SignOut24Regular className="h-5 w-5" />
-                  Logout
+                  Keluar
                 </button>
               </div>
             )}
@@ -463,17 +463,17 @@ export function V3AppShell({ children }: V3LayoutProps) {
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                  Profile
+                  Profil
                 </p>
                 <h2 className="mt-1 text-lg font-bold text-slate-950">
-                  User Detail
+                  Detail Pengguna
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={shell.closeProfile}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
-                aria-label="Close profile"
+                aria-label="Tutup profil"
               >
                 <Dismiss24Regular />
               </button>
@@ -482,7 +482,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
               <div className="flex items-center gap-4">
                 <Image
                   src={profilePictureUrl}
-                  alt={user?.full_name || "User"}
+                  alt={user?.full_name || "Pengguna"}
                   width={64}
                   height={64}
                   unoptimized
@@ -490,7 +490,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
                 />
                 <div className="min-w-0">
                   <p className="truncate text-base font-bold text-slate-950">
-                    {user?.full_name || "User"}
+                    {user?.full_name || "Pengguna"}
                   </p>
                   <p className="truncate text-sm font-semibold text-slate-500">
                     {user?.master_role?.role_name || "-"}
@@ -504,7 +504,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
               <div className="mt-5 grid gap-3 text-sm">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Username
+                    Nama Pengguna
                   </p>
                   <p className="mt-1 font-semibold text-slate-800">
                     {user?.username || "-"}
@@ -512,7 +512,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Badge No
+                    No. Badge
                   </p>
                   <p className="mt-1 font-semibold text-slate-800">
                     {user?.badge_no || "-"}
@@ -520,7 +520,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Role Code
+                    Kode Peran
                   </p>
                   <p className="mt-1 font-semibold text-slate-800">
                     {user?.master_role?.code || "-"}

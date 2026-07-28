@@ -20,7 +20,7 @@ import type {
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -34,7 +34,7 @@ function formatNumber(value?: string | number | null, fractionDigits = 2) {
   const numberValue = Number(value);
   if (Number.isNaN(numberValue)) return "-";
 
-  return numberValue.toLocaleString("en-US", {
+  return numberValue.toLocaleString("id-ID", {
     maximumFractionDigits: fractionDigits,
   });
 }
@@ -76,10 +76,10 @@ function getLatestStatus(record?: V3JatanlinDetailRecord | null) {
 }
 
 function getStatusLabel(status?: string | null) {
-  if (status === "verified") return "Verified";
-  if (status === "rejected") return "Rejected";
-  if (status === "draft") return "Draft";
-  return "Pending";
+  if (status === "verified") return "Terverifikasi";
+  if (status === "rejected") return "Ditolak";
+  if (status === "draft") return "Draf";
+  return "Menunggu";
 }
 
 function getStatusTone(status?: string | null) {
@@ -95,6 +95,16 @@ function getViolationTone(violation: string) {
   if (violation.includes("&")) return "bg-purple-50 text-purple-700";
   if (violation.includes("Loading")) return "bg-red-50 text-red-700";
   return "bg-orange-50 text-orange-700";
+}
+
+function getViolationLabel(violation: string) {
+  if (violation === "Over Dimension & Over Loading") {
+    return "Over Dimension & Over Loading";
+  }
+  if (violation === "Over Dimension") return "Over Dimension";
+  if (violation === "Over Loading") return "Over Loading";
+  if (violation === "Pending") return "Menunggu";
+  return violation;
 }
 
 function isVideoUrl(url: string) {
@@ -172,12 +182,12 @@ function getViolation(
 
 function getSummaryFields(record?: V3JatanlinDetailRecord | null): V3DetailField[] {
   return [
-    { label: "Transaction ID", value: String(record?.id || "-") },
+    { label: "ID Transaksi", value: String(record?.id || "-") },
     { label: "Session ID", value: String(record?.session_id || "-") },
-    { label: "Created Time", value: formatDateTime(record?.created_date) },
-    { label: "Last Updated", value: formatDateTime(record?.updated_date) },
+    { label: "Waktu Dibuat", value: formatDateTime(record?.created_date) },
+    { label: "Terakhir Diperbarui", value: formatDateTime(record?.updated_date) },
     {
-      label: "Location",
+      label: "Lokasi",
       value:
         record?.location_address ||
         record?.transact_anpr_capture?.location_code ||
@@ -189,34 +199,34 @@ function getSummaryFields(record?: V3JatanlinDetailRecord | null): V3DetailField
 function getSourceFields(record?: V3JatanlinDetailRecord | null) {
   return {
     anpr: [
-      { label: "Plate Number", value: record?.transact_anpr_capture?.plate_no || "-" },
+      { label: "Nomor Plat", value: record?.transact_anpr_capture?.plate_no || "-" },
       { label: "Confidence", value: formatNumber(record?.transact_anpr_capture?.confidence, 2) },
       { label: "Camera ID", value: record?.transact_anpr_capture?.camera_id || "-" },
-      { label: "Captured At", value: formatDateTime(record?.transact_anpr_capture?.captured_at) },
+      { label: "Waktu Tangkapan", value: formatDateTime(record?.transact_anpr_capture?.captured_at) },
     ],
     axle: [
-      { label: "Plate Number", value: record?.transact_axle_capture?.plate_no || "-" },
-      { label: "Total Axles", value: String(record?.transact_axle_capture?.total_axles || "-") },
-      { label: "Total Wheels", value: String(record?.transact_axle_capture?.total_wheels || "-") },
-      { label: "Vehicle Type", value: record?.transact_axle_capture?.vehicle_body_type || "-" },
+      { label: "Nomor Plat", value: record?.transact_axle_capture?.plate_no || "-" },
+      { label: "Total Sumbu", value: String(record?.transact_axle_capture?.total_axles || "-") },
+      { label: "Total Roda", value: String(record?.transact_axle_capture?.total_wheels || "-") },
+      { label: "Tipe Kendaraan", value: record?.transact_axle_capture?.vehicle_body_type || "-" },
       {
-        label: "Length",
+        label: "Panjang",
         value: record?.transact_axle_capture?.length_mm
           ? `${formatNumber(record.transact_axle_capture.length_mm / 1000, 2)} m`
           : "-",
       },
     ],
     wim: [
-      { label: "Total Weight", value: formatWeight(record?.transact_weighing?.total_weight) },
-      { label: "Total Axle", value: String(record?.transact_weighing?.total_axle || "-") },
-      { label: "Active", value: record?.transact_weighing?.is_active ? "Yes" : "No" },
-      { label: "Created Time", value: formatDateTime(record?.transact_weighing?.created_date) },
+      { label: "Total Berat", value: formatWeight(record?.transact_weighing?.total_weight) },
+      { label: "Total Sumbu", value: String(record?.transact_weighing?.total_axle || "-") },
+      { label: "Aktif", value: record?.transact_weighing?.is_active ? "Ya" : "Tidak" },
+      { label: "Waktu Dibuat", value: formatDateTime(record?.transact_weighing?.created_date) },
     ],
     dimension: [
-      { label: "Length", value: `${formatNumber(record?.transact_dimension?.length, 1)} m` },
-      { label: "Width", value: `${formatNumber(record?.transact_dimension?.width, 1)} m` },
-      { label: "Height", value: `${formatNumber(record?.transact_dimension?.height, 1)} m` },
-      { label: "Created Time", value: formatDateTime(record?.transact_dimension?.created_date) },
+      { label: "Panjang", value: `${formatNumber(record?.transact_dimension?.length, 1)} m` },
+      { label: "Lebar", value: `${formatNumber(record?.transact_dimension?.width, 1)} m` },
+      { label: "Tinggi", value: `${formatNumber(record?.transact_dimension?.height, 1)} m` },
+      { label: "Waktu Dibuat", value: formatDateTime(record?.transact_dimension?.created_date) },
     ],
   };
 }
@@ -224,27 +234,27 @@ function getSourceFields(record?: V3JatanlinDetailRecord | null) {
 function getMetrics(record: V3JatanlinDetailRecord | null | undefined): V3DetailMetric[] {
   return [
     {
-      label: "Plate Number",
+      label: "Nomor Plat",
       value: getPlate(record),
-      helper: "Detected by ANPR",
+      helper: "Terdeteksi oleh ANPR",
       tone: "bg-blue-50 text-blue-700",
     },
     {
-      label: "Actual Weight",
+      label: "Berat Aktual",
       value: formatWeight(record?.actual_weight),
-      helper: "Vehicle actual weight",
+      helper: "Berat aktual kendaraan",
       tone: "bg-red-50 text-red-700",
     },
     {
-      label: "Actual Axle",
+      label: "Sumbu Aktual",
       value: String(getAxle(record)),
-      helper: "Axle sensor result",
+      helper: "Hasil sensor sumbu",
       tone: "bg-emerald-50 text-emerald-700",
     },
     {
-      label: "Dimensions",
+      label: "Dimensi",
       value: formatDimensions(record),
-      helper: "Length x width x height",
+      helper: "Panjang x lebar x tinggi",
       tone: "bg-violet-50 text-violet-700",
     },
   ];
@@ -258,26 +268,26 @@ function getMediaItems(record?: V3JatanlinDetailRecord | null): V3MediaItem[] {
 
   return [
     anprUrl && {
-      title: "ANPR Full Capture",
-      subtitle: "Vehicle overview from ANPR camera",
+      title: "Tangkapan Penuh ANPR",
+      subtitle: "Tampilan kendaraan dari kamera ANPR",
       url: anprUrl,
       type: "image" as const,
     },
     plateUrl && {
-      title: "Plate Capture",
-      subtitle: "Detected plate crop",
+      title: "Tangkapan Plat",
+      subtitle: "Potongan plat yang terdeteksi",
       url: plateUrl,
       type: "image" as const,
     },
     axleUrl && {
-      title: "Axle Capture",
-      subtitle: "Axle sensor evidence",
+      title: "Tangkapan Sumbu",
+      subtitle: "Bukti sensor sumbu",
       url: axleUrl,
       type: "image" as const,
     },
     cctvUrl && {
-      title: "CCTV Evidence",
-      subtitle: record?.transact_cctv?.filename || "Video or image evidence",
+      title: "Bukti CCTV",
+      subtitle: record?.transact_cctv?.filename || "Bukti video atau gambar",
       url: cctvUrl,
       type: isVideoUrl(cctvUrl) ? ("video" as const) : ("image" as const),
     },
@@ -332,5 +342,6 @@ export function useV3JatanlinDetail({ id }: V3JatanlinDetailProps) {
     getStatusLabel,
     getStatusTone,
     getViolationTone,
+    getViolationLabel,
   };
 }

@@ -40,6 +40,18 @@ const metricStyle: Record<V3ProcessingMetric["status"], string> = {
   pending: "bg-slate-100 text-slate-500",
 };
 
+const statusLabel: Record<V3DeviceConnection["status"], string> = {
+  online: "Online",
+  warning: "Peringatan",
+  offline: "Offline",
+};
+
+const metricStatusLabel: Record<V3ProcessingMetric["status"], string> = {
+  normal: "Normal",
+  over: "Melebihi",
+  pending: "Menunggu",
+};
+
 function DeviceCard({ device }: { device: V3DeviceConnection }) {
   const isOnline = device.status === "online";
 
@@ -64,7 +76,7 @@ function DeviceCard({ device }: { device: V3DeviceConnection }) {
         />
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 text-sm font-bold">
-        <span className="capitalize">{device.status}</span>
+        <span>{statusLabel[device.status]}</span>
         <span>{device.lastSeen}</span>
       </div>
     </div>
@@ -111,7 +123,7 @@ function DataPanel({
         {isLoading && (
           <div className="flex shrink-0 items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
             <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
-            Waiting data
+            Menunggu data
           </div>
         )}
       </div>
@@ -141,7 +153,7 @@ function DataPanel({
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-200/45 backdrop-blur-[1px]">
             <div className="flex flex-col items-center gap-3 rounded-xl border border-white/70 bg-white/60 px-5 py-4 text-slate-600 shadow-sm">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-300 border-t-blue-700" />
-              <span className="text-sm font-extrabold">Waiting data...</span>
+              <span className="text-sm font-extrabold">Menunggu data...</span>
             </div>
           </div>
         )}
@@ -158,7 +170,7 @@ function ImageBox({ src, label }: { src?: string; label: string }) {
       ) : (
         <div className="text-center text-slate-400">
           <PlugDisconnected24Regular className="mx-auto h-9 w-9" />
-          <p className="mt-2 text-sm font-bold">Waiting for {label}</p>
+          <p className="mt-2 text-sm font-bold">Menunggu {label}</p>
         </div>
       )}
     </div>
@@ -173,7 +185,7 @@ function CctvBox({ src }: { src?: string }) {
       ) : (
         <div className="text-center text-slate-400">
           <Video24Regular className="mx-auto h-9 w-9" />
-          <p className="mt-2 text-sm font-bold">Waiting for CCTV evidence</p>
+          <p className="mt-2 text-sm font-bold">Menunggu bukti CCTV</p>
         </div>
       )}
     </div>
@@ -210,10 +222,10 @@ function ResultPanel({
           </div>
           <div>
             <h2 className="text-lg font-extrabold text-slate-950">
-              Actual vs Legal Limit
+              Aktual vs Batas Legal
             </h2>
             <p className="text-sm font-semibold text-slate-500">
-              Plate {plateNo} · Status {status}
+              Plat {plateNo} · Status {status}
             </p>
           </div>
         </div>
@@ -237,18 +249,18 @@ function ResultPanel({
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-bold text-slate-500">{metric.label}</p>
               <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${metricStyle[metric.status]}`}>
-                {metric.status}
+                {metricStatusLabel[metric.status]}
               </span>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div className="rounded-lg bg-slate-50 p-2">
-                <p className="text-xs font-bold uppercase text-slate-400">Actual</p>
+                <p className="text-xs font-bold uppercase text-slate-400">Aktual</p>
                 <p className="mt-1 text-base font-extrabold text-slate-950">
                   {metric.actual}
                 </p>
               </div>
               <div className="rounded-lg bg-slate-50 p-2">
-                <p className="text-xs font-bold uppercase text-slate-400">Limit</p>
+                <p className="text-xs font-bold uppercase text-slate-400">Batas</p>
                 <p className="mt-1 text-base font-extrabold text-slate-950">
                   {metric.limit}
                 </p>
@@ -264,7 +276,7 @@ function ResultPanel({
             href={`/transaction/jatanlin/verify/${vehicleId}`}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800"
           >
-            Continue Verification
+            Lanjut Verifikasi
           </Link>
         )}
         <button
@@ -284,9 +296,9 @@ export function V3ProcessingPage() {
 
   return (
     <V3DefaultPage
-      title="Processing"
-      breadcrumbs={[{ label: "Monitoring" }, { label: "Processing" }]}
-      description="Monitor device connections and the latest vehicle processing result in one screen."
+      title="Pemrosesan"
+      breadcrumbs={[{ label: "Monitoring" }, { label: "Pemrosesan" }]}
+      description="Pantau koneksi perangkat dan hasil pemrosesan kendaraan terbaru dalam satu layar."
     >
       {processing.error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -298,12 +310,12 @@ export function V3ProcessingPage() {
         <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-extrabold text-slate-950">
-              Device Connection
+              Koneksi Perangkat
             </h2>
             <p className="text-sm font-semibold text-slate-500">
-              {processing.onlineCount}/4 devices online · Auto check every 10 seconds · Last data {processing.lastUpdated}
+              {processing.onlineCount}/4 perangkat online · Cek otomatis tiap 10 detik · Data terakhir {processing.lastUpdated}
               {processing.isStarted && !processing.isFinalized
-                ? ` · Waiting window ${processing.timeoutRemaining}s`
+                ? ` · Window tunggu ${processing.timeoutRemaining}s`
                 : ""}
             </p>
           </div>
@@ -315,7 +327,7 @@ export function V3ProcessingPage() {
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100"
             >
               <ArrowClockwise20Regular className={processing.isLoading ? "animate-spin" : ""} />
-              Check Connection
+              Cek Koneksi
             </button>
             <button
               type="button"
@@ -330,7 +342,7 @@ export function V3ProcessingPage() {
               title={
                 processing.allConnectionsOnline
                   ? undefined
-                  : "All device connections must be green before starting."
+                    : "Semua koneksi perangkat harus hijau sebelum mulai."
               }
               className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300 ${
                 processing.isStarted
@@ -340,14 +352,14 @@ export function V3ProcessingPage() {
             >
               <Play20Regular />
               {processing.isRequestingLocation
-                ? "Detecting location..."
+                ? "Mendeteksi lokasi..."
                 : processing.isStarting
-                ? "Starting..."
+                ? "Memulai..."
                 : processing.isFinalizing
-                  ? "Finalizing..."
+                  ? "Finalisasi..."
                 : processing.isStarted
-                  ? "Running"
-                  : "Start"}
+                  ? "Berjalan"
+                  : "Mulai"}
             </button>
             <button
               type="button"
@@ -386,17 +398,17 @@ export function V3ProcessingPage() {
         <div className="grid gap-4">
           <DataPanel
             title="ANPR"
-            subtitle="License plate capture"
+            subtitle="Tangkapan plat nomor"
             icon={<Camera24Regular />}
-            media={<ImageBox src={processing.anprImage} label="ANPR image" />}
+            media={<ImageBox src={processing.anprImage} label="gambar ANPR" />}
             items={processing.anprItems}
             isLoading={processing.isAnprWaiting}
           />
           <DataPanel
-            title="Axle"
-            subtitle="Axle and dimension detection"
+            title="Sumbu"
+            subtitle="Deteksi sumbu dan dimensi"
             icon={<VehicleTruckProfile24Regular />}
-            media={<ImageBox src={processing.axleImage} label="Axle image" />}
+            media={<ImageBox src={processing.axleImage} label="gambar sumbu" />}
             items={processing.axleItems}
             isLoading={processing.isAxleWaiting}
           />
@@ -405,7 +417,7 @@ export function V3ProcessingPage() {
         <div className="grid gap-4">
           <DataPanel
             title="WIM"
-            subtitle="Weight in motion data"
+            subtitle="Data weight in motion"
             icon={<Scales24Regular />}
             items={processing.wimItems}
             compact
@@ -413,7 +425,7 @@ export function V3ProcessingPage() {
           />
           <DataPanel
             title="CCTV"
-            subtitle="Evidence video"
+            subtitle="Video bukti"
             icon={<Video24Regular />}
             media={<CctvBox src={processing.cctvUrl} />}
             items={processing.cctvItems}

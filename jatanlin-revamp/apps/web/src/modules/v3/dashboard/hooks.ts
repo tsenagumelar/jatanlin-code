@@ -11,7 +11,7 @@ import {
 import type { V3DashboardData } from "./types";
 
 function formatShortDate(date: Date) {
-  return date.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
+  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
 }
 
 function dateKey(date: Date) {
@@ -23,7 +23,7 @@ function dateKey(date: Date) {
 
 function formatShortDateTime(dateValue?: string | null) {
   if (!dateValue) return "-";
-  return new Date(dateValue).toLocaleString("en-US", {
+  return new Date(dateValue).toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -48,13 +48,23 @@ function isViolationResult(value?: string | null) {
   return Boolean(value && value !== "Normal");
 }
 
+function formatViolationLabel(value: string) {
+  if (value === "Over Dimension & Over Loading") {
+    return "Over Dimension & Over Loading";
+  }
+  if (value === "Over Dimension") return "Over Dimension";
+  if (value === "Over Loading") return "Over Loading";
+  if (value === "Pending") return "Menunggu";
+  return value;
+}
+
 function getViolationArticle(value: string) {
   const hasDimension = value.includes("Dimension");
   const hasLoading = value.includes("Loading");
 
-  if (hasDimension && hasLoading) return "Article 277 & 278";
-  if (hasDimension) return "Article 277";
-  if (hasLoading) return "Article 278";
+  if (hasDimension && hasLoading) return "Pasal 277 & 278";
+  if (hasDimension) return "Pasal 277";
+  if (hasLoading) return "Pasal 278";
   return "-";
 }
 
@@ -209,7 +219,7 @@ export function useV3Dashboard(): V3DashboardData {
             vehicle.location_address ||
             vehicle.transact_anpr_capture?.location_code ||
             "-",
-          type: effectiveResult,
+          type: formatViolationLabel(effectiveResult),
           article,
           officer: "-",
           status: verificationStatus || "pending",
@@ -240,25 +250,25 @@ export function useV3Dashboard(): V3DashboardData {
     return {
       metrics: [
         {
-          label: "ODOL Vehicles",
+          label: "Kendaraan ODOL",
           value: odolVehicles,
           tone: "danger" as const,
           icon: "odol" as const,
         },
         {
-          label: "Total Violations",
+          label: "Total Pelanggaran",
           value: totalViolations,
           tone: "warning" as const,
           icon: "violation" as const,
         },
         {
-          label: "Normal Vehicles",
+          label: "Kendaraan Normal",
           value: normalVehicles,
           tone: "success" as const,
           icon: "normal" as const,
         },
         {
-          label: "Today's Violations",
+          label: "Pelanggaran Hari Ini",
           value: todayViolations,
           tone: "info" as const,
           icon: "today" as const,
@@ -277,21 +287,21 @@ export function useV3Dashboard(): V3DashboardData {
         plate: heaviest.plate,
         value:
           heaviest.weight > 0
-            ? `${(heaviest.weight / 1000).toLocaleString("en-US", {
+            ? `${(heaviest.weight / 1000).toLocaleString("id-ID", {
                 maximumFractionDigits: 2,
               })} ton`
             : "-",
-        helper: "Heaviest violating vehicle",
+        helper: "Kendaraan pelanggar terberat",
       },
       dimension: {
         plate: dimension.plate,
         value: dimension.label,
-        helper: "Violating vehicle dimensions: L x W x H",
+        helper: "Dimensi kendaraan pelanggar: P x L x T",
       },
       topArticle: {
         plate: topArticleEntry?.[0] ?? "-",
-        value: topArticleEntry ? `${topArticleEntry[1]} cases` : "-",
-        helper: "Most frequent violation by article",
+        value: topArticleEntry ? `${topArticleEntry[1]} kasus` : "-",
+        helper: "Pelanggaran paling sering berdasarkan pasal",
       },
     };
   }, [
@@ -309,7 +319,7 @@ export function useV3Dashboard(): V3DashboardData {
 
   return {
     title: "Jatanlin",
-    description: "Operational summary for ODOL vehicles and violations.",
+    description: "Ringkasan operasional kendaraan ODOL dan pelanggaran.",
     metrics: dashboard.metrics,
     trendData: dashboard.trendData,
     distributionData: dashboard.distributionData,

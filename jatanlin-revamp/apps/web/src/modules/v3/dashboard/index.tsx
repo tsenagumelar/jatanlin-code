@@ -73,7 +73,7 @@ export function V3DashboardPage() {
   return (
     <V3DefaultPage
       title={title}
-      breadcrumbs={[{ label: "Dashboard" }]}
+      breadcrumbs={[{ label: "Dasbor" }]}
       description={description}
     >
       {error && (
@@ -92,10 +92,10 @@ export function V3DashboardPage() {
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3">
             <h2 className="text-base font-bold text-slate-950">
-              Enforcement Total - Last 7 Days
+              Total Penindakan - 7 Hari Terakhir
             </h2>
             <p className="text-sm text-slate-500">
-              Over dimension, over loading, and normal vehicles per day.
+              Kendaraan over dimension, over loading, dan normal per hari.
             </p>
           </div>
           <div className="h-56">
@@ -164,10 +164,10 @@ export function V3DashboardPage() {
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3">
             <h2 className="text-base font-bold text-slate-950">
-              Violation Distribution
+              Distribusi Pelanggaran
             </h2>
             <p className="text-sm text-slate-500">
-              Over dimension, over loading, and normal.
+              Over dimension, over loading, dan normal.
             </p>
           </div>
           <div className="h-48">
@@ -215,10 +215,10 @@ export function V3DashboardPage() {
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-4 py-3">
             <h2 className="text-base font-bold text-slate-950">
-              Latest 10 Violation Summary
+              Ringkasan 10 Pelanggaran Terbaru
             </h2>
             <p className="text-sm text-slate-500">
-              Latest vehicles detected with violations.
+              Kendaraan terbaru yang terdeteksi melanggar.
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -226,14 +226,14 @@ export function V3DashboardPage() {
               <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
                 <tr>
                   <th className="px-4 py-3">No</th>
-                  <th className="px-4 py-3">Time</th>
-                  <th className="px-4 py-3">Plate No</th>
-                  <th className="px-4 py-3">Location</th>
-                  <th className="px-4 py-3">Violation Type</th>
-                  <th className="px-4 py-3">Article</th>
-                  <th className="px-4 py-3">Officer</th>
+                  <th className="px-4 py-3">Waktu</th>
+                  <th className="px-4 py-3">No. Plat</th>
+                  <th className="px-4 py-3">Lokasi</th>
+                  <th className="px-4 py-3">Jenis Pelanggaran</th>
+                  <th className="px-4 py-3">Pasal</th>
+                  <th className="px-4 py-3">Petugas</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  <th className="px-4 py-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -270,13 +270,13 @@ export function V3DashboardPage() {
                             href={`/transaction/jatanlin/detail/${row.id}`}
                             className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                           >
-                            View
+                            Lihat
                           </Link>
                           <Link
                             href={`/transaction/jatanlin/verify/${row.id}`}
                             className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-800"
                           >
-                            Verify
+                            Verifikasi
                           </Link>
                         </div>
                       </td>
@@ -288,7 +288,7 @@ export function V3DashboardPage() {
                       colSpan={9}
                       className="px-4 py-8 text-center font-medium text-slate-500"
                     >
-                      No violation data available.
+                      Data pelanggaran tidak tersedia.
                     </td>
                   </tr>
                 )}
@@ -300,7 +300,7 @@ export function V3DashboardPage() {
 
       {isLoading && (
         <p className="mt-4 text-sm font-medium text-slate-500">
-          Loading dashboard data...
+          Memuat data dasbor...
         </p>
       )}
     </V3DefaultPage>

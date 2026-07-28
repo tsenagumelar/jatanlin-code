@@ -142,7 +142,7 @@ function DetailRow({
             type="button"
             onClick={() => onCopy(value)}
             className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            aria-label={`Copy ${label}`}
+            aria-label={`Salin ${label}`}
           >
             <Copy24Regular className="h-3.5 w-3.5" />
           </button>
@@ -288,8 +288,8 @@ export function V3LicenseModule() {
             <ShieldCheckmark24Regular />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-800">VEAM License</h1>
-            <p className="text-xs text-slate-500">Vehicle Enforcement Activation Module</p>
+            <h1 className="text-xl font-bold text-slate-800">Lisensi VEAM</h1>
+            <p className="text-xs text-slate-500">Modul Aktivasi Penindakan Kendaraan</p>
           </div>
         </div>
         <StatusBadge status={status} />
@@ -317,7 +317,7 @@ export function V3LicenseModule() {
           )}
 
           <div className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
-            <DetailRow label="License ID" value={license.license_id} onCopy={handleCopy} />
+            <DetailRow label="ID Lisensi" value={license.license_id} onCopy={handleCopy} />
             <DetailRow label="Diterbitkan untuk" value={license.issued_to} />
             <DetailRow label="Diterbitkan oleh" value={license.issued_by} />
             <DetailRow label="Tanggal Terbit" value={formatDate(license.issued_at)} />
@@ -357,7 +357,7 @@ export function V3LicenseModule() {
             className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
           >
             <ArrowSync24Regular className="h-3.5 w-3.5" />
-            Refresh
+            Muat Ulang
           </button>
         </div>
 
@@ -444,7 +444,7 @@ export function V3LicenseModule() {
             </span>
           </div>
           <div className="flex justify-between gap-3">
-            <span className="text-slate-500">Status License</span>
+            <span className="text-slate-500">Status Lisensi</span>
             <StatusBadge status={status} />
           </div>
         </div>

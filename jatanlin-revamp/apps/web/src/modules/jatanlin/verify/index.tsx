@@ -107,13 +107,29 @@ type UploadedImageMeta = {
 
 const formatDateTime = (dateString: any) => {
   if (!dateString) return "-";
-  return new Date(dateString).toLocaleString("en-US", {
+  return new Date(dateString).toLocaleString("id-ID", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatViolationLabel = (value?: string | null) => {
+  if (value === "Over Dimension & Over Loading") {
+    return "Over Dimension & Over Loading";
+  }
+  if (value === "Over Dimension & Loading") {
+    return "Over Dimension & Over Loading";
+  }
+  if (value === "Over Dimension") return "Over Dimension";
+  if (value === "Over Loading") return "Over Loading";
+  if (value === "Pending") return "Menunggu";
+  if (value === "Verified") return "Terverifikasi";
+  if (value === "Rejected") return "Ditolak";
+  if (value === "Draft") return "Draf";
+  return value || "-";
 };
 
 const parseComparisonNumber = (value: unknown) => {
@@ -444,10 +460,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       const results = await Promise.allSettled(
         files.map(async (file) => {
           if (!file.type.startsWith("image/")) {
-            throw new Error("Please select an image file");
+            throw new Error("Pilih file gambar");
           }
           if (file.size > 5 * 1024 * 1024) {
-            throw new Error("File size must be less than 5MB");
+            throw new Error("Ukuran file harus kurang dari 5MB");
           }
 
           const formData = new FormData();
@@ -466,7 +482,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             return result.file_path as string;
           }
 
-          throw new Error(result.message || "Upload failed");
+          throw new Error(result.message || "Upload gagal");
         }),
       );
 
@@ -490,7 +506,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         const message =
           firstError.reason instanceof Error
             ? firstError.reason.message
-            : "Failed to upload image.";
+            : "Gagal mengunggah gambar.";
         setAttachmentError(message);
       }
     };
@@ -503,10 +519,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
 
   const uploadSourceImage = async (file: File): Promise<UploadedImageMeta> => {
     if (!file.type.startsWith("image/")) {
-      throw new Error("Please select an image file");
+      throw new Error("Pilih file gambar");
     }
     if (file.size > 5 * 1024 * 1024) {
-      throw new Error("File size must be less than 5MB");
+      throw new Error("Ukuran file harus kurang dari 5MB");
     }
     const formData = new FormData();
     formData.append("image", file);
@@ -526,7 +542,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         objectName: (result.object_name as string | undefined) || undefined,
       };
     }
-    throw new Error(result.message || "Upload failed");
+    throw new Error(result.message || "Upload gagal");
   };
 
   const handleSourceImageUpload =
@@ -572,7 +588,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         }
         if (type === "cctv") setSourceCctvPath(uploaded.filePath);
       } catch (err: any) {
-        setAttachmentError(err?.message || "Failed to upload source image.");
+        setAttachmentError(err?.message || "Gagal mengunggah gambar sumber.");
       } finally {
         setUploadingSourceImage(null);
         e.target.value = "";
@@ -914,10 +930,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         <Toast>
           <ToastTitle>
             {statusToSave === "verified"
-              ? "Data verified successfully"
+              ? "Data berhasil diverifikasi"
               : statusToSave === "rejected"
-                ? "Data rejected"
-                : "Data saved as draft"}
+                ? "Data ditolak"
+                : "Data disimpan sebagai draf"}
           </ToastTitle>
         </Toast>,
         { intent: "success" },
@@ -929,7 +945,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       console.error("Error submitting verification:", err);
       dispatchToast(
         <Toast>
-          <ToastTitle>Failed to save verification</ToastTitle>
+          <ToastTitle>Gagal menyimpan verifikasi</ToastTitle>
         </Toast>,
         { intent: "error" },
       );
@@ -941,25 +957,25 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       case "verified":
         return (
           <Badge appearance="filled" color="success">
-            Verified
+            Terverifikasi
           </Badge>
         );
       case "rejected":
         return (
           <Badge appearance="filled" color="danger">
-            Rejected
+            Ditolak
           </Badge>
         );
       case "draft":
         return (
           <Badge appearance="filled" color="informative">
-            Draft
+            Draf
           </Badge>
         );
       default:
         return (
           <Badge appearance="filled" color="warning">
-            Pending
+            Menunggu
           </Badge>
         );
     }
@@ -968,7 +984,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
   if (loading) {
     return (
       <div className="min-h-[60vh] grid place-items-center bg-white">
-        <Spinner size="large" label="Loading data..." />
+        <Spinner size="large" label="Memuat data..." />
       </div>
     );
   }
@@ -978,13 +994,13 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       <div className="flex flex-col items-center justify-center h-full p-6">
         <Info24Regular className="w-16 h-16 text-gray-400 mb-4" />
         <h2 className="text-xl font-semibold text-gray-700 mb-2">
-          Data Not Found
+          Data Tidak Ditemukan
         </h2>
         <p className="text-gray-500 mb-4">
-          The vehicle data you requested was not found or has been deleted.
+          Data kendaraan yang diminta tidak ditemukan atau sudah dihapus.
         </p>
         <Button appearance="primary" onClick={handleBack}>
-          Back to List
+          Kembali ke Daftar
         </Button>
       </div>
     );
@@ -1045,7 +1061,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       { key: "anpr", label: "ANPR" },
       { key: "axle", label: "AXLE" },
       { key: "wim", label: "WIM" },
-      { key: "dimension", label: "DIMENSION" },
+      { key: "dimension", label: "DIMENSI" },
       { key: "cctv", label: "CCTV" },
     ] as const
   ).filter((item) => sourceSectionMissing[item.key]);
@@ -1067,12 +1083,12 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                 icon={<ArrowLeft24Regular />}
                 onClick={handleBack}
               >
-                Back
+                Kembali
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Verification</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Verifikasi</h1>
                 <p className="text-sm text-gray-600 mt-1">
-                  Verify detected vehicle data
+                  Verifikasi data kendaraan yang terdeteksi
                 </p>
               </div>
             </div>
@@ -1119,9 +1135,9 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                             : "font-semibold text-gray-900"
                       }
                     >
-                      Vehicle Class Information -{" "}
+                      Informasi Kelas Kendaraan -{" "}
                       {matchingVehicleClass?.type ||
-                        (actualTotalAxle ? "Not Found" : "Not Filled")}
+                        (actualTotalAxle ? "Tidak Ditemukan" : "Belum Diisi")}
                     </h3>
                   </div>
                   {hasIncompleteSourceData && (
@@ -1133,18 +1149,18 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         setSourceDialogOpen(true);
                       }}
                     >
-                      Complete Data
+                      Lengkapi Data
                     </Button>
                   )}
                 </div>
                 {!actualTotalAxle ? (
                   <p className="text-gray-600 text-sm mb-3">
-                    Fill in the axle count to view the legal class limits.
+                    Isi jumlah sumbu untuk melihat batas legal kelas kendaraan.
                   </p>
                 ) : !matchingVehicleClass ? (
                   <p className="text-yellow-700 text-sm mb-3">
-                    Vehicle class for {actualTotalAxle} axles was not found in
-                    the database.
+                    Kelas kendaraan untuk {actualTotalAxle} sumbu tidak ditemukan
+                    di database.
                   </p>
                 ) : null}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
@@ -1158,7 +1174,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                             : "text-gray-600 font-medium mb-1"
                       }
                     >
-                      Max Weight (Class III)
+                      Berat Maks. (Kelas III)
                     </p>
                     <p
                       className={
@@ -1185,7 +1201,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                             : "text-gray-600 font-medium mb-1"
                       }
                     >
-                      Max Length
+                      Panjang Maks.
                     </p>
                     <p
                       className={
@@ -1210,7 +1226,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                             : "text-gray-600 font-medium mb-1"
                       }
                     >
-                      Max Width
+                      Lebar Maks.
                     </p>
                     <p
                       className={
@@ -1235,7 +1251,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                             : "text-gray-600 font-medium mb-1"
                       }
                     >
-                      Max Height
+                      Tinggi Maks.
                     </p>
                     <p
                       className={
@@ -1257,7 +1273,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             <Card>
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Time">
+                  <Field label="Waktu">
                     <Input
                       value={formatDateTime(
                         vehicle.transact_anpr_capture?.captured_at ||
@@ -1267,21 +1283,21 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       disabled
                     />
                   </Field>
-                  <Field label="Plate Number">
+                  <Field label="Nomor Plat">
                     <Input
                       value={actualPlatNo}
                       onChange={(e) =>
                         setActualPlatNo(e.target.value.toUpperCase())
                       }
-                      placeholder="Enter plate number"
+                      placeholder="Masukkan nomor plat"
                     />
                   </Field>
-                  <Field label="Violation Type">
+                  <Field label="Jenis Pelanggaran">
                     <Select
                       value={result}
                       onChange={(e) => setResult(e.target.value)}
                     >
-                      <option value="">Select type...</option>
+                      <option value="">Pilih jenis...</option>
                       <option value="Normal">Normal</option>
                       <option value="Over Loading">Over Loading</option>
                       <option value="Over Dimension">Over Dimension</option>
@@ -1290,7 +1306,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       </option>
                     </Select>
                   </Field>
-                  <Field label="Weight (TON)">
+                  <Field label="Berat (TON)">
                     <Input
                       type="number"
                       value={actualWeight}
@@ -1301,7 +1317,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Axle Count">
+                  <Field label="Jumlah Sumbu">
                     <Input
                       type="number"
                       value={actualTotalAxle}
@@ -1309,7 +1325,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       placeholder="0"
                     />
                   </Field>
-                  <Field label="Length (m)">
+                  <Field label="Panjang (m)">
                     <Input
                       type="number"
                       value={actualLength}
@@ -1317,7 +1333,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       placeholder="0.00"
                     />
                   </Field>
-                  <Field label="Width (m)">
+                  <Field label="Lebar (m)">
                     <Input
                       type="number"
                       value={actualWidth}
@@ -1325,7 +1341,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       placeholder="0.00"
                     />
                   </Field>
-                  <Field label="Height (m)">
+                  <Field label="Tinggi (m)">
                     <Input
                       type="number"
                       value={actualHeight}
@@ -1335,21 +1351,21 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                   </Field>
                 </div>
 
-                <Field label="Location Address">
+                <Field label="Alamat Lokasi">
                   <Textarea
                     value={locationAddress}
                     onChange={(e) => setLocationAddress(e.target.value)}
-                    placeholder="Example: Jl. Gatot Subroto No. 1, Jakarta"
+                    placeholder="Contoh: Jl. Gatot Subroto No. 1, Jakarta"
                     resize="vertical"
                     rows={3}
                   />
                 </Field>
 
-                <Field label="Verification Notes">
+                <Field label="Catatan Verifikasi">
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Example: ANPR reads B 1234 ABC, corrected to B 1234 XYZ"
+                    placeholder="Contoh: ANPR membaca B 1234 ABC, dikoreksi menjadi B 1234 XYZ"
                     resize="vertical"
                     rows={4}
                   />
@@ -1360,24 +1376,24 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             <Card>
               <div className="p-6">
                 <div className="font-semibold text-gray-900 mb-4">
-                  Initial vs Actual Data Comparison
+                  Perbandingan Data Awal vs Aktual
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b-2 border-gray-200">
                         <th className="text-left py-3 px-4 font-semibold text-gray-700 bg-gray-50">
-                          Field
+                          Kolom
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-700 bg-gray-50">
-                          Initial Data
+                          Data Awal
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-700 bg-gray-50">
-                          Actual Data
+                          Data Aktual
                         </th>
                         {matchingVehicleClass && (
                           <th className="text-left py-3 px-4 font-semibold text-gray-700 bg-gray-50">
-                            Legal Limit
+                            Batas Legal
                           </th>
                         )}
                       </tr>
@@ -1386,13 +1402,13 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       {initialValues &&
                         [
                           [
-                            "Plate Number",
+                            "Nomor Plat",
                             initialValues.plate,
                             actualPlatNo,
                             null,
                           ],
                           [
-                            "Weight (TON)",
+                            "Berat (TON)",
                             initialValues.weight,
                             actualWeight,
                             class3WeightTon !== null
@@ -1400,25 +1416,25 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                               : null,
                           ],
                           [
-                            "Axle Count",
+                            "Jumlah Sumbu",
                             initialValues.totalAxle,
                             actualTotalAxle,
                             null,
                           ],
                           [
-                            "Length (m)",
+                            "Panjang (m)",
                             initialValues.length,
                             actualLength,
                             matchingVehicleClass?.length,
                           ],
                           [
-                            "Width (m)",
+                            "Lebar (m)",
                             initialValues.width,
                             actualWidth,
                             matchingVehicleClass?.width,
                           ],
                           [
-                            "Height (m)",
+                            "Tinggi (m)",
                             initialValues.height,
                             actualHeight,
                             matchingVehicleClass?.height,
@@ -1490,7 +1506,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
           <div className="space-y-6">
             <Card>
               <div className="p-6 space-y-3">
-                <div className="font-semibold text-sm">ANPR Evidence</div>
+                <div className="font-semibold text-sm">Bukti ANPR</div>
                 <div className="aspect-video w-full rounded-lg bg-neutral-100 overflow-hidden">
                   {anprImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -1502,7 +1518,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-neutral-400">
                       <Image24Regular className="w-12 h-12 mb-2" />
-                      <span className="text-sm">No image available</span>
+                      <span className="text-sm">Gambar tidak tersedia</span>
                     </div>
                   )}
                 </div>
@@ -1511,19 +1527,19 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
 
             <Card>
               <div className="p-6 space-y-3">
-                <div className="font-semibold text-sm">Axle Evidence</div>
+                <div className="font-semibold text-sm">Bukti Sumbu</div>
                 <div className="aspect-video w-full rounded-lg bg-neutral-100 overflow-hidden">
                   {axleImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={axleImageUrl}
-                      alt="Axle"
+                      alt="Sumbu"
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-neutral-400">
                       <Image24Regular className="w-12 h-12 mb-2" />
-                      <span className="text-sm">No image available</span>
+                      <span className="text-sm">Gambar tidak tersedia</span>
                     </div>
                   )}
                 </div>
@@ -1533,7 +1549,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             <Card>
               <div className="p-6 space-y-3">
                 <div className="font-semibold text-sm">
-                  Other Evidence (CCTV)
+                  Bukti Lainnya (CCTV)
                 </div>
                 <div className="aspect-video w-full rounded-lg bg-neutral-100 overflow-hidden">
                   {cctvVideoUrl ? (
@@ -1546,7 +1562,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-neutral-400">
                       <Image24Regular className="w-12 h-12 mb-2" />
-                      <span className="text-sm">No video available</span>
+                      <span className="text-sm">Video tidak tersedia</span>
                     </div>
                   )}
                 </div>
@@ -1555,7 +1571,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
 
             <Card>
               <div className="p-6 space-y-3">
-                <div className="font-semibold text-sm">Additional Evidence</div>
+                <div className="font-semibold text-sm">Bukti Tambahan</div>
                 <input
                   type="file"
                   accept="image/*"
@@ -1566,7 +1582,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                 />
                 {uploadingAttachments && (
                   <div className="text-xs text-neutral-500">
-                    Uploading additional evidence...
+                    Mengunggah bukti tambahan...
                   </div>
                 )}
                 {attachmentError && (
@@ -1585,7 +1601,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={preview}
-                            alt="Preview"
+                            alt="Pratinjau"
                             className="w-full h-32 object-cover"
                           />
                           <button
@@ -1593,7 +1609,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                             onClick={() => handleRemoveAttachment(index)}
                             className="absolute top-2 right-2 rounded bg-white/90 px-2 py-1 text-xs text-red-600 shadow"
                           >
-                            Remove
+                            Hapus
                           </button>
                         </div>
                       </div>
@@ -1614,7 +1630,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             onClick={handleBack}
             disabled={submitting}
           >
-            Cancel
+            Batal
           </Button>
           <Button
             appearance="primary"
@@ -1622,7 +1638,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             onClick={() => openConfirmDialog("save")}
             disabled={submitting || !isFormValid}
           >
-            Save Draft
+            Simpan Draf
           </Button>
           <Button
             appearance="primary"
@@ -1636,7 +1652,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             disabled={submitting || !canPrintViolation}
             style={{ backgroundColor: "#b91c1c" }}
           >
-            Print Violation
+            Cetak Pelanggaran
           </Button>
           <Button
             appearance="primary"
@@ -1645,7 +1661,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             disabled={submitting || !isFormValid}
             style={{ backgroundColor: "#107c10" }}
           >
-            Verify
+            Verifikasi
           </Button>
           <Button
             appearance="primary"
@@ -1654,7 +1670,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             disabled={submitting || !isFormValid}
             style={{ backgroundColor: "#d13438" }}
           >
-            Reject
+            Tolak
           </Button>
         </div>
       </div>
@@ -1667,17 +1683,17 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         <DialogSurface>
           <DialogBody>
             <DialogTitle>
-              {confirmAction === "save" && "Save Changes?"}
-              {confirmAction === "verify" && "Verify Data?"}
-              {confirmAction === "reject" && "Reject Data?"}
+              {confirmAction === "save" && "Simpan Perubahan?"}
+              {confirmAction === "verify" && "Verifikasi Data?"}
+              {confirmAction === "reject" && "Tolak Data?"}
             </DialogTitle>
             <DialogContent>
               {confirmAction === "save" &&
-                "Changes will be saved as a verification draft."}
+                "Perubahan akan disimpan sebagai draf verifikasi."}
               {confirmAction === "verify" &&
-                "Status will be changed to Verified. Make sure all data is correct."}
+                "Status akan diubah menjadi Terverifikasi. Pastikan semua data sudah benar."}
               {confirmAction === "reject" &&
-                "Status will be changed to Rejected. Add rejection notes if needed."}
+                "Status akan diubah menjadi Ditolak. Tambahkan catatan penolakan bila diperlukan."}
             </DialogContent>
             <DialogActions>
               <Button
@@ -1685,7 +1701,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                 onClick={() => setDialogOpen(false)}
                 disabled={submitting}
               >
-                Cancel
+                Batal
               </Button>
               {confirmAction === "reject" ? (
                 <Button
@@ -1694,7 +1710,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                   disabled={submitting}
                   style={{ backgroundColor: "#d13438" }}
                 >
-                  {submitting ? "Saving..." : "Reject"}
+                  {submitting ? "Menyimpan..." : "Tolak"}
                 </Button>
               ) : confirmAction === "verify" ? (
                 <Button
@@ -1703,7 +1719,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                   disabled={submitting}
                   style={{ backgroundColor: "#107c10" }}
                 >
-                  {submitting ? "Saving..." : "Verify"}
+                  {submitting ? "Menyimpan..." : "Verifikasi"}
                 </Button>
               ) : (
                 <Button
@@ -1711,7 +1727,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                   onClick={handleSubmit}
                   disabled={submitting}
                 >
-                  {submitting ? "Saving..." : "Save"}
+                  {submitting ? "Menyimpan..." : "Simpan"}
                 </Button>
               )}
             </DialogActions>
@@ -1725,7 +1741,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       >
         <DialogSurface>
           <DialogBody>
-            <DialogTitle>Complete Source Data</DialogTitle>
+            <DialogTitle>Lengkapi Data Sumber</DialogTitle>
             <DialogContent>
               <div className="space-y-4">
                 <div className="flex gap-2 flex-wrap">
@@ -1747,20 +1763,20 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
 
                 {sourceActiveTab === "anpr" && (
                   <div className="grid grid-cols-1 gap-3">
-                    <Field label="Source Plate Number">
+                    <Field label="Nomor Plat Sumber">
                       <Input
                         value={sourcePlateNo}
                         onChange={(e) =>
                           setSourcePlateNo(e.target.value.toUpperCase())
                         }
-                        placeholder="Plate from source"
+                        placeholder="Plat dari sumber"
                       />
                     </Field>
-                    <Field label="Source ANPR Image">
+                    <Field label="Gambar ANPR Sumber">
                       <Input
                         value={sourceAnprImagePath}
                         readOnly
-                        placeholder="No ANPR image yet"
+                        placeholder="Belum ada gambar ANPR"
                       />
                       <input
                         type="file"
@@ -1779,19 +1795,19 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
 
                 {sourceActiveTab === "axle" && (
                   <div className="grid grid-cols-1 gap-3">
-                    <Field label="Source Total Axle">
+                    <Field label="Total Sumbu Sumber">
                       <Input
                         type="number"
                         value={sourceTotalAxle}
                         onChange={(e) => setSourceTotalAxle(e.target.value)}
-                        placeholder="Axle count from source"
+                        placeholder="Jumlah sumbu dari sumber"
                       />
                     </Field>
-                    <Field label="Source Axle Image">
+                    <Field label="Gambar Sumbu Sumber">
                       <Input
                         value={sourceAxleImagePath}
                         readOnly
-                        placeholder="No AXLE image yet"
+                        placeholder="Belum ada gambar AXLE"
                       />
                       <input
                         type="file"
@@ -1809,14 +1825,14 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
 
                 {sourceActiveTab === "wim" && (
                   <div className="grid grid-cols-1 gap-3">
-                    <Field label="Source Total Axle (WIM)">
+                    <Field label="Total Sumbu Sumber (WIM)">
                       <Input
                         type="number"
                         value={sourceTotalAxle}
                         onChange={(e) => setSourceTotalAxle(e.target.value)}
                       />
                     </Field>
-                    <Field label="Source Weight (KG)">
+                    <Field label="Berat Sumber (KG)">
                       <Input
                         type="number"
                         value={sourceWeightKg}
@@ -1828,7 +1844,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
 
                 {sourceActiveTab === "dimension" && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <Field label="Source Length (m)">
+                    <Field label="Panjang Sumber (m)">
                       <Input
                         type="number"
                         value={sourceLength}
@@ -1837,7 +1853,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         }
                       />
                     </Field>
-                    <Field label="Source Width (m)">
+                    <Field label="Lebar Sumber (m)">
                       <Input
                         type="number"
                         value={sourceWidth}
@@ -1846,7 +1862,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         }
                       />
                     </Field>
-                    <Field label="Source Height (m)">
+                    <Field label="Tinggi Sumber (m)">
                       <Input
                         type="number"
                         value={sourceHeight}
@@ -1860,11 +1876,11 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
 
                 {sourceActiveTab === "cctv" && (
                   <div className="grid grid-cols-1 gap-3">
-                    <Field label="Source CCTV Video">
+                    <Field label="Video CCTV Sumber">
                       <Input
                         value={sourceCctvPath}
                         readOnly
-                        placeholder="No CCTV video yet"
+                        placeholder="Belum ada video CCTV"
                       />
                       <input
                         type="file"
@@ -1886,7 +1902,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                 appearance="primary"
                 onClick={() => setSourceDialogOpen(false)}
               >
-                Done
+                Selesai
               </Button>
             </DialogActions>
           </DialogBody>
