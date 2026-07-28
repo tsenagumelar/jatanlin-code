@@ -596,6 +596,41 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     setDialogOpen(true);
   };
 
+  const applySourceDimension = (
+    field: "length" | "width" | "height",
+    value: string,
+  ) => {
+    const actualSetters = {
+      length: setActualLength,
+      width: setActualWidth,
+      height: setActualHeight,
+    };
+    const sourceSetters = {
+      length: setSourceLength,
+      width: setSourceWidth,
+      height: setSourceHeight,
+    };
+    const actualValues = {
+      length: actualLength,
+      width: actualWidth,
+      height: actualHeight,
+    };
+    const initialActualValues = {
+      length: initialValues?.length || "",
+      width: initialValues?.width || "",
+      height: initialValues?.height || "",
+    };
+
+    sourceSetters[field](value);
+
+    if (
+      !actualValues[field] ||
+      actualValues[field] === initialActualValues[field]
+    ) {
+      actualSetters[field](value);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!vehicle) return;
 
@@ -1797,21 +1832,27 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       <Input
                         type="number"
                         value={sourceLength}
-                        onChange={(e) => setSourceLength(e.target.value)}
+                        onChange={(e) =>
+                          applySourceDimension("length", e.target.value)
+                        }
                       />
                     </Field>
                     <Field label="Source Width (m)">
                       <Input
                         type="number"
                         value={sourceWidth}
-                        onChange={(e) => setSourceWidth(e.target.value)}
+                        onChange={(e) =>
+                          applySourceDimension("width", e.target.value)
+                        }
                       />
                     </Field>
                     <Field label="Source Height (m)">
                       <Input
                         type="number"
                         value={sourceHeight}
-                        onChange={(e) => setSourceHeight(e.target.value)}
+                        onChange={(e) =>
+                          applySourceDimension("height", e.target.value)
+                        }
                       />
                     </Field>
                   </div>
