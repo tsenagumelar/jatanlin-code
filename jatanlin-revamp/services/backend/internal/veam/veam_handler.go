@@ -60,7 +60,22 @@ func (h *VeamHandler) ScanLicense(c *fiber.Ctx) error {
 //
 // GET /veam/status
 func (h *VeamHandler) Status(c *fiber.Ctx) error {
-	return c.JSON(h.LicenseService.Status())
+	result := h.LicenseService.Status()
+	if result.Valid || !license.USBFallbackEnabled() {
+		return c.JSON(result)
+	}
+
+	found, _ := license.ScanUSBLicenseFile()
+	if found == nil {
+		return c.JSON(result)
+	}
+
+	usbResult := h.LicenseService.Validate(found.Content, found.Path)
+	if usbResult.Valid {
+		return c.JSON(usbResult)
+	}
+
+	return c.JSON(result)
 }
 
 type activateLicenseRequest struct {

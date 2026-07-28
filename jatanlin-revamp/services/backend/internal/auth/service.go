@@ -71,14 +71,6 @@ func (s *AuthService) Authenticate(username, password string) (*LoginResponse, e
 }
 
 func (s *AuthService) validateLoginLicense(user *User) (license.CheckResult, error) {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("VEAM_LOGIN_USB_CHECK_ENABLED")), "true") {
-		result, err := s.validateUSBLoginLicense()
-		if err == nil || isAdminUser(user) {
-			return result, nil
-		}
-		return result, err
-	}
-
 	if s.LicenseService == nil {
 		result := license.CheckResult{
 			Status:    license.StatusInvalid,
@@ -94,7 +86,19 @@ func (s *AuthService) validateLoginLicense(user *User) (license.CheckResult, err
 	}
 
 	result := s.LicenseService.Status()
-	if result.Valid || isAdminUser(user) {
+	if result.Valid {
+		return result, nil
+	}
+
+	if license.USBFallbackEnabled() {
+		usbResult, err := s.validateUSBLoginLicense()
+		if err == nil {
+			return usbResult, nil
+		}
+		log.Printf("[AUTH] VEAM USB fallback failed after stored license status=%s: %v", result.Status, err)
+	}
+
+	if isAdminUser(user) {
 		return result, nil
 	}
 

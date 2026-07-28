@@ -17,7 +17,7 @@ func USBScanRoots() []string {
 	if override := strings.TrimSpace(os.Getenv("VEAM_USB_SCAN_PATHS")); override != "" {
 		var roots []string
 		for _, path := range strings.Split(override, ",") {
-			if clean := strings.TrimSpace(path); clean != "" {
+			if clean := strings.TrimSpace(path); isExistingDir(clean) {
 				roots = append(roots, clean)
 			}
 		}
@@ -33,7 +33,10 @@ func USBScanRoots() []string {
 		var paths []string
 		for _, entry := range entries {
 			if entry.IsDir() && entry.Name() != "Macintosh HD" {
-				paths = append(paths, filepath.Join("/Volumes", entry.Name()))
+				path := filepath.Join("/Volumes", entry.Name())
+				if isExistingDir(path) {
+					paths = append(paths, path)
+				}
 			}
 		}
 		return paths
@@ -47,8 +50,9 @@ func USBScanRoots() []string {
 				}
 				volumes, _ := os.ReadDir(filepath.Join(base, user.Name()))
 				for _, volume := range volumes {
-					if volume.IsDir() {
-						paths = append(paths, filepath.Join(base, user.Name(), volume.Name()))
+					path := filepath.Join(base, user.Name(), volume.Name())
+					if volume.IsDir() && isExistingDir(path) {
+						paths = append(paths, path)
 					}
 				}
 			}
@@ -56,12 +60,26 @@ func USBScanRoots() []string {
 
 		mntEntries, _ := os.ReadDir("/mnt")
 		for _, entry := range mntEntries {
-			if entry.IsDir() {
-				paths = append(paths, filepath.Join("/mnt", entry.Name()))
+			path := filepath.Join("/mnt", entry.Name())
+			if entry.IsDir() && isExistingDir(path) {
+				paths = append(paths, path)
 			}
 		}
 		return paths
 	}
+}
+
+func USBFallbackEnabled() bool {
+	value := strings.TrimSpace(os.Getenv("VEAM_LOGIN_USB_CHECK_ENABLED"))
+	return !strings.EqualFold(value, "false")
+}
+
+func isExistingDir(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 func FindUSBLicenseFile(root string) *USBLicenseFile {
@@ -78,7 +96,8 @@ func FindUSBLicenseFile(root string) *USBLicenseFile {
 			return filepath.SkipDir
 		}
 
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".veam") {
+		name := strings.ToLower(entry.Name())
+		if !entry.IsDir() && strings.HasSuffix(name, ".veam") && !strings.HasPrefix(name, "._") {
 			content, readErr := os.ReadFile(path)
 			if readErr != nil {
 				log.Printf("[VEAM] Cannot read %s: %v", path, readErr)

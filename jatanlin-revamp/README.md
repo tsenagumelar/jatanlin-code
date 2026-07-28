@@ -502,6 +502,14 @@ Output default:
 
 Jika Docker stack sedang berjalan, command ini juga otomatis update `system_runtime_config.VEAM_PUBLIC_KEY_B64` di database dan restart `backend-api` supaya file hasil generate bisa langsung divalidasi backend.
 
+Login fallback via USB:
+
+- Backend selalu cek stored license lebih dulu.
+- Jika stored license belum aktif atau belum ada, backend scan USB untuk file `.veam`.
+- Di Docker macOS, `/Volumes` host dimount ke container sebagai `/host/Volumes`, sehingga file seperti `/Volumes/V-GEN/license.veam` akan terbaca sebagai `/host/Volumes/V-GEN/license.veam`.
+- File metadata macOS seperti `._license.veam` diabaikan.
+- Fallback ini aktif default lewat `VEAM_LOGIN_USB_CHECK_ENABLED=true`. Set ke `false` jika ingin memaksa login hanya dari stored license.
+
 Upload dan validasi via website:
 
 1. Buka `http://site.jatanlin.test/system/license`.
