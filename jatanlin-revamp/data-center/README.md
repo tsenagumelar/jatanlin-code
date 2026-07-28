@@ -25,18 +25,21 @@ Stack ini terpisah dari site/local revamp. Fokus awalnya hanya:
 ## Commands
 
 ```sh
-make infra-bootstrap
-make web
+make env-init
+make docker-bootstrap
 ```
 
 Untuk menjalankan API dan web di luar Docker:
 
 ```sh
+make env-init
 make infra-up
 make infra-migrate
 make infra-seed
 make dev
 ```
+
+`make infra-migrate` menjalankan semua SQL migration di `infra/database/*.sql` kecuali file `*_seed.sql`. `make infra-seed` menjalankan semua file `*_seed.sql`.
 
 ## Structure
 

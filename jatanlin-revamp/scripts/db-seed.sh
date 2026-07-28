@@ -13,9 +13,10 @@ COMPOSE_FILE="$ROOT_DIR/infra/compose/docker-compose.yml"
 PROJECT_NAME="${PROJECT_NAME:-jatanlin-revamp}"
 POSTGRES_USER="${POSTGRES_USER:-jatanlin}"
 POSTGRES_DB="${POSTGRES_DB:-jatanlin}"
+SEED_MODE="${1:-${SEED_MODE:-master}}"
 
 SITE_CODE="${SITE_CODE:-MST-25-00001}"
-SITE_ID="${SITE_ID:-e1123daf-a4db-4ee1-88da-ba9bff382f45}"
+SITE_ID="${SITE_ID:-628f033e-49b2-4ba0-b1e8-12af4b3895ee}"
 SITE_NAME="${SITE_NAME:-Mampang Revamp Local}"
 SITE_LOCATION="${SITE_LOCATION:-Central Office}"
 SITE_REGION="${SITE_REGION:-Default}"
@@ -40,25 +41,47 @@ postgres_exec() {
   compose exec -T postgres "$@"
 }
 
-postgres_exec psql \
-  -v ON_ERROR_STOP=1 \
-  -v site_code="$SITE_CODE" \
-  -v site_id="$SITE_ID" \
-  -v site_name="$SITE_NAME" \
-  -v site_location="$SITE_LOCATION" \
-  -v site_region="$SITE_REGION" \
-  -v site_address="$SITE_ADDRESS" \
-  -v site_city="$SITE_CITY" \
-  -v site_province="$SITE_PROVINCE" \
-  -v site_timezone="$SITE_TIMEZONE" \
-  -v site_contact_name="$SITE_CONTACT_NAME" \
-  -v site_contact_phone="$SITE_CONTACT_PHONE" \
-  -v admin_username="$DEFAULT_ADMIN_USERNAME" \
-  -v admin_password="$DEFAULT_ADMIN_PASSWORD" \
-  -v admin_full_name="$DEFAULT_ADMIN_FULL_NAME" \
-  -v admin_badge_no="$DEFAULT_ADMIN_BADGE_NO" \
-  -v admin_phone="$DEFAULT_ADMIN_PHONE" \
-  -v admin_email="$DEFAULT_ADMIN_EMAIL" \
-  -U "$POSTGRES_USER" \
-  -d "$POSTGRES_DB" \
-  -f /database/001_seed.sql
+seed_file() {
+  seed_path="$1"
+  printf '%s\n' "Applying seed: $seed_path"
+  postgres_exec psql \
+    -v ON_ERROR_STOP=1 \
+    -v site_code="$SITE_CODE" \
+    -v site_id="$SITE_ID" \
+    -v site_name="$SITE_NAME" \
+    -v site_location="$SITE_LOCATION" \
+    -v site_region="$SITE_REGION" \
+    -v site_address="$SITE_ADDRESS" \
+    -v site_city="$SITE_CITY" \
+    -v site_province="$SITE_PROVINCE" \
+    -v site_timezone="$SITE_TIMEZONE" \
+    -v site_contact_name="$SITE_CONTACT_NAME" \
+    -v site_contact_phone="$SITE_CONTACT_PHONE" \
+    -v admin_username="$DEFAULT_ADMIN_USERNAME" \
+    -v admin_password="$DEFAULT_ADMIN_PASSWORD" \
+    -v admin_full_name="$DEFAULT_ADMIN_FULL_NAME" \
+    -v admin_badge_no="$DEFAULT_ADMIN_BADGE_NO" \
+    -v admin_phone="$DEFAULT_ADMIN_PHONE" \
+    -v admin_email="$DEFAULT_ADMIN_EMAIL" \
+    -U "$POSTGRES_USER" \
+    -d "$POSTGRES_DB" \
+    -f "$seed_path"
+}
+
+case "$SEED_MODE" in
+  master)
+    seed_file /database/001_seed.sql
+    ;;
+  transactions)
+    seed_file /database/002_transaction_seed.sql
+    ;;
+  with-transactions)
+    seed_file /database/001_seed.sql
+    seed_file /database/002_transaction_seed.sql
+    ;;
+  *)
+    printf 'Unknown seed mode: %s\n' "$SEED_MODE" >&2
+    printf '%s\n' 'Use: master, transactions, or with-transactions' >&2
+    exit 1
+    ;;
+esac

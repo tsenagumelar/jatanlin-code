@@ -23,7 +23,8 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
     go build -ldflags="-w -s" -o /app/bin/api ./cmd/api && \
     go build -ldflags="-w -s" -o /app/bin/anpr-watcher ./cmd/anpr-watcher && \
     go build -ldflags="-w -s" -o /app/bin/axle-watcher ./cmd/axle-watcher && \
-    go build -ldflags="-w -s" -o /app/bin/cctv-streamer ./cmd/cctv-streamer
+    go build -ldflags="-w -s" -o /app/bin/cctv-streamer ./cmd/cctv-streamer && \
+    go build -ldflags="-w -s" -o /app/bin/sync-agent ./cmd/sync-agent
 
 # Runtime stage
 FROM alpine:latest
@@ -44,6 +45,9 @@ WORKDIR /app
 # Copy binaries from builder
 COPY --from=builder /app/bin ./bin
 
+# Prepare writable runtime data directory before Docker initializes named volumes.
+RUN mkdir -p /app/data
+
 # Change ownership
 RUN chown -R appuser:appuser /app
 
@@ -57,13 +61,14 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD sh -c '[ "$SERVICE" != "api" ] || wget --no-verbose --tries=1 --spider http://127.0.0.1:${API_PORT:-4000}/health || exit 1'
 
-# Entrypoint selector (SERVICE=api|anpr-watcher|axle-watcher|cctv-streamer)
+# Entrypoint selector (SERVICE=api|anpr-watcher|axle-watcher|cctv-streamer|sync-agent)
 ENTRYPOINT ["/bin/sh", "-c", "\
   case \"$SERVICE\" in \
     api|\"\" ) exec /app/bin/api ;; \
     anpr-watcher ) exec /app/bin/anpr-watcher ;; \
     axle-watcher ) exec /app/bin/axle-watcher ;; \
     cctv-streamer ) exec /app/bin/cctv-streamer ;; \
+    sync-agent ) exec /app/bin/sync-agent ;; \
     * ) echo \"Unknown SERVICE '$SERVICE'\"; exit 1 ;; \
   esac \
 "]

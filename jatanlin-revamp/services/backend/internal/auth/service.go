@@ -48,7 +48,7 @@ func (s *AuthService) Authenticate(username, password string) (*LoginResponse, e
 		return nil, errors.New("invalid username or password")
 	}
 
-	licenseCheck, err := s.validateLoginLicense()
+	licenseCheck, err := s.validateLoginLicense(user)
 	if err != nil {
 		return nil, err
 	}
@@ -70,18 +70,44 @@ func (s *AuthService) Authenticate(username, password string) (*LoginResponse, e
 	}, nil
 }
 
-func (s *AuthService) validateLoginLicense() (license.CheckResult, error) {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("VEAM_LOGIN_CHECK_ENABLED")), "true") {
-		return s.validateUSBLoginLicense()
+func (s *AuthService) validateLoginLicense(user *User) (license.CheckResult, error) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("VEAM_LOGIN_USB_CHECK_ENABLED")), "true") {
+		result, err := s.validateUSBLoginLicense()
+		if err == nil || isAdminUser(user) {
+			return result, nil
+		}
+		return result, err
 	}
 
-	return license.CheckResult{
-		Status:    license.StatusActive,
-		Valid:     true,
-		Message:   "VEAM login check disabled",
-		Source:    "bypass",
-		CheckedAt: "bypass",
-	}, nil
+	if s.LicenseService == nil {
+		result := license.CheckResult{
+			Status:    license.StatusInvalid,
+			Valid:     false,
+			Message:   "Service lisensi VEAM belum dikonfigurasi di backend",
+			Source:    "stored",
+			CheckedAt: "unavailable",
+		}
+		if isAdminUser(user) {
+			return result, nil
+		}
+		return result, &LicenseLoginError{Message: result.Message}
+	}
+
+	result := s.LicenseService.Status()
+	if result.Valid || isAdminUser(user) {
+		return result, nil
+	}
+
+	return result, &LicenseLoginError{Message: result.Message}
+}
+
+func isAdminUser(user *User) bool {
+	if user == nil {
+		return false
+	}
+	roleName := strings.ToLower(strings.TrimSpace(user.RoleName))
+	roleCode := strings.ToLower(strings.TrimSpace(user.RoleCode))
+	return strings.Contains(roleName, "admin") || strings.Contains(roleCode, "admin")
 }
 
 func (s *AuthService) validateUSBLoginLicense() (license.CheckResult, error) {

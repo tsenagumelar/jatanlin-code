@@ -4,13 +4,21 @@ import { useAppDispatch, useAppSelector } from "@/src/redux/hooks";
 import {
   clearError,
   setError,
+  setLicenseChecked,
   setLoading,
   setToken,
   setUser,
 } from "@/src/modules/login/slice";
 import { setAuthCookie, setAuthTokenCookie } from "@/src/utils/auth";
-import type { LoginFormData } from "@/src/modules/login/types";
+import type { LoginFormData, User } from "@/src/modules/login/types";
 import type { BackendLoginResponse, UseV3LoginResult } from "./types";
+
+function isAdminRole(user?: User) {
+  return [
+    user?.master_role?.code,
+    user?.master_role?.role_name,
+  ].some((role) => role?.toLowerCase().includes("admin"));
+}
 
 export function useV3Login(): UseV3LoginResult {
   const router = useRouter();
@@ -64,8 +72,17 @@ export function useV3Login(): UseV3LoginResult {
 
       dispatch(setUser(payload.data.user));
       dispatch(setToken(payload.data.token));
+      dispatch(setLicenseChecked(payload.data.license_checked ?? null));
       setAuthCookie(true, payload.data.token);
       setAuthTokenCookie(payload.data.token);
+      if (
+        payload.data.license_checked &&
+        !payload.data.license_checked.valid &&
+        isAdminRole(payload.data.user)
+      ) {
+        router.push("/system/license");
+        return;
+      }
       router.push("/dashboard");
     } catch {
       dispatch(setError("Unable to connect to the server"));

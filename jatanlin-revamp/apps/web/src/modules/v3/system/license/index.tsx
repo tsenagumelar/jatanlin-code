@@ -15,6 +15,8 @@ import {
   Warning24Filled,
   Warning24Regular,
 } from "@fluentui/react-icons";
+import { setLicenseChecked } from "@/src/modules/login/slice";
+import { useAppDispatch } from "@/src/redux/hooks";
 
 type LicenseStatus = "active" | "missing" | "expired" | "invalid" | "invalid_site" | "invalid_device";
 type ToastType = "success" | "error" | "info";
@@ -151,6 +153,7 @@ function DetailRow({
 }
 
 export function V3LicenseModule() {
+  const dispatch = useAppDispatch();
   const [result, setResult] = useState<LicenseResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -169,6 +172,7 @@ export function V3LicenseModule() {
       const res = await fetch(`${apiUrl}/veam/status`, { cache: "no-store" });
       const data = (await res.json()) as LicenseResult;
       setResult(data);
+      dispatch(setLicenseChecked(data));
       if (!silent) showToast(data.message, data.valid ? "success" : "info");
     } catch {
       setResult({
@@ -181,7 +185,7 @@ export function V3LicenseModule() {
     } finally {
       setIsLoading(false);
     }
-  }, [showToast]);
+  }, [dispatch, showToast]);
 
   useEffect(() => {
     loadStatus(true);
@@ -197,6 +201,7 @@ export function V3LicenseModule() {
       });
       const data = (await res.json()) as LicenseResult;
       setResult(data);
+      dispatch(setLicenseChecked(data));
       showToast(data.message, data.valid ? "success" : "error");
     } catch {
       showToast("Gagal mengaktifkan lisensi.", "error");
@@ -223,6 +228,7 @@ export function V3LicenseModule() {
       const res = await fetch(`${apiUrl}/veam/activate-usb`, { method: "POST" });
       const data = (await res.json()) as LicenseResult;
       setResult(data);
+      dispatch(setLicenseChecked(data));
       showToast(data.message, data.valid ? "success" : "error");
     } catch {
       showToast("Backend API tidak tersedia. Gunakan upload manual.", "info");
@@ -239,6 +245,7 @@ export function V3LicenseModule() {
       const res = await fetch(`${apiUrl}/veam/license`, { method: "DELETE" });
       const data = (await res.json()) as LicenseResult;
       setResult(data);
+      dispatch(setLicenseChecked(data));
       showToast(data.message, "info");
     } catch {
       showToast("Gagal menghapus lisensi.", "error");

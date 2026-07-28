@@ -5,6 +5,7 @@ COMPOSE_FILE := infra/compose/docker-compose.yml
 PROJECT_NAME ?= jatanlin-data-center
 ENV_FILE ?= .env
 RUN_ENV := set -a; [ ! -f $(ENV_FILE) ] || . ./$(ENV_FILE); set +a;
+ENV_EXAMPLE_FILES := .env.example apps/web/.env.example
 
 WEB_DIR := apps/web
 BACKEND_DIR := services/backend
@@ -16,10 +17,22 @@ GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 
 .DEFAULT_GOAL := help
 
-.PHONY: help infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint backend-web dev dev-local
+.PHONY: help env-init env-force docker-up docker-bootstrap docker-build docker-down docker-ps docker-logs infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint backend-web dev dev-local
 
 help:
 	@printf '%s\n' 'Jatanlin Data Center'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Environment:'
+	@printf '%s\n' '  make env-init         Create missing .env files from .env.example'
+	@printf '%s\n' '  make env-force        Overwrite all .env files from .env.example'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Docker:'
+	@printf '%s\n' '  make docker-up        Build and start data-center infra, backend API, and web in Docker'
+	@printf '%s\n' '  make docker-bootstrap Build/start full Docker stack, migrate, then seed'
+	@printf '%s\n' '  make docker-build     Build Docker images'
+	@printf '%s\n' '  make docker-down      Stop full Docker stack'
+	@printf '%s\n' '  make docker-ps        Show full Docker stack containers'
+	@printf '%s\n' '  make docker-logs      Follow full Docker stack logs'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Infrastructure:'
 	@printf '%s\n' '  make infra-up         Start Postgres, Hasura, MinIO, and backend API in Docker'
@@ -43,6 +56,44 @@ help:
 	@printf '%s\n' '  make backend-web      Start backend API and web locally'
 	@printf '%s\n' '  make dev              Start API and web locally'
 	@printf '%s\n' '  make dev-local        Start infra deps, API local, and web local'
+
+env-init:
+	@for example in $(ENV_EXAMPLE_FILES); do \
+		target=$$(dirname "$$example")/.env; \
+		if [ "$$example" = ".env.example" ]; then target=.env; fi; \
+		if [ -f "$$target" ]; then \
+			printf 'skip %s (exists)\n' "$$target"; \
+		else \
+			cp "$$example" "$$target"; \
+			printf 'create %s\n' "$$target"; \
+		fi; \
+	done
+
+env-force:
+	@for example in $(ENV_EXAMPLE_FILES); do \
+		target=$$(dirname "$$example")/.env; \
+		if [ "$$example" = ".env.example" ]; then target=.env; fi; \
+		cp "$$example" "$$target"; \
+		printf 'write %s\n' "$$target"; \
+	done
+
+docker-up:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d --build
+
+docker-bootstrap: docker-up infra-migrate infra-seed
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) restart backend web
+
+docker-build:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) build
+
+docker-down:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) down
+
+docker-ps:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) ps
+
+docker-logs:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) logs -f
 
 infra-up:
 	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d

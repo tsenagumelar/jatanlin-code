@@ -1,0 +1,6 @@
+.env
+.gocache
+data
+bin
+tmp
+*.log

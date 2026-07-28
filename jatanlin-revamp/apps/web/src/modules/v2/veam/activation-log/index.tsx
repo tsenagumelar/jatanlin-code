@@ -55,7 +55,7 @@ function seedLogs(): ActivationLogEntry[] {
       actor: "Operator",
       message: "Lisensi VEAM berhasil diaktifkan",
       detail: "License ID: VEAM-2025-MST-001 | Expiry: 2026-12-31",
-      metadata: { license_id: "VEAM-2025-MST-001", site_id: "e1123daf-a4db-4ee1-88da-ba9bff382f45" },
+      metadata: { license_id: "VEAM-2025-MST-001", site_id: "628f033e-49b2-4ba0-b1e8-12af4b3895ee" },
     },
     {
       id: "log-002",

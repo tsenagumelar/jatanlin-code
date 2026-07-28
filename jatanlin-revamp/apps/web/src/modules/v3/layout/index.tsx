@@ -11,8 +11,6 @@ import {
   CardUi24Filled,
   CardUi24Regular,
   ChevronDown16Regular,
-  Database24Filled,
-  Database24Regular,
   Dismiss24Regular,
   Home24Filled,
   Home24Regular,
@@ -82,12 +80,6 @@ const menuSections: V3MenuSection[] = [
         icon: <CardUi24Regular />,
         activeIcon: <CardUi24Filled />,
       },
-      {
-        label: "Data Center",
-        href: "/transaction/data-center",
-        icon: <Database24Regular />,
-        activeIcon: <Database24Filled />,
-      },
     ],
   },
   {
@@ -136,9 +128,22 @@ function getProfilePictureUrl(profilePicture?: string | null) {
   const minioUrl = process.env.NEXT_PUBLIC_MINIO_URL || "";
 
   if (!profilePicture) return "/polantas.png";
-  if (profilePicture.startsWith("http")) return profilePicture;
+  if (
+    profilePicture.startsWith("http://") ||
+    profilePicture.startsWith("https://")
+  ) {
+    return profilePicture;
+  }
 
-  return `${minioUrl}/${profilePicture}`;
+  const cleanPath = profilePicture.startsWith("/")
+    ? profilePicture.slice(1)
+    : profilePicture;
+
+  return minioUrl ? `${minioUrl}/${cleanPath}` : `/${cleanPath}`;
+}
+
+function isAdminRole(code?: string | null, name?: string | null) {
+  return [code, name].some((role) => role?.toLowerCase().includes("admin"));
 }
 
 function SidebarItem({
@@ -178,11 +183,40 @@ function SidebarItem({
 
 export function V3AppShell({ children }: V3LayoutProps) {
   const shell = useV3AppShell();
-  const { user } = useAppSelector((state) => state.login);
+  const { user, licenseChecked } = useAppSelector((state) => state.login);
   const profilePictureUrl = getProfilePictureUrl(user?.profile_picture);
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "Jatanlin Site";
   const siteCode = process.env.NEXT_PUBLIC_SITE_CODE || "-";
   const siteLocation = process.env.NEXT_PUBLIC_SITE_LOCATION || "-";
+  const isAdmin = isAdminRole(
+    user?.master_role?.code,
+    user?.master_role?.role_name,
+  );
+  const isLicenseOnlyMode =
+    Boolean(licenseChecked) &&
+    !licenseChecked?.valid &&
+    isAdmin;
+  const visibleMenuSections = isLicenseOnlyMode
+    ? menuSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => item.href === "/system/license"),
+        }))
+        .filter((section) => section.items.length > 0)
+    : menuSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => {
+            if (isAdmin) return true;
+            return ![
+              "/master-data/user",
+              "/master-data/vehicle-classes",
+              "/system/configuration-device-registration",
+              "/system/license",
+            ].includes(item.href);
+          }),
+        }))
+        .filter((section) => section.items.length > 0);
 
   return (
     <div className="v3-ui flex h-screen overflow-hidden bg-slate-50 text-slate-950">
@@ -221,7 +255,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
         <div className="mx-3 border-t border-slate-100" />
 
         <nav className="flex-1 overflow-y-auto py-3 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
-          {menuSections.map((section) => (
+          {visibleMenuSections.map((section) => (
             <div key={section.label} className="mb-2">
               {!shell.isCollapsed && (
                 <div className="px-5 pb-1.5 pt-3 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
@@ -312,7 +346,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
             <div className="mx-3 border-t border-slate-100" />
 
             <nav className="flex-1 overflow-y-auto py-3">
-              {menuSections.map((section) => (
+              {visibleMenuSections.map((section) => (
                 <div key={section.label} className="mb-2">
                   <div className="px-5 pb-1.5 pt-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                     {section.label}
@@ -391,6 +425,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
                 alt={user?.full_name || "User"}
                 width={28}
                 height={28}
+                unoptimized
                 className="h-7 w-7 rounded-full object-cover"
               />
               <div className="hidden min-w-0 text-left sm:block">
@@ -462,6 +497,7 @@ export function V3AppShell({ children }: V3LayoutProps) {
                   alt={user?.full_name || "User"}
                   width={64}
                   height={64}
+                  unoptimized
                   className="h-16 w-16 rounded-full border border-slate-200 object-cover"
                 />
                 <div className="min-w-0">

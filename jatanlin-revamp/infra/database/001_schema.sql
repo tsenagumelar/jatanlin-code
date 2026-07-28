@@ -1304,9 +1304,9 @@ CREATE INDEX IF NOT EXISTS idx_system_runtime_config_key
 INSERT INTO public.system_runtime_config
 	(config_group, config_key, config_value, value_type, label, description, is_secret, sort_order)
 VALUES
-	('SITE', 'SITE_ID', 'e1123daf-a4db-4ee1-88da-ba9bff382f45', 'string', 'Site ID', 'Unique UUID for this operating site.', false, 10),
+	('SITE', 'SITE_ID', '628f033e-49b2-4ba0-b1e8-12af4b3895ee', 'string', 'Site ID', 'Unique UUID for this operating site.', false, 10),
 	('SITE', 'SITE_CODE', 'MST-25-00001', 'string', 'Site Code', 'Site code used by local and central systems.', false, 20),
-	('SITE', 'SITE_NAME', 'Mampang', 'string', 'Site Name', 'Human readable site name.', false, 30),
+	('SITE', 'SITE_NAME', 'Mampang Revamp Local', 'string', 'Site Name', 'Human readable site name.', false, 30),
 	('SITE', 'SITE_LOCATION', 'Central Office', 'string', 'Site Location', 'Site location label shown in the UI.', false, 40),
 	('SITE', 'SITE_REGION', 'Default', 'string', 'Site Region', 'Regional grouping for reporting and synchronization.', false, 50),
 

@@ -1,10 +1,12 @@
 SHELL := /bin/sh
 
-COMPOSE := docker compose
-COMPOSE_FILE := infra/compose/docker-compose.yml
 PROJECT_NAME ?= jatanlin-revamp
 ENV_FILE ?= .env
+COMPOSE := docker compose --env-file $(ENV_FILE)
+COMPOSE_FILE := infra/compose/docker-compose.yml
 RUN_ENV := set -a; [ ! -f $(ENV_FILE) ] || . ./$(ENV_FILE); set +a;
+ENV_EXAMPLE_FILES := .env.example apps/web/.env.example services/backend/.env.example services/wb-agent/.env.example data-center/.env.example data-center/apps/web/.env.example
+INFRA_SERVICES := postgres hasura minio minio-init nats redis ftp-local edge-proxy
 
 .DEFAULT_GOAL := help
 
@@ -18,16 +20,34 @@ GO ?= go
 GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 DOTNET ?= /opt/homebrew/opt/dotnet@8/bin/dotnet
 
-.PHONY: help infra-up infra-bootstrap infra-migrate infra-seed infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check services dev dev-full
+.PHONY: help env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check services dev dev-full
 
 help:
 	@printf '%s\n' 'Jatanlin Revamp'
 	@printf '%s\n' ''
+	@printf '%s\n' 'Environment targets:'
+	@printf '%s\n' '  make env-init       Create missing .env files from .env.example'
+	@printf '%s\n' '  make env-force      Overwrite all .env files from .env.example'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Docker targets:'
+	@printf '%s\n' '  make docker-up      Build and start infra, backend services, WB agent, and web in Docker'
+	@printf '%s\n' '  make docker-bootstrap Build/start full Docker stack, migrate, seed master data, then restart app services'
+	@printf '%s\n' '  make docker-bootstrap-dev Build/start full Docker stack with master + demo transaction seed'
+	@printf '%s\n' '  make docker-config  Apply runtime config values for Docker internal service URLs'
+	@printf '%s\n' '  make docker-build   Build Docker images for all app services'
+	@printf '%s\n' '  make docker-down    Stop full Docker stack'
+	@printf '%s\n' '  make docker-ps      Show full Docker stack containers'
+	@printf '%s\n' '  make docker-logs    Follow full Docker stack logs'
+	@printf '%s\n' '  make docker-restart Restart full Docker stack'
+	@printf '%s\n' ''
 	@printf '%s\n' 'Infrastructure targets:'
 	@printf '%s\n' '  make infra-up       Start local infrastructure only'
-	@printf '%s\n' '  make infra-bootstrap Start infra, run database migration, then seed'
+	@printf '%s\n' '  make infra-bootstrap Start infra, run database migration, then seed master data'
+	@printf '%s\n' '  make infra-bootstrap-dev Start infra, migrate, then seed master + demo transactions'
 	@printf '%s\n' '  make infra-migrate  Apply database schema migrations'
-	@printf '%s\n' '  make infra-seed     Seed local master/admin data'
+	@printf '%s\n' '  make infra-seed     Seed master data only'
+	@printf '%s\n' '  make infra-seed-with-transactions Seed master data and demo transactions'
+	@printf '%s\n' '  make infra-transactions-clear CONFIRM=clear-transactions Clear transaction tables only'
 	@printf '%s\n' '  make infra-down     Stop local infrastructure'
 	@printf '%s\n' '  make infra-restart  Restart local infrastructure'
 	@printf '%s\n' '  make infra-ps       Show infrastructure containers'
@@ -61,16 +81,74 @@ help:
 	@printf '%s\n' '  make dev            Start all services and web'
 	@printf '%s\n' '  make dev-full       Start infra, then all services and web'
 
+env-init:
+	@for example in $(ENV_EXAMPLE_FILES); do \
+		target=$$(dirname "$$example")/.env; \
+		if [ "$$example" = ".env.example" ]; then target=.env; fi; \
+		if [ -f "$$target" ]; then \
+			printf 'skip %s (exists)\n' "$$target"; \
+		else \
+			cp "$$example" "$$target"; \
+			printf 'create %s\n' "$$target"; \
+		fi; \
+	done
+
+env-force:
+	@for example in $(ENV_EXAMPLE_FILES); do \
+		target=$$(dirname "$$example")/.env; \
+		if [ "$$example" = ".env.example" ]; then target=.env; fi; \
+		cp "$$example" "$$target"; \
+		printf 'write %s\n' "$$target"; \
+	done
+
+docker-up:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d --build
+
+docker-bootstrap: docker-up infra-migrate infra-seed docker-config
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) restart backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent web
+
+docker-bootstrap-dev: docker-up infra-migrate infra-seed-with-transactions docker-config
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) restart backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent web
+
+docker-config:
+	./scripts/db-docker-config.sh
+
+docker-build:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) build
+
+docker-down:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) down
+
+docker-ps:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) ps
+
+docker-logs:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) logs -f
+
+docker-restart:
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) restart
+
 infra-up:
-	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d $(INFRA_SERVICES)
 
 infra-bootstrap: infra-up infra-migrate infra-seed
+
+infra-bootstrap-dev: infra-up infra-migrate infra-seed-with-transactions
 
 infra-migrate:
 	./scripts/db-migrate.sh
 
 infra-seed:
 	./scripts/db-seed.sh
+
+infra-seed-transactions:
+	./scripts/db-seed.sh transactions
+
+infra-seed-with-transactions:
+	./scripts/db-seed.sh with-transactions
+
+infra-transactions-clear:
+	./scripts/db-clear-transactions.sh
 
 infra-down:
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) down
@@ -141,10 +219,10 @@ wb-agent:
 	$(RUN_ENV) cd $(WB_AGENT_DIR) && $(DOTNET) run --project WServerApi.csproj
 
 veam-license-generate:
-	$(RUN_ENV) cd $(BACKEND_DIR) && GOCACHE=$(GO_CACHE_DIR) $(GO) run ./cmd/veam-license-gen -out ./data/license.veam
+	GO=$(GO) ./scripts/veam-generate-license.sh
 
 veam-license-check:
-	$(RUN_ENV) cd $(BACKEND_DIR) && GOCACHE=$(GO_CACHE_DIR) $(GO) run ./cmd/veam-license-check
+	GO=$(GO) ./scripts/veam-check-license.sh
 
 services:
 	@$(MAKE) backend-api & p1=$$!; \

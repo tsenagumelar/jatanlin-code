@@ -16,8 +16,11 @@ POSTGRES_DB="${POSTGRES_DB:-jatanlin_data_center}"
 POSTGRES_USER="${POSTGRES_USER:-jatanlin_dc}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-jatanlin_dc_password}"
 
-for file in "$ROOT_DIR"/infra/database/*_schema.sql; do
+for file in "$ROOT_DIR"/infra/database/*.sql; do
   [ -f "$file" ] || continue
+  case "$(basename "$file")" in
+    *_seed.sql) continue ;;
+  esac
   echo "Applying $(basename "$file")"
   PGPASSWORD="$POSTGRES_PASSWORD" psql \
     -h "$POSTGRES_HOST" \

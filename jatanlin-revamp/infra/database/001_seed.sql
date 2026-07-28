@@ -3,15 +3,31 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 INSERT INTO public.master_role (code, role_name, description, is_active, is_deleted)
 VALUES
   ('MRL-ADMIN', 'ADMIN', 'Full access administrator role', true, false),
-  ('MRL-OPERATOR', 'OPERATOR', 'Operator role for daily weighing operations', true, false),
-  ('MRL-SUPERVISOR', 'SUPERVISOR', 'Supervisor role for monitoring and approval', true, false),
-  ('MRL-VIEWER', 'VIEWER', 'Read-only monitoring role', true, false)
+  ('MRL-OPERATOR', 'OPERATOR', 'Operator role for daily weighing operations', true, false)
 ON CONFLICT (code) DO UPDATE
 SET role_name = EXCLUDED.role_name,
     description = EXCLUDED.description,
     is_active = true,
     is_deleted = false,
     updated_date = now();
+
+WITH canonical_roles AS (
+  SELECT
+    (SELECT id FROM public.master_role WHERE code = 'MRL-ADMIN' LIMIT 1) AS admin_role_id,
+    (SELECT id FROM public.master_role WHERE code = 'MRL-OPERATOR' LIMIT 1) AS operator_role_id
+)
+UPDATE public.master_user u
+SET role_id = CASE
+      WHEN lower(r.role_name) LIKE '%admin%' OR lower(r.code) LIKE '%admin%' THEN canonical_roles.admin_role_id
+      ELSE canonical_roles.operator_role_id
+    END,
+    updated_date = now()
+FROM public.master_role r, canonical_roles
+WHERE u.role_id = r.id
+  AND r.code NOT IN ('MRL-ADMIN', 'MRL-OPERATOR');
+
+DELETE FROM public.master_role
+WHERE code NOT IN ('MRL-ADMIN', 'MRL-OPERATOR');
 
 INSERT INTO public.master_site (
   id,
@@ -31,8 +47,7 @@ INSERT INTO public.master_site (
   is_deleted
 )
 VALUES
-  (:'site_id', :'site_code', :'site_name', :'site_location', :'site_region', :'site_address', :'site_city', :'site_province', :'site_timezone', :'site_contact_name', :'site_contact_phone', 'offline', 'Primary local revamp site', true, false),
-  ('b0238918-8921-41ed-b8e6-28deb27abcd2', 'JTN-LOCAL-02', 'Revamp Demo Gate B', 'Local Yard Gate B', 'Default', 'Local Yard Gate B', 'Sukabumi', 'Jawa Barat', 'Asia/Jakarta', 'Gate B Operator', NULL, 'offline', 'Secondary sample site for local testing', true, false)
+  (:'site_id', :'site_code', :'site_name', :'site_location', :'site_region', :'site_address', :'site_city', :'site_province', :'site_timezone', :'site_contact_name', :'site_contact_phone', 'offline', 'Primary local revamp site', true, false)
 ON CONFLICT (code) DO UPDATE
 SET id = EXCLUDED.id,
     site_name = EXCLUDED.site_name,
@@ -48,6 +63,12 @@ SET id = EXCLUDED.id,
     is_active = true,
     is_deleted = false,
     updated_date = now();
+
+UPDATE public.master_site
+SET is_active = false,
+    is_deleted = true,
+    updated_date = now()
+WHERE code IN ('JTN-LOCAL-02');
 
 INSERT INTO public.master_device_type (code, type_name, description, is_active, is_deleted)
 VALUES
@@ -128,6 +149,9 @@ INSERT INTO public.system_runtime_config (
   is_deleted
 )
 VALUES
+  ('SITE', 'SITE_ID', :'site_id', 'string', 'Site ID', 'Unique UUID for this operating site', false, true, 1, true, false),
+  ('SITE', 'SITE_CODE', :'site_code', 'string', 'Site Code', 'Site code used by local and central systems', false, true, 2, true, false),
+  ('SITE', 'SITE_NAME', :'site_name', 'string', 'Site Name', 'Human readable site name', false, true, 3, true, false),
   ('SERVICE', 'NATS_URL', 'nats://localhost:14222', 'url', 'NATS URL', 'Local NATS endpoint for queue/cache integration', false, true, 10, true, false),
   ('ANPR_FTP', 'ANPR_FTP_HOST', 'localhost:10021', 'string', 'ANPR FTP Host', 'Local FTP endpoint for ANPR watcher', false, true, 20, true, false),
   ('ANPR_FTP', 'ANPR_FTP_USER', 'ftpuser', 'string', 'ANPR FTP User', 'Local FTP username for ANPR watcher', false, true, 30, true, false),
@@ -295,6 +319,9 @@ SET password_hash = EXCLUDED.password_hash,
     is_deleted = false,
     updated_date = now();
 
+DELETE FROM public.master_user
+WHERE username IN ('admin@mampang.local', 'super', 'superadmin', 'supervisor', 'operatorsystem');
+
 CREATE TABLE IF NOT EXISTS public.users (
   id SERIAL PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
@@ -330,3 +357,6 @@ SET email = EXCLUDED.email,
     role = EXCLUDED.role,
     is_active = true,
     updated_at = now();
+
+DELETE FROM public.users
+WHERE username NOT IN (:'admin_username', 'operator');

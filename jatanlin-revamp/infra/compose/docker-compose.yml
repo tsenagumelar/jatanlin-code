@@ -1,4 +1,219 @@
 services:
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_HASURA_URL: ${NEXT_PUBLIC_HASURA_URL:-http://hasura.site.jatanlin.test/v1/graphql}
+        NEXT_PUBLIC_HASURA_WS: ${NEXT_PUBLIC_HASURA_WS:-ws://hasura.site.jatanlin.test/v1/graphql}
+        NEXT_PUBLIC_HASURA_WS_IP: ${NEXT_PUBLIC_HASURA_WS_IP:-ws://hasura.site.jatanlin.test/v1/graphql}
+        NEXT_PUBLIC_HASURA_SECRET: ${NEXT_PUBLIC_HASURA_SECRET:-devhasurasecret}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.site.jatanlin.test}
+        NEXT_PUBLIC_SITE_ID: ${NEXT_PUBLIC_SITE_ID:-628f033e-49b2-4ba0-b1e8-12af4b3895ee}
+        NEXT_PUBLIC_SITE_CODE: ${NEXT_PUBLIC_SITE_CODE:-MST-25-00001}
+        NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-Mampang Revamp Local}
+        NEXT_PUBLIC_SITE_LOCATION: ${NEXT_PUBLIC_SITE_LOCATION:-Central Office}
+        NEXT_PUBLIC_SITE_REGION: ${NEXT_PUBLIC_SITE_REGION:-Default}
+        NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://minio.site.jatanlin.test}
+        NEXT_PUBLIC_DEVICE_CHECK_PROD_MODE: ${NEXT_PUBLIC_DEVICE_CHECK_PROD_MODE:-false}
+        NEXT_PUBLIC_DEVICE_CHECK_TIMEOUT_MS: ${NEXT_PUBLIC_DEVICE_CHECK_TIMEOUT_MS:-3000}
+        NEXT_PUBLIC_ANPR_IP: ${NEXT_PUBLIC_ANPR_IP:-localhost}
+        NEXT_PUBLIC_AXLE_IP: ${NEXT_PUBLIC_AXLE_IP:-localhost}
+        NEXT_PUBLIC_WIM_IP: ${NEXT_PUBLIC_WIM_IP:-localhost}
+        WIM_AGENT_STREAM_URL: ${DOCKER_WIM_AGENT_STREAM_URL:-http://wb-agent:5001/ws/wim/live}
+    container_name: jtn-revamp-web
+    restart: unless-stopped
+    extra_hosts: &app_extra_hosts
+      - "host.docker.internal:host-gateway"
+      - "site.jatanlin.test:host-gateway"
+      - "api.site.jatanlin.test:host-gateway"
+      - "hasura.site.jatanlin.test:host-gateway"
+      - "minio.site.jatanlin.test:host-gateway"
+      - "console.minio.site.jatanlin.test:host-gateway"
+      - "dc.jatanlin.test:host-gateway"
+      - "api.dc.jatanlin.test:host-gateway"
+      - "hasura.dc.jatanlin.test:host-gateway"
+      - "minio.dc.jatanlin.test:host-gateway"
+      - "console.minio.dc.jatanlin.test:host-gateway"
+    environment:
+      WIM_AGENT_STREAM_URL: ${DOCKER_WIM_AGENT_STREAM_URL:-http://wb-agent:5001/ws/wim/live}
+      NEXT_PUBLIC_HASURA_URL: ${NEXT_PUBLIC_HASURA_URL:-http://hasura.site.jatanlin.test/v1/graphql}
+      NEXT_PUBLIC_HASURA_WS: ${NEXT_PUBLIC_HASURA_WS:-ws://hasura.site.jatanlin.test/v1/graphql}
+      NEXT_PUBLIC_HASURA_WS_IP: ${NEXT_PUBLIC_HASURA_WS_IP:-ws://hasura.site.jatanlin.test/v1/graphql}
+      NEXT_PUBLIC_HASURA_SECRET: ${NEXT_PUBLIC_HASURA_SECRET:-devhasurasecret}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.site.jatanlin.test}
+      NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://minio.site.jatanlin.test}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - backend-api
+      - wb-agent
+
+  backend-api: &backend_service
+    build:
+      context: ../../services/backend
+      dockerfile: Dockerfile
+    image: jatanlin-revamp-backend:local
+    container_name: jtn-revamp-backend-api
+    restart: unless-stopped
+    extra_hosts: *app_extra_hosts
+    environment: &backend_environment
+      SERVICE: api
+      DATABASE_URL: postgres://${POSTGRES_USER:-jatanlin}:${POSTGRES_PASSWORD:-jatanlin_dev_password}@postgres:5432/${POSTGRES_DB:-jatanlin}?sslmode=disable
+      API_PORT: ${API_PORT:-4000}
+      JWT_SECRET: ${JWT_SECRET:-jatanlin-super-secret-jwt-key-2026}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      SITE_CODE: ${SITE_CODE:-MST-25-00001}
+      SITE_ID: ${SITE_ID:-628f033e-49b2-4ba0-b1e8-12af4b3895ee}
+      SITE_NAME: ${SITE_NAME:-Mampang Revamp Local}
+      SITE_LOCATION: ${SITE_LOCATION:-Central Office}
+      SITE_REGION: ${SITE_REGION:-Default}
+      NATS_URL: nats://nats:4222
+      ANPR_FTP_HOST: ${DOCKER_ANPR_FTP_HOST:-ftp-local:21}
+      ANPR_FTP_USER: ${FTP_USER:-ftpuser}
+      ANPR_FTP_PASS: ${FTP_PASS:-ftppass}
+      ANPR_FTP_DIR: ${ANPR_FTP_DIR:-/anpr}
+      ANPR_FTP_INTERVAL_SEC: ${ANPR_FTP_INTERVAL_SEC:-5}
+      ANPR_MINIO_ENDPOINT: minio:9000
+      ANPR_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-admin}
+      ANPR_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-admin12345}
+      ANPR_MINIO_BUCKET: ${ANPR_MINIO_BUCKET:-anpr}
+      ANPR_MINIO_USE_SSL: "false"
+      AXLE_FTP_HOST: ${DOCKER_AXLE_FTP_HOST:-ftp-local:21}
+      AXLE_FTP_USER: ${FTP_USER:-ftpuser}
+      AXLE_FTP_PASS: ${FTP_PASS:-ftppass}
+      AXLE_FTP_DIR: ${AXLE_FTP_DIR:-/axle}
+      AXLE_FTP_INTERVAL_SEC: ${AXLE_FTP_INTERVAL_SEC:-5}
+      AXLE_MINIO_ENDPOINT: minio:9000
+      AXLE_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-admin}
+      AXLE_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-admin12345}
+      AXLE_MINIO_BUCKET: ${AXLE_MINIO_BUCKET:-axle}
+      AXLE_MINIO_USE_SSL: "false"
+      ATTACHMENT_MINIO_ENDPOINT: minio:9000
+      ATTACHMENT_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-admin}
+      ATTACHMENT_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-admin12345}
+      ATTACHMENT_MINIO_BUCKET: ${ATTACHMENT_MINIO_BUCKET:-attachment}
+      ATTACHMENT_MINIO_USE_SSL: "false"
+      DATA_CENTER_SYNC_ENABLED: ${DATA_CENTER_SYNC_ENABLED:-false}
+      DATA_CENTER_API_URL: ${DATA_CENTER_API_URL:-http://api.dc.jatanlin.test}
+      DATA_CENTER_SYNC_KEY: ${DATA_CENTER_SYNC_KEY:-jatanlin-site-sync-key-2026}
+      DATA_CENTER_SYNC_INTERVAL_SEC: ${DATA_CENTER_SYNC_INTERVAL_SEC:-30}
+      DATA_CENTER_SYNC_BATCH_SIZE: ${DATA_CENTER_SYNC_BATCH_SIZE:-100}
+      DATA_CENTER_SYNC_CURSOR_FILE: ${DATA_CENTER_SYNC_CURSOR_FILE:-./data/sync-agent-cursors.json}
+      DATA_CENTER_SYNC_HTTP_TIMEOUT_SEC: ${DATA_CENTER_SYNC_HTTP_TIMEOUT_SEC:-20}
+      DATA_CENTER_SYNC_LOOKBACK_SEC: ${DATA_CENTER_SYNC_LOOKBACK_SEC:-300}
+      DATA_CENTER_SYNC_ONCE: ${DATA_CENTER_SYNC_ONCE:-false}
+      DATA_CENTER_ATTACHMENT_SYNC_ENABLED: ${DATA_CENTER_ATTACHMENT_SYNC_ENABLED:-true}
+      DATA_CENTER_MINIO_ENDPOINT: ${DATA_CENTER_MINIO_ENDPOINT:-minio.dc.jatanlin.test}
+      DATA_CENTER_MINIO_ACCESS_KEY: ${DATA_CENTER_MINIO_ACCESS_KEY:-jatanlin_dc_minio}
+      DATA_CENTER_MINIO_SECRET_KEY: ${DATA_CENTER_MINIO_SECRET_KEY:-jatanlin_dc_minio_password}
+      DATA_CENTER_MINIO_BUCKET: ${DATA_CENTER_MINIO_BUCKET:-jatanlin-data-center-attachments}
+      DATA_CENTER_MINIO_USE_SSL: ${DATA_CENTER_MINIO_USE_SSL:-false}
+      WEIGHING_TRIGGER_URL: ${DOCKER_WEIGHING_TRIGGER_URL:-http://wb-agent:5001/ws/wim/anpr-capture}
+      WEIGHING_TRIGGER_DIRECTION: ${WEIGHING_TRIGGER_DIRECTION:-RIGHT}
+      WEIGHING_TRIGGER_TIMEOUT_SECONDS: ${WEIGHING_TRIGGER_TIMEOUT_SECONDS:-25}
+      WEIGHING_TRIGGER_SAVE: ${WEIGHING_TRIGGER_SAVE:-true}
+      WEIGHING_TRIGGER_DUMMY: ${WEIGHING_TRIGGER_DUMMY:-false}
+      CCTV_TRIGGER_ENABLED: ${CCTV_TRIGGER_ENABLED:-true}
+      CCTV_TRIGGER_URL: ${DOCKER_CCTV_TRIGGER_URL:-http://cctv-streamer:8090/record}
+      CCTV_TRIGGER_SECONDS: ${CCTV_TRIGGER_SECONDS:-20}
+      CCTV_TRIGGER_DUMMY: ${CCTV_TRIGGER_DUMMY:-false}
+      CCTV_RTSP_URL: ${CCTV_RTSP_URL:-}
+      CCTV_OUTPUT_DIR: ${CCTV_OUTPUT_DIR:-./data/cctv}
+      CCTV_RECORD_SECONDS: ${CCTV_RECORD_SECONDS:-20}
+      CCTV_DUMMY_ENABLED: ${CCTV_DUMMY_ENABLED:-true}
+      CCTV_HTTP_PORT: ${CCTV_HTTP_PORT:-8090}
+      VEAM_LICENSE_PATH: ${VEAM_LICENSE_PATH:-./data/license.veam}
+      VEAM_PUBLIC_KEY_B64: ${VEAM_PUBLIC_KEY_B64:-2CKPRGxWNdr2ZT1Q1vOwp2cZqh4MxYmFsOlFtx83eW4=}
+      VEAM_HARDWARE_ID: ${VEAM_HARDWARE_ID:-}
+      VEAM_USB_SCAN_PATHS: ${VEAM_USB_SCAN_PATHS:-}
+    ports:
+      - "${API_PORT:-4000}:${API_PORT:-4000}"
+    volumes:
+      - backend-data:/app/data
+    depends_on: &backend_depends_on
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_started
+      redis:
+        condition: service_started
+      ftp-local:
+        condition: service_started
+
+  anpr-watcher:
+    <<: *backend_service
+    image: jatanlin-revamp-anpr-watcher:local
+    container_name: jtn-revamp-anpr-watcher
+    ports: []
+    environment:
+      <<: *backend_environment
+      SERVICE: anpr-watcher
+
+  axle-watcher:
+    <<: *backend_service
+    image: jatanlin-revamp-axle-watcher:local
+    container_name: jtn-revamp-axle-watcher
+    ports: []
+    environment:
+      <<: *backend_environment
+      SERVICE: axle-watcher
+
+  cctv-streamer:
+    <<: *backend_service
+    image: jatanlin-revamp-cctv-streamer:local
+    container_name: jtn-revamp-cctv-streamer
+    ports:
+      - "${CCTV_HTTP_PORT:-8090}:${CCTV_HTTP_PORT:-8090}"
+    environment:
+      <<: *backend_environment
+      SERVICE: cctv-streamer
+
+  sync-agent:
+    <<: *backend_service
+    image: jatanlin-revamp-sync-agent:local
+    container_name: jtn-revamp-sync-agent
+    ports: []
+    environment:
+      <<: *backend_environment
+      SERVICE: sync-agent
+      DATA_CENTER_SYNC_ENABLED: ${DOCKER_DATA_CENTER_SYNC_ENABLED:-true}
+
+  wb-agent:
+    build:
+      context: ../../services/wb-agent
+      dockerfile: Dockerfile
+    container_name: jtn-revamp-wb-agent
+    restart: unless-stopped
+    extra_hosts: *app_extra_hosts
+    environment:
+      ASPNETCORE_URLS: http://+:5001
+      DATABASE_URL: postgres://${POSTGRES_USER:-jatanlin}:${POSTGRES_PASSWORD:-jatanlin_dev_password}@postgres:5432/${POSTGRES_DB:-jatanlin}?sslmode=disable
+      NATS_URL: nats://nats:4222
+      SITE_CODE: ${SITE_CODE:-MST-25-00001}
+      SITE_ID: ${SITE_ID:-628f033e-49b2-4ba0-b1e8-12af4b3895ee}
+      SITE_NAME: ${SITE_NAME:-Mampang Revamp Local}
+      SITE_LOCATION: ${SITE_LOCATION:-Central Office}
+      SITE_REGION: ${SITE_REGION:-Default}
+      WB_SITE_CODE: ${WB_SITE_CODE:-MST-25-00001}
+      WB_SITE_ID: ${WB_SITE_ID:-628f033e-49b2-4ba0-b1e8-12af4b3895ee}
+      WB_SESSION_LISTENER_ENABLED: ${WB_SESSION_LISTENER_ENABLED:-true}
+      WB_SESSION_INTERVAL_SEC: ${WB_SESSION_INTERVAL_SEC:-5}
+      WB_CAPTURE_TIMEOUT_SEC: ${WB_CAPTURE_TIMEOUT_SEC:-60}
+      WB_CAPTURE_DIRECTION: ${WB_CAPTURE_DIRECTION:-RIGHT}
+      WB_LOCATION_CODE: ${WB_LOCATION_CODE:-GATE-A1}
+    ports:
+      - "${WB_AGENT_PORT:-5001}:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
   edge-proxy:
     image: nginx:1.27-alpine
     container_name: jtn-edge-proxy
@@ -112,7 +327,7 @@ services:
     restart: unless-stopped
     environment:
       USERS: "${FTP_USER:-ftpuser}|${FTP_PASS:-ftppass}"
-      ADDRESS: "127.0.0.1"
+      ADDRESS: "${FTP_ADDRESS:-127.0.0.1}"
       MIN_PORT: "${FTP_PASSIVE_MIN_PORT:-21100}"
       MAX_PORT: "${FTP_PASSIVE_MAX_PORT:-21110}"
     ports:
@@ -125,3 +340,4 @@ volumes:
   postgres-data:
   minio-data:
   redis-data:
+  backend-data:

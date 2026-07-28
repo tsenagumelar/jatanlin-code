@@ -1,15 +1,12 @@
 "use client";
 
-import {
-  useMemo,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useGetUsersQuery } from "@/src/graphql/hooks/master-user";
 import { useGetRolesQuery } from "@/src/graphql/hooks/master-role";
+import { setUser } from "@/src/modules/login/slice";
+import { useAppDispatch, useAppSelector } from "@/src/redux/hooks";
 import { getAuthTokenCookie } from "@/src/utils/auth";
 import type { Master_User_Bool_Exp } from "@/src/graphql/schema/types";
 import type {
@@ -112,9 +109,7 @@ function getExportRows(users: V3UserRow[], formatDate: typeof formatDateTime) {
 function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows
     .map((row) =>
-      row
-        .map((cell) => `"${cell.replaceAll('"', '""')}"`)
-        .join(","),
+      row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(","),
     )
     .join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -155,6 +150,8 @@ export function getV3UserAvatarUrl(profilePicture?: string | null) {
 }
 
 export function useV3MasterUser() {
+  const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.login.user);
   const [filters, setFilters] = useState<V3UserFilters>(initialFilters);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);
@@ -186,7 +183,8 @@ export function useV3MasterUser() {
   const users = usersQuery.data?.master_user ?? [];
   const roles = rolesQuery.data?.master_role ?? [];
   const isSubmitting = isSavingUser;
-  const totalCount = usersQuery.data?.master_user_aggregate.aggregate?.count ?? 0;
+  const totalCount =
+    usersQuery.data?.master_user_aggregate.aggregate?.count ?? 0;
   const startRow = totalCount === 0 ? 0 : page * rowsPerPage + 1;
   const endRow = Math.min((page + 1) * rowsPerPage, totalCount);
   const totalPages = Math.max(Math.ceil(totalCount / rowsPerPage), 1);
@@ -196,10 +194,7 @@ export function useV3MasterUser() {
     setPage(0);
   };
 
-  const updateForm = (
-    field: keyof V3UserFormData,
-    value: string | boolean,
-  ) => {
+  const updateForm = (field: keyof V3UserFormData, value: string | boolean) => {
     setFormData((current) => ({ ...current, [field]: value }));
     setFormError(null);
   };
@@ -349,7 +344,32 @@ export function useV3MasterUser() {
         await parseApiResponse(response);
       }
 
-      await usersQuery.refetch();
+      const refetchResult = await usersQuery.refetch();
+      if (modal.mode === "edit" && modal.user?.id === currentUser?.id) {
+        const updatedCurrentUser = refetchResult.data?.master_user.find(
+          (row) => row.id === currentUser?.id,
+        );
+        if (updatedCurrentUser) {
+          dispatch(
+            setUser({
+              id: updatedCurrentUser.id,
+              code: updatedCurrentUser.code,
+              badge_no: updatedCurrentUser.badge_no ?? null,
+              username: updatedCurrentUser.username,
+              email: updatedCurrentUser.email ?? null,
+              full_name: updatedCurrentUser.full_name,
+              profile_picture: updatedCurrentUser.profile_picture ?? null,
+              is_active: updatedCurrentUser.is_active ?? null,
+              master_role: {
+                id: updatedCurrentUser.master_role.id,
+                code: updatedCurrentUser.master_role.code,
+                role_name: updatedCurrentUser.master_role.role_name,
+                description: updatedCurrentUser.master_role.description ?? null,
+              },
+            }),
+          );
+        }
+      }
       closeModal();
     } catch (submitError) {
       setFormError(

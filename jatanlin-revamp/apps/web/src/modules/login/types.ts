@@ -30,3 +30,11 @@ export interface User {
   is_active: boolean | null;
   master_role: UserRole;
 }
+
+export interface LicenseCheck {
+  status: string;
+  valid: boolean;
+  message: string;
+  source?: string;
+  checked_at: string;
+}

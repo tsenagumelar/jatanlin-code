@@ -98,7 +98,7 @@ main() {
 
   for sql_file in "$ROOT_DIR"/infra/database/*.sql; do
     case "$(basename "$sql_file")" in
-      001_schema.sql|001_seed.sql) continue ;;
+      001_schema.sql|*_seed.sql) continue ;;
     esac
     psql_file "$sql_file"
   done

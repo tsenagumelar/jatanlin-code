@@ -30,7 +30,7 @@ type licenseFile struct {
 }
 
 func main() {
-	siteID := flag.String("site-id", "e1123daf-a4db-4ee1-88da-ba9bff382f45", "licensed site UUID")
+	siteID := flag.String("site-id", "628f033e-49b2-4ba0-b1e8-12af4b3895ee", "licensed site UUID")
 	licenseID := flag.String("license-id", "VEAM2-REVAMP-LOCAL", "license id")
 	issuedTo := flag.String("issued-to", "Mampang Revamp Local", "license owner")
 	issuedBy := flag.String("issued-by", "Activa Digital", "license issuer")
