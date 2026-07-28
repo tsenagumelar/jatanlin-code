@@ -106,10 +106,10 @@ infra-bootstrap: infra-up infra-migrate infra-seed
 infra-bootstrap-local: infra-up-local infra-migrate infra-seed
 
 infra-migrate:
-	../scripts/db-migrate.sh
+	./scripts/db-migrate.sh
 
 infra-seed:
-	../scripts/db-seed.sh
+	./scripts/db-seed.sh
 
 infra-down:
 	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) down
@@ -150,4 +150,3 @@ dev:
 
 dev-local: infra-up-local
 	@$(MAKE) dev
-
