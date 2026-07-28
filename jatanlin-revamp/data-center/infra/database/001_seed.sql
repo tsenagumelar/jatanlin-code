@@ -71,7 +71,7 @@ INSERT INTO public.master_user (
 SELECT
   'MUS-OPERATOR',
   'operator',
-  'operator@datacenter.local',
+  'operator@localhost',
   crypt('operator123', gen_salt('bf')),
   'Data Center Operator',
   'OPR-001',
