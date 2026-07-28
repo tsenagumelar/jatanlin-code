@@ -408,7 +408,7 @@ function requestProcessingLocation(): Promise<ProcessingLocation> {
   if (!isLocationAllowedOrigin()) {
     return Promise.reject(
       new Error(
-        "Akses lokasi memerlukan HTTPS untuk site.jatanlin.test, atau buka aplikasi dari localhost.",
+        "Akses lokasi memerlukan HTTPS, atau buka aplikasi dari http://localhost:3000.",
       ),
     );
   }

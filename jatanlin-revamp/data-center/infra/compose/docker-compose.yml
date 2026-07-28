@@ -4,11 +4,11 @@ services:
       context: ../../apps/web
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://api.dc.jatanlin.test}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:28001}
     container_name: jtn-dc-web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://api.dc.jatanlin.test}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:28001}
     ports:
       - "${DATA_CENTER_WEB_PORT:-3001}:3001"
     depends_on:
@@ -104,12 +104,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-jatanlin-data-center-secret-2026}
       SITE_SYNC_KEY: ${SITE_SYNC_KEY:-jatanlin-site-sync-key-2026}
       MINIO_ENDPOINT: minio:9000
-      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-minio.dc.jatanlin.test}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-localhost:29000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-jatanlin_dc_minio}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-jatanlin_dc_minio_password}
       MINIO_BUCKET: ${MINIO_BUCKET:-jatanlin-data-center-attachments}
       MINIO_USE_SSL: "false"
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://dc.jatanlin.test,http://localhost:3001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
     ports:
       - "${DATA_CENTER_API_PORT:-28001}:8080"
 

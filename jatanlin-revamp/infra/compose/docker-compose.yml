@@ -4,17 +4,17 @@ services:
       context: ../../apps/web
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_HASURA_URL: ${NEXT_PUBLIC_HASURA_URL:-http://hasura.site.jatanlin.test/v1/graphql}
-        NEXT_PUBLIC_HASURA_WS: ${NEXT_PUBLIC_HASURA_WS:-ws://hasura.site.jatanlin.test/v1/graphql}
-        NEXT_PUBLIC_HASURA_WS_IP: ${NEXT_PUBLIC_HASURA_WS_IP:-ws://hasura.site.jatanlin.test/v1/graphql}
+        NEXT_PUBLIC_HASURA_URL: ${NEXT_PUBLIC_HASURA_URL:-http://localhost:18080/v1/graphql}
+        NEXT_PUBLIC_HASURA_WS: ${NEXT_PUBLIC_HASURA_WS:-ws://localhost:18080/v1/graphql}
+        NEXT_PUBLIC_HASURA_WS_IP: ${NEXT_PUBLIC_HASURA_WS_IP:-ws://localhost:18080/v1/graphql}
         NEXT_PUBLIC_HASURA_SECRET: ${NEXT_PUBLIC_HASURA_SECRET:-devhasurasecret}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.site.jatanlin.test}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
         NEXT_PUBLIC_SITE_ID: ${NEXT_PUBLIC_SITE_ID:-628f033e-49b2-4ba0-b1e8-12af4b3895ee}
         NEXT_PUBLIC_SITE_CODE: ${NEXT_PUBLIC_SITE_CODE:-MST-25-00001}
         NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-Mampang Revamp Local}
         NEXT_PUBLIC_SITE_LOCATION: ${NEXT_PUBLIC_SITE_LOCATION:-Central Office}
         NEXT_PUBLIC_SITE_REGION: ${NEXT_PUBLIC_SITE_REGION:-Default}
-        NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://minio.site.jatanlin.test}
+        NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://localhost:19000}
         NEXT_PUBLIC_DEVICE_CHECK_PROD_MODE: ${NEXT_PUBLIC_DEVICE_CHECK_PROD_MODE:-false}
         NEXT_PUBLIC_DEVICE_CHECK_TIMEOUT_MS: ${NEXT_PUBLIC_DEVICE_CHECK_TIMEOUT_MS:-3000}
         NEXT_PUBLIC_ANPR_IP: ${NEXT_PUBLIC_ANPR_IP:-localhost}
@@ -25,24 +25,14 @@ services:
     restart: unless-stopped
     extra_hosts: &app_extra_hosts
       - "host.docker.internal:host-gateway"
-      - "site.jatanlin.test:host-gateway"
-      - "api.site.jatanlin.test:host-gateway"
-      - "hasura.site.jatanlin.test:host-gateway"
-      - "minio.site.jatanlin.test:host-gateway"
-      - "console.minio.site.jatanlin.test:host-gateway"
-      - "dc.jatanlin.test:host-gateway"
-      - "api.dc.jatanlin.test:host-gateway"
-      - "hasura.dc.jatanlin.test:host-gateway"
-      - "minio.dc.jatanlin.test:host-gateway"
-      - "console.minio.dc.jatanlin.test:host-gateway"
     environment:
       WIM_AGENT_STREAM_URL: ${DOCKER_WIM_AGENT_STREAM_URL:-http://wb-agent:5001/ws/wim/live}
-      NEXT_PUBLIC_HASURA_URL: ${NEXT_PUBLIC_HASURA_URL:-http://hasura.site.jatanlin.test/v1/graphql}
-      NEXT_PUBLIC_HASURA_WS: ${NEXT_PUBLIC_HASURA_WS:-ws://hasura.site.jatanlin.test/v1/graphql}
-      NEXT_PUBLIC_HASURA_WS_IP: ${NEXT_PUBLIC_HASURA_WS_IP:-ws://hasura.site.jatanlin.test/v1/graphql}
+      NEXT_PUBLIC_HASURA_URL: ${NEXT_PUBLIC_HASURA_URL:-http://localhost:18080/v1/graphql}
+      NEXT_PUBLIC_HASURA_WS: ${NEXT_PUBLIC_HASURA_WS:-ws://localhost:18080/v1/graphql}
+      NEXT_PUBLIC_HASURA_WS_IP: ${NEXT_PUBLIC_HASURA_WS_IP:-ws://localhost:18080/v1/graphql}
       NEXT_PUBLIC_HASURA_SECRET: ${NEXT_PUBLIC_HASURA_SECRET:-devhasurasecret}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.site.jatanlin.test}
-      NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://minio.site.jatanlin.test}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+      NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://localhost:19000}
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
@@ -95,7 +85,7 @@ services:
       ATTACHMENT_MINIO_BUCKET: ${ATTACHMENT_MINIO_BUCKET:-attachment}
       ATTACHMENT_MINIO_USE_SSL: "false"
       DATA_CENTER_SYNC_ENABLED: ${DATA_CENTER_SYNC_ENABLED:-false}
-      DATA_CENTER_API_URL: ${DATA_CENTER_API_URL:-http://api.dc.jatanlin.test}
+      DATA_CENTER_API_URL: ${DATA_CENTER_API_URL:-http://localhost:28001}
       DATA_CENTER_SYNC_KEY: ${DATA_CENTER_SYNC_KEY:-jatanlin-site-sync-key-2026}
       DATA_CENTER_SYNC_INTERVAL_SEC: ${DATA_CENTER_SYNC_INTERVAL_SEC:-30}
       DATA_CENTER_SYNC_BATCH_SIZE: ${DATA_CENTER_SYNC_BATCH_SIZE:-100}
@@ -104,7 +94,7 @@ services:
       DATA_CENTER_SYNC_LOOKBACK_SEC: ${DATA_CENTER_SYNC_LOOKBACK_SEC:-300}
       DATA_CENTER_SYNC_ONCE: ${DATA_CENTER_SYNC_ONCE:-false}
       DATA_CENTER_ATTACHMENT_SYNC_ENABLED: ${DATA_CENTER_ATTACHMENT_SYNC_ENABLED:-true}
-      DATA_CENTER_MINIO_ENDPOINT: ${DATA_CENTER_MINIO_ENDPOINT:-minio.dc.jatanlin.test}
+      DATA_CENTER_MINIO_ENDPOINT: ${DATA_CENTER_MINIO_ENDPOINT:-localhost:29000}
       DATA_CENTER_MINIO_ACCESS_KEY: ${DATA_CENTER_MINIO_ACCESS_KEY:-jatanlin_dc_minio}
       DATA_CENTER_MINIO_SECRET_KEY: ${DATA_CENTER_MINIO_SECRET_KEY:-jatanlin_dc_minio_password}
       DATA_CENTER_MINIO_BUCKET: ${DATA_CENTER_MINIO_BUCKET:-jatanlin-data-center-attachments}

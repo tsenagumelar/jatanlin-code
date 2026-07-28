@@ -109,7 +109,7 @@ export function V3LoginPage() {
                     type="text"
                     value={formData.email}
                     onChange={handleChange("email")}
-                    placeholder="operator@jatanlin.local"
+                    placeholder="operator"
                     disabled={isLoading}
                     required
                     className="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
