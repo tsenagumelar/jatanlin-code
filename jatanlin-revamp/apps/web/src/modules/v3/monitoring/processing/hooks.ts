@@ -381,6 +381,70 @@ function formatSessionName(date: Date) {
   ].join("");
 }
 
+type ProcessingLocation = {
+  latitude: number;
+  longitude: number;
+};
+
+function browserSupportsLocation() {
+  return typeof navigator !== "undefined" && "geolocation" in navigator;
+}
+
+function isLocationAllowedOrigin() {
+  if (typeof window === "undefined") return true;
+  return (
+    window.isSecureContext ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  );
+}
+
+function requestProcessingLocation(): Promise<ProcessingLocation> {
+  if (!browserSupportsLocation()) {
+    return Promise.reject(
+      new Error("Location access is not available in this browser."),
+    );
+  }
+  if (!isLocationAllowedOrigin()) {
+    return Promise.reject(
+      new Error(
+        "Location access requires HTTPS for site.jatanlin.test, or open the app from localhost.",
+      ),
+    );
+  }
+
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          reject(
+            new Error(
+              "Location permission is required before starting processing.",
+            ),
+          );
+          return;
+        }
+        if (error.code === error.TIMEOUT) {
+          reject(new Error("Location detection timed out. Try again."));
+          return;
+        }
+        reject(new Error("Failed to detect current location."));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15_000,
+        maximumAge: 0,
+      },
+    );
+  });
+}
+
 export function useV3Processing() {
   const siteId = process.env.NEXT_PUBLIC_SITE_ID || undefined;
   const processingContext = useProcessing();
@@ -418,6 +482,9 @@ export function useV3Processing() {
   const [timeoutRemaining, setTimeoutRemaining] = useState(120);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  const [processingLocation, setProcessingLocation] =
+    useState<ProcessingLocation | null>(null);
   const { data, loading, error, refetch } = useQuery<ProcessingQueryData>(
     PROCESSING_QUERY,
     {
@@ -865,13 +932,17 @@ export function useV3Processing() {
     (device) => device.status === "online",
   );
   const startProcessing = async () => {
-    if (!allConnectionsOnline || isProcessingStarted) return;
+    if (!allConnectionsOnline || isProcessingStarted || isRequestingLocation) return;
 
     const now = new Date();
     const startedAt = now.toISOString();
     setActionError(null);
+    setIsRequestingLocation(true);
 
     try {
+      const location = await requestProcessingLocation();
+      setProcessingLocation(location);
+
       const result = await insertTransactWimSession({
         variables: {
           object: {
@@ -916,6 +987,8 @@ export function useV3Processing() {
       setIsProcessing(false);
       setSessionStatus("IDLE");
       setPhase("init");
+    } finally {
+      setIsRequestingLocation(false);
     }
 
   };
@@ -940,6 +1013,8 @@ export function useV3Processing() {
       actual_plat_no: currentAnpr?.plate_no ?? null,
       actual_total_axle:
         currentWeight?.total_axle ?? currentAxle?.total_axles ?? null,
+      location_lat: processingLocation?.latitude ?? null,
+      location_lng: processingLocation?.longitude ?? null,
       is_active: true,
       is_deleted: false,
       created_by: "00000000-0000-0000-0000-000000000000",
@@ -980,6 +1055,7 @@ export function useV3Processing() {
   }, [
     insertVehicleActual,
     isFinalized,
+    processingLocation,
     sessionId,
     setIsProcessing,
     setSessionStatus,
@@ -1059,11 +1135,13 @@ export function useV3Processing() {
     setIsFinalized(false);
     setTimeoutRemaining(120);
     setLastManualCheck(null);
+    setProcessingLocation(null);
   };
 
   return {
     isLoading: loading,
-    isStarting: insertSessionState.loading,
+    isStarting: insertSessionState.loading || isRequestingLocation,
+    isRequestingLocation,
     isFinalizing:
       updateSessionState.loading || insertVehicleActualState.loading,
     error: actionError || error?.message || null,
@@ -1076,6 +1154,7 @@ export function useV3Processing() {
     isStarted: isProcessingStarted,
     isFinalized: isProcessingFinalized,
     timeoutRemaining,
+    processingLocation,
     isAnprWaiting: isProcessingStarted && !isProcessingFinalized && !liveAnpr,
     isAxleWaiting: isProcessingStarted && !isProcessingFinalized && !liveAxle,
     isWimWaiting: isProcessingStarted && !isProcessingFinalized && !liveWeight,

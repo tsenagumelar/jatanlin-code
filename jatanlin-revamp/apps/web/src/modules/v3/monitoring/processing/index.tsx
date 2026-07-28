@@ -324,6 +324,7 @@ export function V3ProcessingPage() {
                 !processing.allConnectionsOnline ||
                 processing.isStarted ||
                 processing.isStarting ||
+                processing.isRequestingLocation ||
                 processing.isFinalizing
               }
               title={
@@ -338,7 +339,9 @@ export function V3ProcessingPage() {
               }`}
             >
               <Play20Regular />
-              {processing.isStarting
+              {processing.isRequestingLocation
+                ? "Detecting location..."
+                : processing.isStarting
                 ? "Starting..."
                 : processing.isFinalizing
                   ? "Finalizing..."
