@@ -1,9 +1,3 @@
-\set admin_username `echo ${ADMIN_USERNAME:-admin}`
-\set admin_password `echo ${ADMIN_PASSWORD:-admin123}`
-\set admin_email `echo ${ADMIN_EMAIL:-admin@datacenter.local}`
-\set admin_full_name `echo ${ADMIN_FULL_NAME:-Data Center Administrator}`
-\set admin_badge_no `echo ${ADMIN_BADGE_NO:-ADM-001}`
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 INSERT INTO public.master_role (code, role_name, description, is_active, is_deleted)
