@@ -677,14 +677,17 @@ export function V3LiveViewPage() {
   const latestAnpr = data?.anpr?.[0];
   const latestAxle = data?.axle?.[0];
   const latestCctv = data?.cctv?.[0];
-  const latestWeighing = data?.weighing?.[0];
-  const wimTotalWeight =
-    wimLive.bridgeTotalWeight ?? wimLive.totalWeight ?? latestWeighing?.total_weight;
-  const wimTotalAxle = wimLive.axleCount ?? latestWeighing?.total_axle;
-  const wimLastAxle = wimLive.axle ?? wimLive.axleCount;
+  const isWimConnected =
+    deviceByKey.wim.status === "online" && wimLive.connected;
+  const wimTotalWeight = isWimConnected
+    ? wimLive.bridgeTotalWeight ?? wimLive.totalWeight ?? 0
+    : 0;
+  const wimTotalAxle = isWimConnected ? wimLive.axleCount ?? 0 : 0;
+  const wimLastAxle = isWimConnected ? wimLive.axle ?? wimLive.axleCount ?? 0 : 0;
   const hasBridgeWeight =
-    typeof wimLive.bridge1Weight === "number" ||
-    typeof wimLive.bridge2Weight === "number";
+    isWimConnected &&
+    (typeof wimLive.bridge1Weight === "number" ||
+      typeof wimLive.bridge2Weight === "number");
   const liveFeeds: LiveFeed[] = [
     {
       key: "anpr",

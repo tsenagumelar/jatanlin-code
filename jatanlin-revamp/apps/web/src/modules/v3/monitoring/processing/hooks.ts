@@ -1,7 +1,7 @@
 "use client";
 
 import { gql, useQuery } from "@apollo/client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useProcessing } from "@/src/contexts/ProcessingContext";
 import { useSubscribeLatestAnprCaptureSubscription } from "@/src/graphql/hooks/transact-anpr-capture";
 import { useSubscribeLatestAxleCaptureSubscription } from "@/src/graphql/hooks/transact-axle-capture";
@@ -32,6 +32,26 @@ import type {
 
 const PROCESSING_QUERY = gql`
   query V3ProcessingLatest {
+    system_runtime_config(
+      where: {
+        is_deleted: { _eq: false }
+        config_key: {
+          _in: [
+            "ANPR_IP"
+            "AXLE_IP"
+            "CCTV_IP"
+            "WIM_IP"
+            "ANPR_FTP_HOST"
+            "AXLE_FTP_HOST"
+            "CCTV_TRIGGER_URL"
+            "WEIGHING_TRIGGER_URL"
+          ]
+        }
+      }
+    ) {
+      config_key
+      config_value
+    }
     anpr: transact_anpr_capture(
       where: { is_deleted: { _eq: false } }
       order_by: { created_date: desc }
@@ -243,11 +263,36 @@ const PROCESSING_SESSION_QUERY = gql`
 `;
 
 type ProcessingQueryData = {
+  system_runtime_config?: Array<{
+    config_key?: string | null;
+    config_value?: string | null;
+  }>;
   anpr?: Array<Record<string, unknown>>;
   axle?: Array<Record<string, unknown>>;
   vehicle?: Array<Record<string, unknown>>;
   classes?: Array<Record<string, unknown>>;
   configs?: Array<{ config_key?: string | null; config_value?: string | null }>;
+};
+
+type ProbeProtocol = "http" | "tcp";
+
+type ProbeTarget = {
+  target: string;
+  protocol: ProbeProtocol;
+};
+
+type DeviceProbe = {
+  state: V3DeviceStatus;
+  latencyMs?: number;
+  checkedAt?: string;
+  message: string;
+};
+
+const DEFAULT_DEVICE_CONFIG: Record<string, string> = {
+  ANPR_IP: "10.0.43.30",
+  AXLE_IP: "10.0.43.30",
+  CCTV_IP: "10.0.43.20",
+  WIM_IP: "10.0.43.10:65002",
 };
 
 type ProcessingSessionQueryData = {
@@ -337,13 +382,68 @@ function parseAxleDetail(detail: unknown): V3ProcessingPanelItem[] {
   return [];
 }
 
-function statusFromTimestamp(value: unknown): V3DeviceStatus {
-  const text = asString(value);
-  if (!text) return "offline";
-  const diff = Date.now() - new Date(text).getTime();
-  if (diff < 5 * 60_000) return "online";
-  if (diff < 30 * 60_000) return "warning";
-  return "offline";
+function configMap(
+  rows: ProcessingQueryData["system_runtime_config"] = [],
+) {
+  return rows.reduce<Record<string, string>>((acc, row) => {
+    if (row.config_key) acc[row.config_key] = row.config_value ?? "";
+    return acc;
+  }, { ...DEFAULT_DEVICE_CONFIG });
+}
+
+function withDefaultPort(value?: string | null, defaultPort = "80") {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("://")) {
+    try {
+      const url = new URL(trimmed);
+      if (!url.port) url.port = defaultPort;
+      return `${url.hostname}:${url.port}`;
+    } catch {
+      return trimmed;
+    }
+  }
+  return trimmed.includes(":") ? trimmed : `${trimmed}:${defaultPort}`;
+}
+
+async function probeEndpoint(probe: ProbeTarget): Promise<DeviceProbe> {
+  if (!probe.target) {
+    return {
+      state: "offline",
+      checkedAt: new Date().toISOString(),
+      message: "Endpoint belum dikonfigurasi",
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      target: probe.target,
+      protocol: probe.protocol,
+      timeoutMs: "3000",
+    });
+    const response = await fetch(`/api/device-health?${params.toString()}`, {
+      cache: "no-store",
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      latencyMs?: number;
+      checkedAt?: string;
+      message?: string;
+    };
+
+    return {
+      state: payload.ok ? "online" : "offline",
+      latencyMs: payload.latencyMs,
+      checkedAt: payload.checkedAt || new Date().toISOString(),
+      message: payload.message || (payload.ok ? "Probe merespons" : "Probe gagal"),
+    };
+  } catch (error) {
+    return {
+      state: "offline",
+      checkedAt: new Date().toISOString(),
+      message: error instanceof Error ? error.message : "Probe gagal",
+    };
+  }
 }
 
 function getNestedRecord(row: Record<string, unknown> | undefined, key: string) {
@@ -490,6 +590,14 @@ export function useV3Processing() {
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const [processingLocation, setProcessingLocation] =
     useState<ProcessingLocation | null>(null);
+  const [probes, setProbes] = useState<
+    Record<V3DeviceConnection["key"], DeviceProbe>
+  >({
+    anpr: { state: "offline", message: "Belum dicek" },
+    axle: { state: "offline", message: "Belum dicek" },
+    cctv: { state: "offline", message: "Belum dicek" },
+    wim: { state: "offline", message: "Belum dicek" },
+  });
   const { data, loading, error, refetch } = useQuery<ProcessingQueryData>(
     PROCESSING_QUERY,
     {
@@ -498,6 +606,57 @@ export function useV3Processing() {
       notifyOnNetworkStatusChange: true,
     },
   );
+  const configs = useMemo(
+    () => configMap(data?.system_runtime_config),
+    [data?.system_runtime_config],
+  );
+  const probeByDevice = useMemo<Record<V3DeviceConnection["key"], ProbeTarget>>(
+    () => ({
+      anpr: {
+        target: withDefaultPort(configs.ANPR_IP || configs.ANPR_FTP_HOST, "80"),
+        protocol: "tcp",
+      },
+      axle: {
+        target: withDefaultPort(configs.AXLE_IP || configs.AXLE_FTP_HOST, "80"),
+        protocol: "tcp",
+      },
+      cctv: {
+        target: withDefaultPort(configs.CCTV_IP || configs.CCTV_TRIGGER_URL, "80"),
+        protocol: "tcp",
+      },
+      wim: {
+        target: withDefaultPort(
+          configs.WIM_IP || configs.WEIGHING_TRIGGER_URL,
+          "65002",
+        ),
+        protocol: "tcp",
+      },
+    }),
+    [configs],
+  );
+  const runProbes = useCallback(async () => {
+    const entries = await Promise.all(
+      (Object.keys(probeByDevice) as V3DeviceConnection["key"][]).map(
+        async (key) => [key, await probeEndpoint(probeByDevice[key])] as const,
+      ),
+    );
+
+    setProbes(Object.fromEntries(entries) as Record<V3DeviceConnection["key"], DeviceProbe>);
+  }, [probeByDevice]);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => {
+      void runProbes();
+    }, 0);
+    const timer = window.setInterval(() => {
+      void runProbes();
+    }, 10_000);
+
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [runProbes]);
   const isContextStarted =
     processingContext.isProcessing ||
     processingContext.sessionStatus === "IN_PROGRESS";
@@ -821,19 +980,14 @@ export function useV3Processing() {
       key: "anpr",
       label: "ANPR",
       description: "Pembaca plat nomor",
-      status: statusFromTimestamp(anpr?.created_date || vehicleAnpr?.created_date),
+      status: probes.anpr.state,
       lastSeen: formatTime(anpr?.created_date || vehicleAnpr?.created_date),
     },
     {
       key: "axle",
       label: "Sumbu",
       description: "Sensor sumbu dan dimensi",
-      status: statusFromTimestamp(
-        axle?.created_date ||
-          axle?.captured_at ||
-          vehicleAxle?.created_date ||
-          vehicleAxle?.captured_at,
-      ),
+      status: probes.axle.state,
       lastSeen: formatTime(
         axle?.created_date ||
           axle?.captured_at ||
@@ -845,14 +999,14 @@ export function useV3Processing() {
       key: "cctv",
       label: "CCTV",
       description: "Perekam bukti",
-      status: statusFromTimestamp(cctv?.created_date),
+      status: probes.cctv.state,
       lastSeen: formatTime(cctv?.created_date),
     },
     {
       key: "wim",
       label: "WIM",
       description: "Penimbangan bergerak",
-      status: statusFromTimestamp(weighing?.created_date || vehicle?.created_date),
+      status: probes.wim.state,
       lastSeen: formatTime(weighing?.created_date || vehicle?.created_date),
     },
   ];
@@ -931,7 +1085,7 @@ export function useV3Processing() {
 
   const checkConnection = async () => {
     setLastManualCheck(new Date());
-    await refetch();
+    await Promise.all([refetch(), runProbes()]);
   };
   const allConnectionsOnline = devices.every(
     (device) => device.status === "online",
