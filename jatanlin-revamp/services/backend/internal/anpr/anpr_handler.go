@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"wim-service/internal/dimension"
 	"wim-service/internal/ingest"
@@ -77,31 +74,6 @@ type FileProcessor struct {
 	DimensionHandler *dimension.DimensionHandler // Optional: for vehicle dimension detection
 	SessionService   *session.SessionService     // Session management
 	InsertQueue      *ANPRInsertQueue
-	WeighingTrigger  *WeighingTriggerConfig
-	CCTVTrigger      *CCTVTriggerConfig
-
-	triggerMu                  sync.Mutex
-	lastTriggeredSessionID     uuid.UUID
-	lastTriggeredAt            time.Time
-	cctvTriggerMu              sync.Mutex
-	lastCCTVTriggeredSessionID uuid.UUID
-}
-
-// WeighingTriggerConfig configures external weighing capture trigger.
-type WeighingTriggerConfig struct {
-	URL        string
-	Direction  string
-	TimeoutSec int
-	Save       bool
-	Dummy      bool
-}
-
-// CCTVTriggerConfig configures external CCTV recording trigger.
-type CCTVTriggerConfig struct {
-	Enabled bool
-	URL     string
-	Seconds int
-	Dummy   bool
 }
 
 // SetDimensionHandler sets the dimension handler for processing vehicle dimensions
@@ -129,16 +101,6 @@ func (p *FileProcessor) enqueueANPRInsert(meta *ANPRMetadata, sessionID *uuid.UU
 		return fmt.Errorf("insert queue not initialized")
 	}
 	return p.InsertQueue.Enqueue(meta, p.Bucket, sessionID, dateFolder, xmlObj, fullObj, plateObj)
-}
-
-// SetWeighingTriggerConfig sets trigger configuration for external weighing capture.
-func (p *FileProcessor) SetWeighingTriggerConfig(cfg *WeighingTriggerConfig) {
-	p.WeighingTrigger = cfg
-}
-
-// SetCCTVTriggerConfig sets trigger configuration for CCTV recording.
-func (p *FileProcessor) SetCCTVTriggerConfig(cfg *CCTVTriggerConfig) {
-	p.CCTVTrigger = cfg
 }
 
 func NewFileProcessor(db *sql.DB, siteUUID, remoteDir, endpoint, accessKey, secretKey, bucket string, useSSL bool) (*FileProcessor, error) {
@@ -286,139 +248,6 @@ func (p *FileProcessor) getRandomDummyANPRSample(ctx context.Context, siteID uui
 		return nil, err
 	}
 	return &sample, nil
-}
-
-func (p *FileProcessor) triggerWeighingIfNeeded(ctx context.Context, session *session.ActiveSession) {
-	if p.WeighingTrigger == nil || p.WeighingTrigger.URL == "" {
-		return
-	}
-
-	p.triggerMu.Lock()
-	if session != nil {
-		if p.lastTriggeredSessionID == session.ID {
-			p.triggerMu.Unlock()
-			return
-		}
-		p.lastTriggeredSessionID = session.ID
-	} else {
-		// Avoid spamming triggers when no session is active.
-		if time.Since(p.lastTriggeredAt) < 2*time.Second {
-			p.triggerMu.Unlock()
-			return
-		}
-		p.lastTriggeredAt = time.Now()
-	}
-	p.triggerMu.Unlock()
-
-	triggerURL, err := buildTriggerURL(
-		p.WeighingTrigger.URL,
-		p.WeighingTrigger.Direction,
-		p.WeighingTrigger.TimeoutSec,
-		p.WeighingTrigger.Save,
-		p.WeighingTrigger.Dummy,
-	)
-	if err != nil {
-		return
-	}
-
-	log.Printf("[ANPR] WIM trigger: %s", triggerURL)
-
-	go func() {
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, triggerURL, nil)
-		if err != nil {
-			return
-		}
-
-		// Allow enough time for CCTV recording duration to finish.
-		client := &http.Client{Timeout: 25 * time.Second}
-		resp, err := client.Do(req)
-		if err != nil {
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return
-		}
-
-		log.Printf("[ANPR] WIM trigger success: %s", resp.Status)
-	}()
-}
-
-func (p *FileProcessor) triggerCCTVIfNeeded(ctx context.Context, session *session.ActiveSession) {
-	if p.CCTVTrigger == nil || !p.CCTVTrigger.Enabled || p.CCTVTrigger.URL == "" {
-		return
-	}
-
-	p.cctvTriggerMu.Lock()
-	if p.lastCCTVTriggeredSessionID == session.ID {
-		p.cctvTriggerMu.Unlock()
-		return
-	}
-	p.lastCCTVTriggeredSessionID = session.ID
-	p.cctvTriggerMu.Unlock()
-
-	triggerURL, err := buildCCTVTriggerURL(p.CCTVTrigger.URL, p.CCTVTrigger.Seconds, session.SiteID, session.ID, p.CCTVTrigger.Dummy)
-	if err != nil {
-		return
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, triggerURL, nil)
-	if err != nil {
-		return
-	}
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return
-	}
-}
-
-func buildTriggerURL(raw, direction string, timeoutSeconds int, save, dummy bool) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	if u.Path == "" || u.Path == "/capture" {
-		u.Path = "/ws/wim/anpr-capture"
-	}
-	q := u.Query()
-	if direction != "" {
-		q.Set("direction", direction)
-	}
-	if timeoutSeconds > 0 {
-		q.Set("timeoutSeconds", strconv.Itoa(timeoutSeconds))
-	}
-	q.Set("save", strconv.FormatBool(save))
-	q.Set("dummy", strconv.FormatBool(dummy))
-	u.RawQuery = q.Encode()
-	return u.String(), nil
-}
-
-func buildCCTVTriggerURL(raw string, seconds int, siteID, sessionID uuid.UUID, dummy bool) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	q := u.Query()
-	if seconds > 0 {
-		q.Set("seconds", strconv.Itoa(seconds))
-	}
-	if siteID != uuid.Nil {
-		q.Set("site_id", siteID.String())
-	}
-	if sessionID != uuid.Nil {
-		q.Set("session_id", sessionID.String())
-	}
-	q.Set("dummy", strconv.FormatBool(dummy))
-	u.RawQuery = q.Encode()
-	return u.String(), nil
 }
 
 // processBatchInSession collects all files that belong to the currently active session.

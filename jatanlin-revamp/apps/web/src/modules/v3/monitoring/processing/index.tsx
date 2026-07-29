@@ -166,7 +166,14 @@ function ImageBox({ src, label }: { src?: string; label: string }) {
   return (
     <div className="relative flex aspect-video min-h-40 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
       {src ? (
-        <Image src={src} alt={label} fill sizes="420px" className="object-cover" />
+        <Image
+          src={src}
+          alt={label}
+          fill
+          sizes="420px"
+          className="object-cover"
+          unoptimized
+        />
       ) : (
         <div className="text-center text-slate-400">
           <PlugDisconnected24Regular className="mx-auto h-9 w-9" />

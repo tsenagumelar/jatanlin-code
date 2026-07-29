@@ -1362,12 +1362,12 @@ VALUES
 	('CCTV', 'ONVIF_USERNAME', 'admin', 'string', 'ONVIF Username', 'Username for ONVIF access.', false, 740),
 	('CCTV', 'ONVIF_PASSWORD', '', 'password', 'ONVIF Password', 'Password for ONVIF access.', true, 750),
 	('CCTV', 'ONVIF_TIMEOUT_SECONDS', '15', 'number', 'ONVIF Timeout Seconds', 'Timeout for ONVIF calls.', false, 760),
-	('CCTV', 'RECORD_SECONDS', '20', 'number', 'Record Seconds', 'Default recording duration.', false, 770),
+	('CCTV', 'RECORD_SECONDS', '30', 'number', 'Record Seconds', 'Default recording duration.', false, 770),
 	('CCTV', 'RECORD_DIR', './recordings', 'path', 'Record Directory', 'Local recording output directory.', false, 780),
 	('CCTV', 'CCTV_HTTP_PORT', '8090', 'number', 'CCTV HTTP Port', 'Local HTTP recording API port.', false, 790),
 	('CCTV', 'CCTV_TRIGGER_ENABLED', 'true', 'boolean', 'CCTV Trigger Enabled', 'Enable external CCTV recording trigger.', false, 800),
 	('CCTV', 'CCTV_TRIGGER_URL', 'http://cctv-streamer:8090/record', 'url', 'CCTV Trigger URL', 'Endpoint called by backend when evidence recording is needed.', false, 810),
-	('CCTV', 'CCTV_TRIGGER_SECONDS', '20', 'number', 'CCTV Trigger Seconds', 'Recording duration in seconds.', false, 820),
+	('CCTV', 'CCTV_TRIGGER_SECONDS', '30', 'number', 'CCTV Trigger Seconds', 'Recording duration in seconds.', false, 820),
 	('CCTV', 'CCTV_TRIGGER_DUMMY', 'true', 'boolean', 'CCTV Trigger Dummy', 'Use dummy CCTV evidence output.', false, 830),
 	('CCTV', 'CCTV_STREAM_URL', 'rtsp://10.0.43.20:554/profile1', 'url', 'CCTV Direct Stream URL', 'RTSP or browser-playable stream URL. RTSP is transcoded by the web stream proxy.', false, 840),
 
@@ -1389,7 +1389,7 @@ VALUES
 
 	('WEIGHING', 'WEIGHING_TRIGGER_URL', 'http://wb-agent:5001/ws/wim/anpr-capture', 'url', 'Weighing Trigger URL', 'Endpoint used to trigger weighing capture.', false, 950),
 	('WEIGHING', 'WEIGHING_TRIGGER_DIRECTION', 'RIGHT', 'string', 'Weighing Direction', 'Default capture direction.', false, 960),
-	('WEIGHING', 'WEIGHING_TRIGGER_TIMEOUT_SECONDS', '25', 'number', 'Weighing Timeout Seconds', 'Timeout for weighing trigger calls.', false, 970),
+	('WEIGHING', 'WEIGHING_TRIGGER_TIMEOUT_SECONDS', '60', 'number', 'Weighing Timeout Seconds', 'Timeout for weighing trigger calls.', false, 970),
 	('WEIGHING', 'WEIGHING_TRIGGER_SAVE', 'true', 'boolean', 'Weighing Trigger Save', 'Save capture result from weighing trigger.', false, 980),
 	('WEIGHING', 'WEIGHING_TRIGGER_DUMMY', 'false', 'boolean', 'Weighing Trigger Dummy', 'Use dummy weighing trigger mode.', false, 990),
 	('WEIGHING', 'WIM_STREAM_URL', '/api/wim-live', 'url', 'WIM Live Stream URL', 'Same-origin SSE proxy endpoint for real-time WIM connection and weighing status.', false, 1000),

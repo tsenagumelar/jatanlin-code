@@ -123,14 +123,51 @@ public static class WimFrameHelpers
         int? lastTimeout = null;
         int? lastTotalWeight = null;
         int? lastDirection = null;
+        int? expectedAxleCount = null;
         string? lastRaw = null;
         bool started = false;
         bool ended = false;
 
         Console.WriteLine($"[WIM][stream] capture start timeout={timeoutLimit}s");
 
+        void HandleVehicleRaw(string raw)
+        {
+            if (!raw.Contains("OBJECT:VEHICLE", StringComparison.OrdinalIgnoreCase)) return;
+
+            try
+            {
+                var msgFrame = ProtocolParser.ParseMsg(raw);
+                var vehicle = VehicleMessageParser.ParseVehicleMessage(msgFrame);
+                if (vehicle == null) return;
+
+                lastRaw = raw;
+                lastTotalWeight = vehicle.TotalWeight;
+                lastDirection = vehicle.Direction switch
+                {
+                    Models.Domain.VehicleDirection.Left => 1,
+                    Models.Domain.VehicleDirection.Right => 2,
+                    _ => lastDirection
+                };
+                axleWeights.Clear();
+                foreach (var axle in vehicle.Axles.OrderBy(a => a.AxleNumber))
+                {
+                    if (axle.AxleNumber > 0 && axle.Weight > 0)
+                    {
+                        axleWeights[axle.AxleNumber] = axle.Weight;
+                    }
+                }
+
+                Console.WriteLine($"[WIM][stream] vehicle result detected axles={axleWeights.Count} total={vehicle.TotalWeight}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WIM][stream] vehicle parse failed: {ex.Message}");
+            }
+        }
+
         void OnMsg(MsgFrame m)
         {
+            HandleVehicleRaw(m.Raw);
             if (!m.Raw.Contains("MODE:5")) return;
 
             lastRaw = m.Raw;
@@ -146,17 +183,28 @@ public static class WimFrameHelpers
 
             lastTimeout = timeout;
 
-            var totalVal = ParseIntField(m.Raw, "TOTAL");
+            var totalVal = ParseIntField(m.Raw, "TOTAL") ?? ParseIntField(m.Raw, "WEIGHT");
             if (totalVal is not null && totalVal > 0) lastTotalWeight = totalVal;
 
             var dirVal = ParseIntField(m.Raw, "DIR");
             if (dirVal is not null) lastDirection = dirVal;
 
-            var axleNo = ParseIntField(m.Raw, "AXLE");
-            var weightVal = ParseIntField(m.Raw, "LASTWEIGHT");
+            var axleCountVal = ParseIntField(m.Raw, "AXLECOUNT");
+            if (axleCountVal is not null && axleCountVal > 0)
+            {
+                expectedAxleCount = axleCountVal;
+            }
+
+            var axleNo = ParseIntField(m.Raw, "AXLE") ?? ParseIntField(m.Raw, "AXLENO");
+            var weightVal = ParseIntField(m.Raw, "LASTWEIGHT") ?? ParseIntField(m.Raw, "WEIGHT");
             if (axleNo is not null && axleNo > 0 && weightVal is not null && weightVal > 0)
             {
                 axleWeights[axleNo.Value] = weightVal.Value;
+            }
+
+            if (lastTotalWeight is not null && lastTotalWeight > 0 && axleWeights.Count > 0)
+            {
+                Console.WriteLine($"[WIM][stream] weight collected axles={axleWeights.Count}/{expectedAxleCount?.ToString() ?? "?"} total={lastTotalWeight} timeoutLast={lastTimeout}");
             }
 
             if (started && timeout <= 0)
@@ -164,17 +212,19 @@ public static class WimFrameHelpers
                 if (!ended)
                 {
                     ended = true;
-                    Console.WriteLine("[WIM][stream] timeout reached, finalize");
+                    Console.WriteLine("[WIM][stream] device timeout reached, continue until capture window ends");
                 }
-                captureComplete.TrySetResult(true);
             }
         }
+
+        void OnRes(ResFrame r) => HandleVehicleRaw(r.Raw);
 
         try
         {
             cli.OnMsg += OnMsg;
+            cli.OnRes += OnRes;
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutLimit + 5));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutLimit));
             var linkedCt = CancellationTokenSource.CreateLinkedTokenSource(ct, cts.Token).Token;
 
             try { await captureComplete.Task.WaitAsync(linkedCt); }
@@ -183,6 +233,7 @@ public static class WimFrameHelpers
         finally
         {
             cli.OnMsg -= OnMsg;
+            cli.OnRes -= OnRes;
         }
 
         Console.WriteLine($"[WIM][stream] capture finished axles={axleWeights.Count} total={lastTotalWeight ?? axleWeights.Values.Sum()}");

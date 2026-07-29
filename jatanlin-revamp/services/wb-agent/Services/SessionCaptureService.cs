@@ -16,6 +16,7 @@ public sealed class SessionCaptureService : BackgroundService
     private readonly bool _enabled;
     private readonly TimeSpan _interval;
     private readonly int _timeoutSeconds;
+    private readonly int _modeDelayMs;
     private readonly string _direction;
     private readonly string? _locationCode;
     private readonly SemaphoreSlim _captureLock = new(1, 1);
@@ -37,6 +38,7 @@ public sealed class SessionCaptureService : BackgroundService
         _enabled = GetBool(config, "WB_SESSION_LISTENER_ENABLED", options.SessionListenerEnabled);
         _interval = TimeSpan.FromSeconds(GetInt(config, "WB_SESSION_INTERVAL_SEC", options.SessionIntervalSec));
         _timeoutSeconds = NormalizeTimeout(GetInt(config, "WB_CAPTURE_TIMEOUT_SEC", options.CaptureTimeoutSec));
+        _modeDelayMs = Math.Max(0, GetInt(config, "WB_CAPTURE_MODE_DELAY_MS", options.CaptureModeDelayMs));
         _direction = NormalizeDirection(
             config["WB_CAPTURE_DIRECTION"]
             ?? Environment.GetEnvironmentVariable("WB_CAPTURE_DIRECTION")
@@ -182,156 +184,93 @@ public sealed class SessionCaptureService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IVehicleRepository>();
 
-        var captureComplete = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var axleWeights = new Dictionary<int, int>();
-        int? lastTimeout = null;
-        int? lastTotalWeight = null;
-        int? lastDirection = null;
-        string? lastRaw = null;
-        bool started = false;
-        bool ended = false;
+        _logger.LogInformation(
+            "WB live capture started for session {SessionId} direction={Direction} timeout={TimeoutSeconds}s",
+            sessionId,
+            _direction,
+            _timeoutSeconds);
 
-        void HandleWimStreamRaw(string raw)
+        _logger.LogInformation("WB live capture set static mode before WIM for session {SessionId}", sessionId);
+        var staticRes = await _wsClient.SetModeStaticAsync(ct);
+        if (staticRes is null || !staticRes.Result.Equals("OK", StringComparison.OrdinalIgnoreCase))
         {
-            if (!raw.Contains("MODE:5", StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            lastRaw = raw;
-            var timeoutVal = ParseIntField(raw, "TIMEOUT");
-            if (timeoutVal is null)
-            {
-                return;
-            }
-
-            if (!started)
-            {
-                started = true;
-                _logger.LogInformation("WB live stream MODE:5 detected for session {SessionId}", sessionId);
-            }
-
-            lastTimeout = timeoutVal.Value;
-
-            var totalVal = ParseIntField(raw, "TOTAL");
-            if (totalVal is not null && totalVal > 0)
-            {
-                lastTotalWeight = totalVal;
-            }
-
-            var directionVal = ParseIntField(raw, "DIR");
-            if (directionVal is not null)
-            {
-                lastDirection = directionVal;
-            }
-
-            var axleNo = ParseIntField(raw, "AXLE");
-            var weightVal = ParseIntField(raw, "LASTWEIGHT");
-            if (axleNo is not null && axleNo > 0 && weightVal is not null && weightVal > 0)
-            {
-                axleWeights[axleNo.Value] = weightVal.Value;
-            }
-
-            if (started && timeoutVal.Value <= 0)
-            {
-                if (!ended)
-                {
-                    ended = true;
-                    _logger.LogInformation("WB live stream timeout reached for session {SessionId}", sessionId);
-                }
-                captureComplete.TrySetResult(true);
-            }
+            _logger.LogWarning("WB live capture failed to set static mode before WIM for session {SessionId}", sessionId);
+            return;
         }
 
-        void OnVehicleMsg(MsgFrame m) => HandleWimStreamRaw(m.Raw);
+        if (_modeDelayMs > 0)
+        {
+            _logger.LogInformation("WB live capture wait {ModeDelayMs}ms before WIM for session {SessionId}", _modeDelayMs, sessionId);
+            await Task.Delay(TimeSpan.FromMilliseconds(_modeDelayMs), ct);
+        }
 
-        _wsClient.OnMsg += OnVehicleMsg;
+        _logger.LogInformation("WB live capture start WIM mode for session {SessionId}", sessionId);
+        var startRes = await _wsClient.SetModeWimAsync(_direction, ct);
+        if (startRes is null)
+        {
+            _logger.LogWarning("WB live capture failed to start WIM mode for session {SessionId}", sessionId);
+            return;
+        }
+
+        var (axleWeights, lastTimeout, lastTotalWeight, lastDirection, lastRaw) =
+            await WimFrameHelpers.CaptureWimStreamAsync(_wsClient, _timeoutSeconds, ct);
 
         try
         {
-            _logger.LogInformation(
-                "WB live capture started for session {SessionId} direction={Direction} timeout={TimeoutSeconds}s",
-                sessionId,
-                _direction,
-                _timeoutSeconds);
-
-            var startRes = await _wsClient.SetModeWimAsync(_direction, ct);
-            if (startRes is null)
-            {
-                _logger.LogWarning("WB live capture failed to start WIM mode for session {SessionId}", sessionId);
-                return;
-            }
-
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_timeoutSeconds));
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-            try
-            {
-                await captureComplete.Task.WaitAsync(linkedCts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-
-            try
-            {
-                await _wsClient.SetModeStaticAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to restore WB static mode after session {SessionId}", sessionId);
-            }
-
-            var ordered = axleWeights.OrderBy(k => k.Key).ToList();
-            var totalWeight = lastTotalWeight ?? ordered.Sum(a => a.Value);
-
-            if (ordered.Count == 0)
-            {
-                _logger.LogInformation(
-                    "WB live capture timed out for session {SessionId} after {TimeoutSeconds}s lastTimeout={LastTimeout}",
-                    sessionId,
-                    _timeoutSeconds,
-                    lastTimeout);
-                return;
-            }
-
-            var vehicle = new Vehicle
-            {
-                RecordId = 0,
-                Timestamp = DateTime.UtcNow,
-                Direction = lastDirection == 1 ? VehicleDirection.Right :
-                            lastDirection == 2 ? VehicleDirection.Left : VehicleDirection.Unknown,
-                TotalWeight = totalWeight,
-                AxleCount = ordered.Count,
-                RawMessage = lastRaw ?? "",
-                SiteId = siteId,
-                SessionId = sessionId
-            };
-            if (!string.IsNullOrWhiteSpace(_locationCode))
-            {
-                vehicle.LocationCode = _locationCode;
-            }
-            foreach (var a in ordered)
-            {
-                vehicle.Axles.Add(new Axle
-                {
-                    AxleNumber = a.Key,
-                    Weight = a.Value,
-                    GrossWeight = a.Value
-                });
-            }
-
-            await repo.AddVehicleAsync(vehicle, ct);
-            _logger.LogInformation(
-                "WB live capture saved for session {SessionId} axles={AxleCount} total={TotalWeight}",
-                sessionId,
-                ordered.Count,
-                totalWeight);
+            await _wsClient.SetModeStaticAsync(ct);
         }
-        finally
+        catch (Exception ex)
         {
-            _wsClient.OnMsg -= OnVehicleMsg;
+            _logger.LogWarning(ex, "Failed to restore WB static mode after session {SessionId}", sessionId);
         }
+
+        _logger.LogInformation("WB capture window ended for session {SessionId} after {TimeoutSeconds}s", sessionId, _timeoutSeconds);
+
+        var ordered = axleWeights.OrderBy(k => k.Key).ToList();
+        var totalWeight = lastTotalWeight ?? ordered.Sum(a => a.Value);
+
+        if (ordered.Count == 0)
+        {
+            _logger.LogInformation(
+                "WB live capture timed out for session {SessionId} after {TimeoutSeconds}s lastTimeout={LastTimeout}",
+                sessionId,
+                _timeoutSeconds,
+                lastTimeout);
+            return;
+        }
+
+        var vehicle = new Vehicle
+        {
+            RecordId = 0,
+            Timestamp = DateTime.UtcNow,
+            Direction = lastDirection == 1 ? VehicleDirection.Left :
+                        lastDirection == 2 ? VehicleDirection.Right : VehicleDirection.Unknown,
+            TotalWeight = totalWeight,
+            AxleCount = ordered.Count,
+            RawMessage = lastRaw ?? "",
+            SiteId = siteId,
+            SessionId = sessionId
+        };
+        if (!string.IsNullOrWhiteSpace(_locationCode))
+        {
+            vehicle.LocationCode = _locationCode;
+        }
+        foreach (var a in ordered)
+        {
+            vehicle.Axles.Add(new Axle
+            {
+                AxleNumber = a.Key,
+                Weight = a.Value,
+                GrossWeight = a.Value
+            });
+        }
+
+        await repo.AddVehicleAsync(vehicle, ct);
+        _logger.LogInformation(
+            "WB live capture saved for session {SessionId} axles={AxleCount} total={TotalWeight}",
+            sessionId,
+            ordered.Count,
+            totalWeight);
     }
 
     private static int? ParseIntField(string raw, string key)

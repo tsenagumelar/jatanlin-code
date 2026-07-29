@@ -87,23 +87,6 @@ func main() {
 		log.Fatalf("[ANPR] Failed to init ANPR queue: %v", err)
 	}
 
-	// Configure weighing trigger
-	anprProcessor.SetWeighingTriggerConfig(&anpr.WeighingTriggerConfig{
-		URL:        cfg.WeighingTriggerURL,
-		Direction:  cfg.WeighingTriggerDirection,
-		TimeoutSec: cfg.WeighingTriggerTimeoutSec,
-		Save:       cfg.WeighingTriggerSave,
-		Dummy:      cfg.WeighingTriggerDummy,
-	})
-
-	// Configure CCTV trigger
-	anprProcessor.SetCCTVTriggerConfig(&anpr.CCTVTriggerConfig{
-		Enabled: cfg.CCTVTriggerEnabled,
-		URL:     cfg.CCTVTriggerURL,
-		Seconds: cfg.CCTVTriggerSeconds,
-		Dummy:   cfg.CCTVTriggerDummy,
-	})
-
 	log.Printf("[ANPR] Session-based processing enabled (window: %d seconds)", cfg.SessionWindowSeconds)
 
 	// Create FTP watcher
@@ -125,12 +108,6 @@ func main() {
 	log.Printf("  MinIO:            %s", cfg.ANPRMinIOEndpoint)
 	log.Printf("  Bucket:           %s", cfg.ANPRMinIOBucket)
 	log.Printf("  Session Window:   %d seconds", cfg.SessionWindowSeconds)
-	if cfg.WeighingTriggerURL != "" {
-		log.Printf("  Weighing Trigger: %s (save=%v dummy=%v)", cfg.WeighingTriggerURL, cfg.WeighingTriggerSave, cfg.WeighingTriggerDummy)
-	}
-	if cfg.CCTVTriggerEnabled && cfg.CCTVTriggerURL != "" {
-		log.Printf("  CCTV Trigger:     %s (seconds=%d)", cfg.CCTVTriggerURL, cfg.CCTVTriggerSeconds)
-	}
 	log.Println("")
 	log.Println("Press Ctrl+C to stop the watcher")
 	log.Println("========================================")

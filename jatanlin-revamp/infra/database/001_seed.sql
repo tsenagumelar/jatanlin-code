@@ -177,12 +177,15 @@ VALUES
   ('MINIO', 'ATTACHMENT_MINIO_BUCKET', 'attachment', 'string', 'Attachment MinIO Bucket', 'Local MinIO attachment bucket', false, true, 230, true, false),
   ('MINIO', 'ATTACHMENT_MINIO_USE_SSL', 'false', 'boolean', 'Attachment MinIO SSL', 'Disable SSL for local MinIO', false, true, 240, true, false),
   ('WEIGHING', 'WEIGHING_TRIGGER_URL', 'http://wb-agent:5001/ws/wim/anpr-capture', 'url', 'Weighing Trigger URL', 'Docker WB agent trigger endpoint', false, true, 250, true, false),
-  ('WEIGHING', 'WIM_STREAM_URL', '/api/wim-live', 'url', 'WIM Live Stream URL', 'Same-origin SSE proxy endpoint for real-time WIM connection and weighing status', false, true, 260, true, false),
-  ('VEAM', 'VEAM_PUBLIC_KEY_B64', 'nO0iENG73vxSfIx8p6uj5qa2S1SkXwk9rHEt5TyA+XA=', 'password', 'VEAM Public Key', 'Public key used to validate VEAM2 license signatures', true, true, 270, true, false),
-  ('VEAM', 'VEAM_LICENSE_PATH', './data/license.veam', 'path', 'VEAM License Path', 'Local path where active license is stored', false, true, 280, true, false),
-  ('VEAM', 'VEAM_HARDWARE_ID', '', 'string', 'VEAM Hardware ID', 'Optional hardware binding value for license validation', false, true, 290, true, false),
-  ('VEAM', 'VEAM_USB_SCAN_PATHS', '/Volumes,/host/Volumes', 'string', 'VEAM USB Scan Paths', 'Comma separated mount roots used to find USB license files', false, true, 300, true, false),
-  ('VEAM', 'VEAM_LOGIN_USB_CHECK_ENABLED', 'true', 'boolean', 'VEAM USB Login Fallback', 'Allow login when stored license is inactive but a valid USB license is present', false, true, 310, true, false)
+  ('WEIGHING', 'WEIGHING_TRIGGER_TIMEOUT_SECONDS', '60', 'number', 'Weighing Timeout Seconds', 'Timeout for weighing trigger calls', false, true, 260, true, false),
+  ('WEIGHING', 'WIM_STREAM_URL', '/api/wim-live', 'url', 'WIM Live Stream URL', 'Same-origin SSE proxy endpoint for real-time WIM connection and weighing status', false, true, 270, true, false),
+  ('CCTV', 'CCTV_TRIGGER_URL', 'http://cctv-streamer:8090/record', 'url', 'CCTV Trigger URL', 'Endpoint called by backend when evidence recording is needed', false, true, 280, true, false),
+  ('CCTV', 'CCTV_TRIGGER_SECONDS', '30', 'number', 'CCTV Trigger Seconds', 'Recording duration in seconds', false, true, 290, true, false),
+  ('VEAM', 'VEAM_PUBLIC_KEY_B64', 'nO0iENG73vxSfIx8p6uj5qa2S1SkXwk9rHEt5TyA+XA=', 'password', 'VEAM Public Key', 'Public key used to validate VEAM2 license signatures', true, true, 300, true, false),
+  ('VEAM', 'VEAM_LICENSE_PATH', './data/license.veam', 'path', 'VEAM License Path', 'Local path where active license is stored', false, true, 310, true, false),
+  ('VEAM', 'VEAM_HARDWARE_ID', '', 'string', 'VEAM Hardware ID', 'Optional hardware binding value for license validation', false, true, 320, true, false),
+  ('VEAM', 'VEAM_USB_SCAN_PATHS', '/Volumes,/host/Volumes', 'string', 'VEAM USB Scan Paths', 'Comma separated mount roots used to find USB license files', false, true, 330, true, false),
+  ('VEAM', 'VEAM_LOGIN_USB_CHECK_ENABLED', 'true', 'boolean', 'VEAM USB Login Fallback', 'Allow login when stored license is inactive but a valid USB license is present', false, true, 340, true, false)
 ON CONFLICT (config_group, config_key) DO UPDATE
 SET config_value = EXCLUDED.config_value,
     value_type = EXCLUDED.value_type,

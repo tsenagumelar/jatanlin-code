@@ -295,6 +295,8 @@ const DEFAULT_DEVICE_CONFIG: Record<string, string> = {
   WIM_IP: "10.0.43.10:65002",
 };
 
+const PROCESSING_WAIT_SECONDS = 130;
+
 type ProcessingSessionQueryData = {
   anpr?: Array<Record<string, unknown>>;
   axle?: Array<Record<string, unknown>>;
@@ -350,11 +352,13 @@ function parseAxleDetail(detail: unknown): V3ProcessingPanelItem[] {
 
     if (Array.isArray(parsed)) {
       return parsed.slice(0, 12).map((item, index) => {
-        const row = item && typeof item === "object"
-          ? (item as Record<string, unknown>)
-          : {};
+        const row =
+          item && typeof item === "object"
+            ? (item as Record<string, unknown>)
+            : {};
         const axleNo = row.axle ?? row.axle_number ?? row.no ?? index + 1;
-        const weight = row.weight ?? row.axle_weight ?? row.value ?? row.total_weight;
+        const weight =
+          row.weight ?? row.axle_weight ?? row.value ?? row.total_weight;
 
         return {
           label: `Sumbu ${axleNo}`,
@@ -382,13 +386,14 @@ function parseAxleDetail(detail: unknown): V3ProcessingPanelItem[] {
   return [];
 }
 
-function configMap(
-  rows: ProcessingQueryData["system_runtime_config"] = [],
-) {
-  return rows.reduce<Record<string, string>>((acc, row) => {
-    if (row.config_key) acc[row.config_key] = row.config_value ?? "";
-    return acc;
-  }, { ...DEFAULT_DEVICE_CONFIG });
+function configMap(rows: ProcessingQueryData["system_runtime_config"] = []) {
+  return rows.reduce<Record<string, string>>(
+    (acc, row) => {
+      if (row.config_key) acc[row.config_key] = row.config_value ?? "";
+      return acc;
+    },
+    { ...DEFAULT_DEVICE_CONFIG },
+  );
 }
 
 function withDefaultPort(value?: string | null, defaultPort = "80") {
@@ -435,7 +440,8 @@ async function probeEndpoint(probe: ProbeTarget): Promise<DeviceProbe> {
       state: payload.ok ? "online" : "offline",
       latencyMs: payload.latencyMs,
       checkedAt: payload.checkedAt || new Date().toISOString(),
-      message: payload.message || (payload.ok ? "Probe merespons" : "Probe gagal"),
+      message:
+        payload.message || (payload.ok ? "Probe merespons" : "Probe gagal"),
     };
   } catch (error) {
     return {
@@ -446,7 +452,10 @@ async function probeEndpoint(probe: ProbeTarget): Promise<DeviceProbe> {
   }
 }
 
-function getNestedRecord(row: Record<string, unknown> | undefined, key: string) {
+function getNestedRecord(
+  row: Record<string, unknown> | undefined,
+  key: string,
+) {
   const value = row?.[key];
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
@@ -457,14 +466,20 @@ function getImageFromMinio(
   row?: Record<string, unknown> | null,
   imageKey = "minio_full_image_object",
 ) {
-  return getMinioImageUrl(asString(row?.minio_bucket), asString(row?.[imageKey]));
+  return getMinioImageUrl(
+    asString(row?.minio_bucket),
+    asString(row?.[imageKey]),
+  );
 }
 
 function getCctvUrl(cctv?: Record<string, unknown> | null) {
   return getImageUrl(asString(cctv?.filepath));
 }
 
-function metricStatus(actual: number, limit: number): V3ProcessingMetric["status"] {
+function metricStatus(
+  actual: number,
+  limit: number,
+): V3ProcessingMetric["status"] {
   if (!actual || !limit) return "pending";
   return actual > limit ? "over" : "normal";
 }
@@ -584,7 +599,9 @@ export function useV3Processing() {
   const [lastManualCheck, setLastManualCheck] = useState<Date | null>(null);
   const [isStarted, setIsStarted] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
-  const [timeoutRemaining, setTimeoutRemaining] = useState(120);
+  const [timeoutRemaining, setTimeoutRemaining] = useState(
+    PROCESSING_WAIT_SECONDS,
+  );
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
@@ -621,7 +638,10 @@ export function useV3Processing() {
         protocol: "tcp",
       },
       cctv: {
-        target: withDefaultPort(configs.CCTV_IP || configs.CCTV_TRIGGER_URL, "80"),
+        target: withDefaultPort(
+          configs.CCTV_IP || configs.CCTV_TRIGGER_URL,
+          "80",
+        ),
         protocol: "tcp",
       },
       wim: {
@@ -641,7 +661,12 @@ export function useV3Processing() {
       ),
     );
 
-    setProbes(Object.fromEntries(entries) as Record<V3DeviceConnection["key"], DeviceProbe>);
+    setProbes(
+      Object.fromEntries(entries) as Record<
+        V3DeviceConnection["key"],
+        DeviceProbe
+      >,
+    );
   }, [probeByDevice]);
 
   useEffect(() => {
@@ -666,8 +691,7 @@ export function useV3Processing() {
     (isFinalized ||
       !!vehicleActualId ||
       processingContext.sessionStatus === "COMPLETED");
-  const shouldListenSession =
-    isProcessingStarted && !!sessionId;
+  const shouldListenSession = isProcessingStarted && !!sessionId;
   const { data: sessionPollData } = useQuery<ProcessingSessionQueryData>(
     PROCESSING_SESSION_QUERY,
     {
@@ -747,7 +771,11 @@ export function useV3Processing() {
   useEffect(() => {
     const anprData = anprSubscriptionData?.transact_anpr_capture?.[0];
     if (!anprData) return;
-    if ((processingContext.anprData as Record<string, unknown> | null)?.id === anprData.id) return;
+    if (
+      (processingContext.anprData as Record<string, unknown> | null)?.id ===
+      anprData.id
+    )
+      return;
     setAnprData({
       id: anprData.id,
       plate_no: anprData.plate_no ?? null,
@@ -758,7 +786,12 @@ export function useV3Processing() {
       site_id: anprData.site_id ?? null,
       session_id: sessionId,
     });
-  }, [anprSubscriptionData, processingContext.anprData, sessionId, setAnprData]);
+  }, [
+    anprSubscriptionData,
+    processingContext.anprData,
+    sessionId,
+    setAnprData,
+  ]);
 
   useEffect(() => {
     if (!shouldListenSession) return;
@@ -766,8 +799,9 @@ export function useV3Processing() {
     const sessionAnpr = sessionPollData?.anpr?.[0];
     if (
       sessionAnpr &&
-      asString((processingContext.anprData as Record<string, unknown> | null)?.id) !==
-        asString(sessionAnpr.id)
+      asString(
+        (processingContext.anprData as Record<string, unknown> | null)?.id,
+      ) !== asString(sessionAnpr.id)
     ) {
       setAnprData(sessionAnpr);
     }
@@ -775,8 +809,9 @@ export function useV3Processing() {
     const sessionWeight = sessionPollData?.weight?.[0];
     if (
       sessionWeight &&
-      asString((processingContext.weightData as Record<string, unknown> | null)?.id) !==
-        asString(sessionWeight.id)
+      asString(
+        (processingContext.weightData as Record<string, unknown> | null)?.id,
+      ) !== asString(sessionWeight.id)
     ) {
       setWeightData(sessionWeight);
     }
@@ -784,8 +819,9 @@ export function useV3Processing() {
     const sessionAxle = sessionPollData?.axle?.[0];
     if (
       sessionAxle &&
-      asString((processingContext.axleData as Record<string, unknown> | null)?.id) !==
-        asString(sessionAxle.id)
+      asString(
+        (processingContext.axleData as Record<string, unknown> | null)?.id,
+      ) !== asString(sessionAxle.id)
     ) {
       setAxleData({
         ...sessionAxle,
@@ -796,8 +832,9 @@ export function useV3Processing() {
     const sessionDimension = sessionPollData?.dimension?.[0];
     if (
       sessionDimension &&
-      asString((processingContext.dimensionData as Record<string, unknown> | null)?.id) !==
-        asString(sessionDimension.id)
+      asString(
+        (processingContext.dimensionData as Record<string, unknown> | null)?.id,
+      ) !== asString(sessionDimension.id)
     ) {
       setDimensionData(sessionDimension);
     }
@@ -805,8 +842,9 @@ export function useV3Processing() {
     const sessionCctv = sessionPollData?.cctv?.[0];
     if (
       sessionCctv &&
-      asString((processingContext.cctvData as Record<string, unknown> | null)?.id) !==
-        asString(sessionCctv.id)
+      asString(
+        (processingContext.cctvData as Record<string, unknown> | null)?.id,
+      ) !== asString(sessionCctv.id)
     ) {
       setCctvData(sessionCctv);
     }
@@ -828,7 +866,11 @@ export function useV3Processing() {
   useEffect(() => {
     const weightData = weightSubscriptionData?.transact_weighing?.[0];
     if (!weightData) return;
-    if ((processingContext.weightData as Record<string, unknown> | null)?.id === weightData.id) return;
+    if (
+      (processingContext.weightData as Record<string, unknown> | null)?.id ===
+      weightData.id
+    )
+      return;
     setWeightData({
       id: weightData.id,
       total_weight: weightData.total_weight ?? null,
@@ -837,12 +879,21 @@ export function useV3Processing() {
       created_date: weightData.created_date ?? null,
       session_id: sessionId,
     });
-  }, [processingContext.weightData, sessionId, setWeightData, weightSubscriptionData]);
+  }, [
+    processingContext.weightData,
+    sessionId,
+    setWeightData,
+    weightSubscriptionData,
+  ]);
 
   useEffect(() => {
     const axleData = axleSubscriptionData?.transact_axle_capture?.[0];
     if (!axleData) return;
-    if ((processingContext.axleData as Record<string, unknown> | null)?.id === axleData.id) return;
+    if (
+      (processingContext.axleData as Record<string, unknown> | null)?.id ===
+      axleData.id
+    )
+      return;
     setAxleData({
       id: axleData.id,
       total_axles: axleData.total_axles ?? null,
@@ -855,12 +906,21 @@ export function useV3Processing() {
       minio_image_object: axleData.minio_image_object ?? null,
       session_id: sessionId,
     });
-  }, [axleSubscriptionData, processingContext.axleData, sessionId, setAxleData]);
+  }, [
+    axleSubscriptionData,
+    processingContext.axleData,
+    sessionId,
+    setAxleData,
+  ]);
 
   useEffect(() => {
     const dimensionData = dimensionSubscriptionData?.transact_dimension?.[0];
     if (!dimensionData) return;
-    if ((processingContext.dimensionData as Record<string, unknown> | null)?.id === dimensionData.id) return;
+    if (
+      (processingContext.dimensionData as Record<string, unknown> | null)
+        ?.id === dimensionData.id
+    )
+      return;
     setDimensionData({
       id: dimensionData.id,
       length: dimensionData.length ?? null,
@@ -870,12 +930,21 @@ export function useV3Processing() {
       filepath: dimensionData.filepath ?? null,
       session_id: sessionId,
     });
-  }, [dimensionSubscriptionData, processingContext.dimensionData, sessionId, setDimensionData]);
+  }, [
+    dimensionSubscriptionData,
+    processingContext.dimensionData,
+    sessionId,
+    setDimensionData,
+  ]);
 
   useEffect(() => {
     const cctvData = cctvSubscriptionData?.transact_cctv?.[0];
     if (!cctvData) return;
-    if ((processingContext.cctvData as Record<string, unknown> | null)?.id === cctvData.id) return;
+    if (
+      (processingContext.cctvData as Record<string, unknown> | null)?.id ===
+      cctvData.id
+    )
+      return;
     setCctvData({
       id: cctvData.id,
       filename: cctvData.filename ?? null,
@@ -884,7 +953,12 @@ export function useV3Processing() {
       site_id: cctvData.site_id ?? null,
       session_id: sessionId,
     });
-  }, [cctvSubscriptionData, processingContext.cctvData, sessionId, setCctvData]);
+  }, [
+    cctvSubscriptionData,
+    processingContext.cctvData,
+    sessionId,
+    setCctvData,
+  ]);
 
   const anpr = data?.anpr?.[0];
   const axle = data?.axle?.[0];
@@ -894,7 +968,9 @@ export function useV3Processing() {
   const weighing = getNestedRecord(vehicle, "transact_weighing");
   const cctv = getNestedRecord(vehicle, "transact_cctv");
   const latestStatus = Array.isArray(vehicle?.transact_vehicle_statuses)
-    ? (vehicle?.transact_vehicle_statuses[0] as Record<string, unknown> | undefined)
+    ? (vehicle?.transact_vehicle_statuses[0] as
+        | Record<string, unknown>
+        | undefined)
     : undefined;
   const liveAnpr = anprData as Record<string, unknown> | null;
   const liveWeight = weightData as Record<string, unknown> | null;
@@ -927,21 +1003,17 @@ export function useV3Processing() {
   );
 
   const axleCount =
-    asNumber(liveWeight?.total_axle) ||
-    asNumber(liveAxle?.total_axles);
+    asNumber(liveWeight?.total_axle) || asNumber(liveAxle?.total_axles);
 
   const vehicleClass = (data?.classes ?? []).find(
     (item) => asNumber(item.total_axle) === axleCount,
   );
 
-  const actualWeightKg =
-    asNumber(liveWeight?.total_weight);
+  const actualWeightKg = asNumber(liveWeight?.total_weight);
   const actualWeightTon = actualWeightKg / 1000;
   const actualLength =
-    asNumber(liveDimension?.length) ||
-    asNumber(liveAxle?.length);
-  const actualWidth =
-    asNumber(liveDimension?.width);
+    asNumber(liveDimension?.length) || asNumber(liveAxle?.length);
+  const actualWidth = asNumber(liveDimension?.width);
   const actualHeight = asNumber(liveDimension?.height);
   const legalWeightTon = asNumber(vehicleClass?.class_3_weight) / 1000;
   const legalLength = asNumber(vehicleClass?.length);
@@ -952,7 +1024,13 @@ export function useV3Processing() {
     if (vehicleActualId && asString(latestStatus?.result)) {
       return asString(latestStatus?.result);
     }
-    if (!actualWeightTon || !actualLength || !actualWidth || !actualHeight || !vehicleClass) {
+    if (
+      !actualWeightTon ||
+      !actualLength ||
+      !actualWidth ||
+      !actualHeight ||
+      !vehicleClass
+    ) {
       return "Pending";
     }
 
@@ -1047,29 +1125,53 @@ export function useV3Processing() {
 
   const anprItems: V3ProcessingPanelItem[] = [
     { label: "No. Plat", value: asString(liveAnpr?.plate_no) || "-" },
-    { label: "Panjang", value: actualLength ? `${formatNumber(actualLength, 2)} m` : "-" },
-    { label: "Lebar", value: actualWidth ? `${formatNumber(actualWidth, 2)} m` : "-" },
-    { label: "Tinggi", value: actualHeight ? `${formatNumber(actualHeight, 2)} m` : "-" },
+    {
+      label: "Panjang",
+      value: actualLength ? `${formatNumber(actualLength, 2)} m` : "-",
+    },
+    {
+      label: "Lebar",
+      value: actualWidth ? `${formatNumber(actualWidth, 2)} m` : "-",
+    },
+    {
+      label: "Tinggi",
+      value: actualHeight ? `${formatNumber(actualHeight, 2)} m` : "-",
+    },
   ];
 
   const axleItems: V3ProcessingPanelItem[] = [
     { label: "Total Sumbu", value: axleCount ? `${axleCount}` : "-" },
     { label: "Total Roda", value: asString(liveAxle?.total_wheels) || "-" },
-    { label: "Tipe Kendaraan", value: asString(liveAxle?.vehicle_category || vehicleClass?.type) || "-" },
+    {
+      label: "Tipe Kendaraan",
+      value: asString(liveAxle?.vehicle_category || vehicleClass?.type) || "-",
+    },
     { label: "Tipe Bodi", value: asString(liveAxle?.vehicle_body_type) || "-" },
-    { label: "Panjang Terdeteksi", value: actualLength ? `${formatNumber(actualLength, 2)} m` : "-" },
+    {
+      label: "Panjang Terdeteksi",
+      value: actualLength ? `${formatNumber(actualLength, 2)} m` : "-",
+    },
   ];
 
   const wimItems: V3ProcessingPanelItem[] = [
-    { label: "Berat Aktual", value: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-" },
-    { label: "Berat Legal", value: legalWeightTon ? `${formatNumber(legalWeightTon, 2)} ton` : "-" },
+    {
+      label: "Berat Aktual",
+      value: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-",
+    },
+    {
+      label: "Berat Legal",
+      value: legalWeightTon ? `${formatNumber(legalWeightTon, 2)} ton` : "-",
+    },
     { label: "Kelas Kendaraan", value: asString(vehicleClass?.type) || "-" },
     { label: "Jumlah Sumbu", value: axleCount ? `${axleCount}` : "-" },
     { label: "Waktu Timbang", value: formatDateTime(liveWeight?.created_date) },
   ];
   const wimAxleItems = parseAxleDetail(liveWeight?.axle_detail);
   const wimLiveItems: V3ProcessingPanelItem[] = [
-    { label: "Total Berat", value: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-" },
+    {
+      label: "Total Berat",
+      value: actualWeightTon ? `${formatNumber(actualWeightTon, 2)} ton` : "-",
+    },
     { label: "Jumlah Sumbu", value: axleCount ? `${axleCount}` : "-" },
     ...(wimAxleItems.length > 0
       ? wimAxleItems
@@ -1091,7 +1193,8 @@ export function useV3Processing() {
     (device) => device.status === "online",
   );
   const startProcessing = async () => {
-    if (!allConnectionsOnline || isProcessingStarted || isRequestingLocation) return;
+    if (!allConnectionsOnline || isProcessingStarted || isRequestingLocation)
+      return;
 
     const now = new Date();
     const startedAt = now.toISOString();
@@ -1133,7 +1236,7 @@ export function useV3Processing() {
 
       setIsStarted(true);
       setIsFinalized(false);
-      setTimeoutRemaining(120);
+      setTimeoutRemaining(PROCESSING_WAIT_SECONDS);
       setSessionId(nextSessionId);
       setVehicleActualId(null);
       setSessionStatus("IN_PROGRESS");
@@ -1146,7 +1249,11 @@ export function useV3Processing() {
       setCctvData(null);
       setSessionStartTime(startedAt);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to start processing session");
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : "Failed to start processing session",
+      );
       setIsStarted(false);
       setIsProcessing(false);
       setSessionStatus("IDLE");
@@ -1154,7 +1261,6 @@ export function useV3Processing() {
     } finally {
       setIsRequestingLocation(false);
     }
-
   };
   const finalizeProcessing = useCallback(async () => {
     if (!sessionId || isFinalized || vehicleActualId) return;
@@ -1187,7 +1293,8 @@ export function useV3Processing() {
 
     if (currentAnpr?.id) object.anpr_id = currentAnpr.id;
     if (currentAxle?.id) object.axle_id = currentAxle.id;
-    if (currentDimension?.id) object.transact_dimension_id = currentDimension.id;
+    if (currentDimension?.id)
+      object.transact_dimension_id = currentDimension.id;
     if (currentWeight?.id) object.transact_weighing_id = currentWeight.id;
     if (currentCctv?.id) object.transact_cctv_id = currentCctv.id;
 
@@ -1230,7 +1337,8 @@ export function useV3Processing() {
   ]);
 
   useEffect(() => {
-    if (!isProcessingStarted || !sessionId || isFinalized || vehicleActualId) return;
+    if (!isProcessingStarted || !sessionId || isFinalized || vehicleActualId)
+      return;
 
     const startedAtMs = sessionStartTime
       ? new Date(sessionStartTime).getTime()
@@ -1240,7 +1348,7 @@ export function useV3Processing() {
       const elapsedSeconds = Number.isFinite(startedAtMs)
         ? Math.floor((Date.now() - startedAtMs) / 1000)
         : 0;
-      const remaining = Math.max(0, 120 - elapsedSeconds);
+      const remaining = Math.max(0, PROCESSING_WAIT_SECONDS - elapsedSeconds);
       setTimeoutRemaining(remaining);
 
       if (remaining === 0) {
@@ -1297,7 +1405,7 @@ export function useV3Processing() {
     resetProcessing();
     setIsStarted(false);
     setIsFinalized(false);
-    setTimeoutRemaining(120);
+    setTimeoutRemaining(PROCESSING_WAIT_SECONDS);
     setLastManualCheck(null);
     setProcessingLocation(null);
   };
@@ -1328,10 +1436,8 @@ export function useV3Processing() {
     resetCurrentProcessing,
     toggleDemoMode: () => setIsDemoMode((current) => !current),
     checkConnection,
-    anprImage:
-      getImageFromMinio(liveAnpr),
-    axleImage:
-      getImageFromMinio(liveAxle, "minio_image_object"),
+    anprImage: getImageFromMinio(liveAnpr),
+    axleImage: getImageFromMinio(liveAxle, "minio_image_object"),
     cctvUrl: getCctvUrl(liveCctv),
     anprItems,
     axleItems,
@@ -1342,13 +1448,12 @@ export function useV3Processing() {
     metrics,
     violation,
     vehicleId: vehicleActualId || "",
-    plateNo:
-      asString(liveAnpr?.plate_no) ||
-      "-",
-    status: isProcessingStarted && !isProcessingFinalized
-      ? "processing"
-      : isProcessingFinalized
-        ? asString(latestStatus?.status) || "completed"
-        : "idle",
+    plateNo: asString(liveAnpr?.plate_no) || "-",
+    status:
+      isProcessingStarted && !isProcessingFinalized
+        ? "processing"
+        : isProcessingFinalized
+          ? asString(latestStatus?.status) || "completed"
+          : "idle",
   };
 }
