@@ -210,14 +210,14 @@ function KpiTile({
   }[tone];
 
   return (
-    <div className="flex min-w-0 items-center gap-5 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+    <div className="dc-kpi flex min-w-0 items-center gap-5 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
       <div
-        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${toneClass}`}
+        className={`dc-kpi-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${toneClass}`}
       >
         <KpiIcon name={icon} />
       </div>
       <div className="min-w-0">
-        <p className="text-[34px] font-black leading-none tracking-tight text-slate-950">
+        <p className="dc-kpi-value text-[34px] font-black leading-none tracking-tight text-slate-950">
           {value}
         </p>
         <p className="mt-1 truncate text-base font-black text-slate-700">
@@ -456,7 +456,7 @@ function CommandMap({
   }, [mode, onSelectSite, selectedSite, units]);
 
   return (
-    <div className="relative h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+    <div className="dc-card relative h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
       <link
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
@@ -788,7 +788,7 @@ export default function DataCenterPage() {
   );
 
   return (
-    <main className="flex h-screen flex-col overflow-hidden bg-[#eef2f7] text-slate-900">
+    <main className="dc-compact flex h-screen flex-col overflow-hidden bg-[#eef2f7] text-slate-900">
       <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -886,7 +886,7 @@ export default function DataCenterPage() {
         </div>
       </nav>
 
-      <section className="min-h-0 flex-1 overflow-hidden p-5">
+      <section className="dc-shell min-h-0 flex-1 overflow-hidden p-5">
         {!overview ? (
           <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500 shadow-sm">
             Memuat data center...
@@ -897,7 +897,7 @@ export default function DataCenterPage() {
           <div className="flex h-full min-h-0 flex-col gap-4">
             {operationalKpiGrid}
 
-            <div className="h-[40vh] min-h-[340px] shrink-0">
+            <div className="h-[34vh] min-h-[260px] shrink-0">
               <CommandMap
                 units={units}
                 selectedSite={selectedSite}
@@ -906,8 +906,8 @@ export default function DataCenterPage() {
               />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
+            <div className="dc-card min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="dc-panel-header flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
                 <h2 className="text-2xl font-black text-slate-900">
                   Daftar Unit Jatanlin
                 </h2>
@@ -1097,7 +1097,7 @@ export default function DataCenterPage() {
           <div className="flex h-full min-h-0 flex-col gap-4">
             {operationalKpiGrid}
 
-            <div className="h-[36vh] min-h-[300px] shrink-0">
+            <div className="h-[32vh] min-h-[240px] shrink-0">
               <CommandMap
                 units={units}
                 selectedSite={selectedSite}
@@ -1106,8 +1106,8 @@ export default function DataCenterPage() {
               />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
+            <div className="dc-card min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="dc-panel-header flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900">
                     Data Pelanggaran per Unit
@@ -1242,7 +1242,7 @@ export default function DataCenterPage() {
           <div className="flex h-full min-h-0 flex-col gap-4">
             {operationalKpiGrid}
 
-            <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <div className="dc-card dc-panel-header flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
               <div>
                 <h2 className="text-2xl font-black text-slate-900">
                   Operasional Situs
@@ -1276,7 +1276,7 @@ export default function DataCenterPage() {
                 {filteredUnits.map((unit) => (
                   <div
                     key={unit.id}
-                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    className="dc-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
@@ -1335,7 +1335,7 @@ export default function DataCenterPage() {
 
         {overview && activeTab === "analytics" ? (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-            <div className="shrink-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="dc-card shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-sm font-black text-slate-500">
@@ -1418,8 +1418,8 @@ export default function DataCenterPage() {
               ))}
             </div>
 
-            <div className="grid h-[32vh] min-h-[280px] max-h-[360px] shrink-0 gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(420px,0.75fr)]">
-              <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="grid h-[28vh] min-h-[230px] max-h-[300px] shrink-0 gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.75fr)]">
+              <div className="dc-card flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-2xl font-black text-slate-900">
                   Total Penindakan - 7 Hari Terakhir
                 </h2>
@@ -1543,7 +1543,7 @@ export default function DataCenterPage() {
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="dc-card flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-2xl font-black text-slate-900">
                   Distribusi Pelanggaran
                 </h2>
@@ -1579,8 +1579,8 @@ export default function DataCenterPage() {
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="shrink-0 border-b border-slate-100 px-5 py-4">
+            <div className="dc-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="dc-panel-header shrink-0 border-b border-slate-100 px-5 py-4">
                 <h2 className="text-2xl font-black text-slate-900">
                   Ringkasan 10 Pelanggaran Terbaru
                 </h2>

@@ -386,6 +386,11 @@ type ProcessingLocation = {
   longitude: number;
 };
 
+const DEFAULT_PROCESSING_LOCATION: ProcessingLocation = {
+  latitude: -6.574698,
+  longitude: 106.890234,
+};
+
 function browserSupportsLocation() {
   return typeof navigator !== "undefined" && "geolocation" in navigator;
 }
@@ -940,7 +945,12 @@ export function useV3Processing() {
     setIsRequestingLocation(true);
 
     try {
-      const location = await requestProcessingLocation();
+      let location = DEFAULT_PROCESSING_LOCATION;
+      try {
+        location = await requestProcessingLocation();
+      } catch {
+        location = DEFAULT_PROCESSING_LOCATION;
+      }
       setProcessingLocation(location);
 
       const result = await insertTransactWimSession({
