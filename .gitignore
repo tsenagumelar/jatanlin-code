@@ -11,6 +11,7 @@ out/
 
 # Runtime data
 recordings/
+infra/data/ftp/
 *.db
 *.sqlite
 *.sqlite3
