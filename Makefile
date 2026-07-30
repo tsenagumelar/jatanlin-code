@@ -246,10 +246,10 @@ veam-usb-mount:
 	@printf 'veam_usb_drive=%s\n' '$(VEAM_USB_DRIVE)'
 	@printf 'veam_usb_mount=%s\n' '$(VEAM_USB_HOST_MOUNT)'
 	@if [ '$(VEAM_USB_MODE)' = 'windows-wsl' ]; then \
-		sudo mkdir -p '$(VEAM_USB_HOST_MOUNT)'; \
 		if mountpoint -q '$(VEAM_USB_HOST_MOUNT)'; then \
 			printf 'veam_usb_mount=already_mounted\n'; \
 		else \
+			sudo mkdir -p '$(VEAM_USB_HOST_MOUNT)'; \
 			sudo mount -t drvfs '$(VEAM_USB_DRIVE)' '$(VEAM_USB_HOST_MOUNT)'; \
 			printf 'veam_usb_mount=mounted\n'; \
 		fi; \

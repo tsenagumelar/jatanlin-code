@@ -499,6 +499,7 @@ Login fallback via USB:
 - Jika stored license belum aktif atau belum ada, backend scan USB untuk file `.veam`.
 - Di Docker macOS, `/Volumes` host dimount ke container sebagai `/host/Volumes`, sehingga file seperti `/Volumes/V-GEN/license.veam` akan terbaca sebagai `/host/Volumes/V-GEN/license.veam`.
 - Di Docker Windows + WSL, removable drive perlu dimount dulu ke WSL, lalu dimount ke container sebagai `/host/usb`, sehingga USB seperti `E:\license.veam` akan terbaca sebagai `/host/usb/license.veam`.
+- Di Docker Ubuntu/Linux, removable drive biasanya ada di `/media` atau `/run/media` dan bisa dimount ke container sebagai `/host/media` atau `/host/run-media`.
 - File metadata macOS seperti `._license.veam` diabaikan.
 - Fallback ini aktif default lewat `VEAM_LOGIN_USB_CHECK_ENABLED=true`. Set ke `false` jika ingin memaksa login hanya dari stored license.
 
