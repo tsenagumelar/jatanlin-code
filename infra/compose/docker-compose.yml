@@ -120,13 +120,13 @@ services:
       VEAM_LICENSE_PATH: ${VEAM_LICENSE_PATH:-./data/license.veam}
       VEAM_PUBLIC_KEY_B64: ${VEAM_PUBLIC_KEY_B64:-2CKPRGxWNdr2ZT1Q1vOwp2cZqh4MxYmFsOlFtx83eW4=}
       VEAM_HARDWARE_ID: ${VEAM_HARDWARE_ID:-}
-      VEAM_USB_SCAN_PATHS: ${VEAM_USB_SCAN_PATHS:-/host/Volumes,/Volumes}
+      VEAM_USB_SCAN_PATHS: ${VEAM_USB_SCAN_PATHS:-/host/usb,/host/Volumes,/Volumes}
       VEAM_LOGIN_USB_CHECK_ENABLED: ${VEAM_LOGIN_USB_CHECK_ENABLED:-true}
     ports:
       - "${API_PORT:-4000}:${API_PORT:-4000}"
     volumes:
       - backend-data:/app/data
-      - /Volumes:/host/Volumes:ro
+      - ${VEAM_USB_HOST_PATH:-/Volumes}:/host/usb:ro
     depends_on: &backend_depends_on
       postgres:
         condition: service_healthy

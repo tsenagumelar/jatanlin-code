@@ -184,7 +184,7 @@ VALUES
   ('VEAM', 'VEAM_PUBLIC_KEY_B64', 'nO0iENG73vxSfIx8p6uj5qa2S1SkXwk9rHEt5TyA+XA=', 'password', 'VEAM Public Key', 'Public key used to validate VEAM2 license signatures', true, true, 300, true, false),
   ('VEAM', 'VEAM_LICENSE_PATH', './data/license.veam', 'path', 'VEAM License Path', 'Local path where active license is stored', false, true, 310, true, false),
   ('VEAM', 'VEAM_HARDWARE_ID', '', 'string', 'VEAM Hardware ID', 'Optional hardware binding value for license validation', false, true, 320, true, false),
-  ('VEAM', 'VEAM_USB_SCAN_PATHS', '/Volumes,/host/Volumes', 'string', 'VEAM USB Scan Paths', 'Comma separated mount roots used to find USB license files', false, true, 330, true, false),
+  ('VEAM', 'VEAM_USB_SCAN_PATHS', '/host/usb,/host/Volumes,/Volumes', 'string', 'VEAM USB Scan Paths', 'Comma separated mount roots used to find USB license files', false, true, 330, true, false),
   ('VEAM', 'VEAM_LOGIN_USB_CHECK_ENABLED', 'true', 'boolean', 'VEAM USB Login Fallback', 'Allow login when stored license is inactive but a valid USB license is present', false, true, 340, true, false)
 ON CONFLICT (config_group, config_key) DO UPDATE
 SET config_value = EXCLUDED.config_value,

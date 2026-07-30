@@ -497,7 +497,11 @@ Login fallback via USB:
 
 - Backend selalu cek stored license lebih dulu.
 - Jika stored license belum aktif atau belum ada, backend scan USB untuk file `.veam`.
-- Di Docker macOS, `/Volumes` host dimount ke container sebagai `/host/Volumes`, sehingga file seperti `/Volumes/V-GEN/license.veam` akan terbaca sebagai `/host/Volumes/V-GEN/license.veam`.
+- Jika backend jalan native Windows, drive `A:\` sampai `Z:\` discan otomatis dan file `.veam` di root USB akan terbaca.
+- Override scan path bisa diatur dengan `VEAM_USB_SCAN_PATHS`, misalnya `E:\,F:\` di native Windows.
+- Jika backend jalan di Docker, USB host harus dimount ke container. Compose memakai `VEAM_USB_HOST_PATH` dan mount ke `/host/usb`.
+- Contoh Docker Windows: set `VEAM_USB_HOST_PATH=E:\` dan biarkan `VEAM_USB_SCAN_PATHS=/host/usb`.
+- Di Docker macOS, default `VEAM_USB_HOST_PATH=/Volumes`, sehingga file seperti `/Volumes/V-GEN/license.veam` akan terbaca sebagai `/host/usb/V-GEN/license.veam`.
 - File metadata macOS seperti `._license.veam` diabaikan.
 - Fallback ini aktif default lewat `VEAM_LOGIN_USB_CHECK_ENABLED=true`. Set ke `false` jika ingin memaksa login hanya dari stored license.
 

@@ -15,13 +15,7 @@ type USBLicenseFile struct {
 
 func USBScanRoots() []string {
 	if override := strings.TrimSpace(os.Getenv("VEAM_USB_SCAN_PATHS")); override != "" {
-		var roots []string
-		for _, path := range strings.Split(override, ",") {
-			if clean := strings.TrimSpace(path); isExistingDir(clean) {
-				roots = append(roots, clean)
-			}
-		}
-		return roots
+		return existingDirsFromCSV(override)
 	}
 
 	switch runtime.GOOS {
@@ -40,6 +34,8 @@ func USBScanRoots() []string {
 			}
 		}
 		return paths
+	case "windows":
+		return windowsDriveRoots()
 	default:
 		var paths []string
 		for _, base := range []string{"/media", "/run/media"} {
@@ -67,6 +63,27 @@ func USBScanRoots() []string {
 		}
 		return paths
 	}
+}
+
+func existingDirsFromCSV(value string) []string {
+	var roots []string
+	for _, path := range strings.Split(value, ",") {
+		if clean := strings.TrimSpace(path); isExistingDir(clean) {
+			roots = append(roots, clean)
+		}
+	}
+	return roots
+}
+
+func windowsDriveRoots() []string {
+	var paths []string
+	for drive := 'A'; drive <= 'Z'; drive++ {
+		path := string(drive) + `:\`
+		if isExistingDir(path) {
+			paths = append(paths, path)
+		}
+	}
+	return paths
 }
 
 func USBFallbackEnabled() bool {
