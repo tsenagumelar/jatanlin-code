@@ -9,8 +9,8 @@
 
 ## Phase 1 - Scaffold
 
-- [x] Buat `jatanlin-revamp/Makefile`.
-- [x] Buat `jatanlin-revamp/.env.example`.
+- [x] Buat `Makefile`.
+- [x] Buat `.env.example`.
 - [x] Buat folder `apps/web`.
 - [x] Buat folder `services/backend`.
 - [x] Buat folder `services/wb-agent`.

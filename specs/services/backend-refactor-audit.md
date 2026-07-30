@@ -1,6 +1,6 @@
 # Backend Refactor Audit
 
-Audit ini dilakukan setelah backend Go dicopy ke `jatanlin-revamp/services/backend`.
+Audit ini dilakukan setelah backend Go dicopy ke `services/backend`.
 
 ## Fokus Awal
 

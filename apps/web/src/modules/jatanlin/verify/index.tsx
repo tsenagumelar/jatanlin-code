@@ -612,6 +612,29 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     setDialogOpen(true);
   };
 
+  const kgToTonInput = (value: string) => {
+    if (!value) return "";
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return "";
+    return (parsed / 1000).toString();
+  };
+
+  const applySourcePlateNo = (value: string) => {
+    const normalized = value.toUpperCase();
+    setSourcePlateNo(normalized);
+    setActualPlatNo(normalized);
+  };
+
+  const applySourceTotalAxle = (value: string) => {
+    setSourceTotalAxle(value);
+    setActualTotalAxle(value);
+  };
+
+  const applySourceWeightKg = (value: string) => {
+    setSourceWeightKg(value);
+    setActualWeight(kgToTonInput(value));
+  };
+
   const applySourceDimension = (
     field: "length" | "width" | "height",
     value: string,
@@ -626,25 +649,9 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       width: setSourceWidth,
       height: setSourceHeight,
     };
-    const actualValues = {
-      length: actualLength,
-      width: actualWidth,
-      height: actualHeight,
-    };
-    const initialActualValues = {
-      length: initialValues?.length || "",
-      width: initialValues?.width || "",
-      height: initialValues?.height || "",
-    };
 
     sourceSetters[field](value);
-
-    if (
-      !actualValues[field] ||
-      actualValues[field] === initialActualValues[field]
-    ) {
-      actualSetters[field](value);
-    }
+    actualSetters[field](value);
   };
 
   const handleSubmit = async () => {
@@ -1766,9 +1773,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                     <Field label="Nomor Plat Sumber">
                       <Input
                         value={sourcePlateNo}
-                        onChange={(e) =>
-                          setSourcePlateNo(e.target.value.toUpperCase())
-                        }
+                        onChange={(e) => applySourcePlateNo(e.target.value)}
                         placeholder="Plat dari sumber"
                       />
                     </Field>
@@ -1799,7 +1804,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       <Input
                         type="number"
                         value={sourceTotalAxle}
-                        onChange={(e) => setSourceTotalAxle(e.target.value)}
+                        onChange={(e) => applySourceTotalAxle(e.target.value)}
                         placeholder="Jumlah sumbu dari sumber"
                       />
                     </Field>
@@ -1829,14 +1834,14 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                       <Input
                         type="number"
                         value={sourceTotalAxle}
-                        onChange={(e) => setSourceTotalAxle(e.target.value)}
+                        onChange={(e) => applySourceTotalAxle(e.target.value)}
                       />
                     </Field>
                     <Field label="Berat Sumber (KG)">
                       <Input
                         type="number"
                         value={sourceWeightKg}
-                        onChange={(e) => setSourceWeightKg(e.target.value)}
+                        onChange={(e) => applySourceWeightKg(e.target.value)}
                       />
                     </Field>
                   </div>

@@ -21,8 +21,8 @@ Status: parity statis OK.
 
 Build/test:
 
-- `go test ./...` di `jatanlin-revamp/services/backend`: pass.
-- `dotnet build WServerApi.csproj` di `jatanlin-revamp/services/wb-agent`: pass, 0 error.
+- `go test ./...` di `services/backend`: pass.
+- `dotnet build WServerApi.csproj` di `services/wb-agent`: pass, 0 error.
 - Warning `.NET` hanya `NU1900` karena metadata vulnerability NuGet tidak bisa diambil dari network.
 
 Catatan batasan:

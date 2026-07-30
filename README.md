@@ -1,21 +1,19 @@
-# Jatanlin Revamp
+# Jatanlin
 
-Folder ini adalah workspace baru untuk refactor Jatanlin. Kode lama di luar folder ini tidak boleh diubah selama proses revamp.
+Root repository ini berisi source aktif Jatanlin hasil revamp. Kode lama sudah tidak menjadi dependency runtime/build di struktur ini.
 
 ## Prinsip
 
-- `jatanlin-web-apps`, `jatanlin-backend-services`, `jatanlin-wb-agent`, `deploy`, dan `specs` lama tetap berada di lokasi aslinya.
-- Revamp hanya bekerja di dalam `jatanlin-revamp`.
-- Bila perlu memakai kode lama, kode tersebut dicopy ke folder revamp lalu dirapikan di sana.
+- Source aktif berada langsung di root repository.
 - Tampilan dan flow utama mengikuti v3.
 - LED memakai basis v1/lama, tetapi dibuat lebih compact dan masuk ke flow v3.
 - WB agent ditempatkan di `services/wb-agent` karena dia backend service.
-- Local run harus cukup lewat Makefile di dalam folder revamp.
+- Local run harus cukup lewat Makefile di root repository.
 
 ## Target Struktur
 
 ```text
-jatanlin-revamp/
+.
 ├── Makefile
 ├── README.md
 ├── .env.example
@@ -34,18 +32,12 @@ jatanlin-revamp/
 ## Cara Kerja
 
 1. Selesaikan specs dan task list di folder ini.
-2. Scaffold struktur revamp tanpa menyentuh folder lama.
-3. Copy kode lama yang diperlukan ke dalam revamp.
-4. Rapikan Makefile, env, dan compose agar semua service local bisa dijalankan dari revamp.
-5. Test bersama sebelum ada keputusan mengganti struktur lama.
+2. Rapikan Makefile, env, dan compose agar semua service local bisa dijalankan dari root repository.
+3. Test bersama sebelum deploy ke environment target.
 
 ## Local Run
 
-Semua command dijalankan dari folder revamp:
-
-```bash
-cd jatanlin-revamp
-```
+Semua command dijalankan dari root repository.
 
 File Docker Compose utama ada di `infra/compose/docker-compose.yml`. Compose ini mendukung dua mode: infra only dan full Docker. Web, backend Go, dan WB agent juga masih bisa dijalankan sebagai proses lokal lewat Makefile jika dibutuhkan untuk development.
 
@@ -460,7 +452,6 @@ Flow awal yang dipakai sekarang adalah generate file lisensi, lalu upload manual
 Generate file lisensi untuk site aktif di `site.json`:
 
 ```bash
-cd jatanlin-revamp
 make veam-license-generate
 ```
 

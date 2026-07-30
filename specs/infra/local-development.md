@@ -1,6 +1,6 @@
 # Local Development
 
-Local development revamp dijalankan dari folder `jatanlin-revamp`.
+Local development dijalankan dari root repository.
 
 ## Target Makefile
 
@@ -32,7 +32,7 @@ Target infra di atas tidak menjalankan web, backend Go, atau WB agent. Target ap
 
 ## Env
 
-- Root revamp menyediakan `.env.example`.
+- Root repository menyediakan `.env.example`.
 - Setiap service boleh punya `.env.example` sendiri bila config-nya spesifik.
 - Secret lokal tidak dicommit.
 - Env lama boleh dijadikan referensi, tetapi file env lama tidak diedit.

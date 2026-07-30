@@ -1,9 +1,9 @@
 # Repo Structure
 
-Struktur ini berlaku hanya di dalam `jatanlin-revamp`.
+Struktur ini berlaku di root repository.
 
 ```text
-jatanlin-revamp/
+.
 ├── Makefile
 ├── .env.example
 ├── apps/
@@ -31,5 +31,5 @@ jatanlin-revamp/
 ## Aturan
 
 - Tidak ada `apps/`, `services/`, `infra/`, atau `Makefile` baru di root lama.
-- Semua command Makefile berjalan dari `jatanlin-revamp`.
+- Semua command Makefile berjalan dari root repository.
 - Path relatif dari revamp boleh menunjuk ke folder lama hanya untuk proses copy/audit, bukan runtime normal.

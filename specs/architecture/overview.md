@@ -1,13 +1,13 @@
 # Architecture Overview
 
-Revamp dilakukan sebagai workspace terisolasi di `jatanlin-revamp`. Struktur lama tetap berjalan sebagai baseline dan tidak disentuh.
+Source aktif Jatanlin berada langsung di root repository setelah hasil revamp dipromosikan dari workspace sementara.
 
 ## Boundary
 
 - Read/copy dari folder lama diperbolehkan.
 - Edit langsung di folder lama tidak diperbolehkan.
-- Semua perubahan implementasi dilakukan di bawah `jatanlin-revamp`.
-- Makefile, env example, compose, scripts, dan dokumentasi runtime revamp berada di `jatanlin-revamp`.
+- Semua perubahan implementasi dilakukan dari root repository.
+- Makefile, env example, compose, scripts, dan dokumentasi runtime berada di root repository.
 
 ## Komponen
 
