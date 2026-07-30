@@ -70,7 +70,7 @@ function shellQuote(value) {
 
 function updateEnvFile(filePath, updates) {
   if (!fs.existsSync(filePath)) return false;
-  let content = fs.readFileSync(filePath, "utf8");
+  let content = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
   for (const [key, value] of Object.entries(updates)) {
     const line = `${key}=${envQuote(value)}`;
     const re = new RegExp(`^${key}=.*$`, "m");
