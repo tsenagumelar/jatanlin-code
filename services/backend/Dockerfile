@@ -24,6 +24,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
     go build -ldflags="-w -s" -o /app/bin/anpr-watcher ./cmd/anpr-watcher && \
     go build -ldflags="-w -s" -o /app/bin/axle-watcher ./cmd/axle-watcher && \
     go build -ldflags="-w -s" -o /app/bin/cctv-streamer ./cmd/cctv-streamer && \
+    go build -ldflags="-w -s" -o /app/bin/ftp-list ./cmd/ftp-list && \
     go build -ldflags="-w -s" -o /app/bin/sync-agent ./cmd/sync-agent
 
 # Runtime stage
@@ -68,6 +69,7 @@ ENTRYPOINT ["/bin/sh", "-c", "\
     anpr-watcher ) exec /app/bin/anpr-watcher ;; \
     axle-watcher ) exec /app/bin/axle-watcher ;; \
     cctv-streamer ) exec /app/bin/cctv-streamer ;; \
+    ftp-list ) exec /app/bin/ftp-list \"$@\" ;; \
     sync-agent ) exec /app/bin/sync-agent ;; \
     * ) echo \"Unknown SERVICE '$SERVICE'\"; exit 1 ;; \
   esac \

@@ -25,8 +25,10 @@ VEAM_USB_HOST_MOUNT ?= /mnt/e
 VEAM_USB_CONTAINER_MOUNT ?= /host/usb
 VEAM_USB_SCAN_PATHS ?= $(VEAM_USB_CONTAINER_MOUNT),/host/windows,/host/media,/host/run-media,/host/mnt,/mnt,/host/Volumes,/Volumes
 VEAM_API_URL ?= http://localhost:4000
+FTP_TARGET ?= anpr
+FTP_LIST_SERVICE = $(FTP_TARGET)-watcher
 
-.PHONY: help site-apply env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check veam-usb-mount veam-usb-redeploy veam-usb-scan services dev dev-full
+.PHONY: help site-apply env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check veam-usb-mount veam-usb-redeploy veam-usb-scan ftp-list services dev dev-full
 
 help:
 	@printf '%s\n' 'Jatanlin Revamp'
@@ -72,6 +74,10 @@ help:
 	@printf '%s\n' '  make veam-usb-mount   Mount Windows USB drive into WSL and list .veam files'
 	@printf '%s\n' '  make veam-usb-redeploy Mount USB, recreate backend-api, and enable USB scan path'
 	@printf '%s\n' '  make veam-usb-scan    Call backend USB license scan endpoint'
+	@printf '%s\n' ''
+	@printf '%s\n' 'FTP targets:'
+	@printf '%s\n' '  make ftp-list FTP_TARGET=anpr List files from ANPR FTP via watcher container'
+	@printf '%s\n' '  make ftp-list FTP_TARGET=axle List files from AXLE FTP via watcher container'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Web targets:'
 	@printf '%s\n' '  make web-install    Install web dependencies'
@@ -270,6 +276,13 @@ veam-usb-redeploy: veam-usb-mount
 
 veam-usb-scan:
 	curl -s '$(VEAM_API_URL)/veam/scan-license'
+
+ftp-list:
+	@if [ '$(FTP_TARGET)' != 'anpr' ] && [ '$(FTP_TARGET)' != 'axle' ]; then \
+		printf 'FTP_TARGET must be anpr or axle\n' >&2; \
+		exit 2; \
+	fi
+	@$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) exec -T $(FTP_LIST_SERVICE) /app/bin/ftp-list '$(FTP_TARGET)'
 
 services:
 	@$(MAKE) backend-api & p1=$$!; \
