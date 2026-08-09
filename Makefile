@@ -19,16 +19,11 @@ WB_AGENT_DIR := services/wb-agent
 GO ?= go
 GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 DOTNET ?= /opt/homebrew/opt/dotnet@8/bin/dotnet
-VEAM_USB_MODE ?= windows-wsl
-VEAM_USB_DRIVE ?= E:
-VEAM_USB_HOST_MOUNT ?= /mnt/e
-VEAM_USB_CONTAINER_MOUNT ?= /host/usb
-VEAM_USB_SCAN_PATHS ?= $(VEAM_USB_CONTAINER_MOUNT),/host/windows,/host/media,/host/run-media,/host/mnt,/mnt,/host/Volumes,/Volumes
 VEAM_API_URL ?= http://localhost:4000
 FTP_TARGET ?= anpr
 FTP_LIST_SERVICE = $(FTP_TARGET)-watcher
 
-.PHONY: help site-apply env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check veam-usb-mount veam-usb-redeploy veam-usb-scan ftp-list services dev dev-full
+.PHONY: help site-apply env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check veam-usb-drive veam-usb-mount veam-usb-redeploy veam-usb-scan ftp-list services dev dev-full
 
 help:
 	@printf '%s\n' 'Jatanlin Revamp'
@@ -71,6 +66,7 @@ help:
 	@printf '%s\n' '  make dns-hosts-print Print /etc/hosts entries for local DNS'
 	@printf '%s\n' ''
 	@printf '%s\n' 'VEAM targets:'
+	@printf '%s\n' '  make veam-usb-drive DRIVE=D Select USB drive D:, mount it, and redeploy backend'
 	@printf '%s\n' '  make veam-usb-mount   Mount Windows USB drive into WSL and list .veam files'
 	@printf '%s\n' '  make veam-usb-redeploy Mount USB, recreate backend-api, and enable USB scan path'
 	@printf '%s\n' '  make veam-usb-scan    Call backend USB license scan endpoint'
@@ -247,32 +243,73 @@ veam-license-generate:
 veam-license-check:
 	GO=$(GO) ./scripts/veam-check-license.sh
 
+veam-usb-drive:
+	@drive_input='$(DRIVE)'; \
+	case "$$drive_input" in \
+		[A-Za-z]|[A-Za-z]:) ;; \
+		*) printf 'DRIVE harus satu huruf, contoh: make veam-usb-drive DRIVE=D\n' >&2; exit 2 ;; \
+	esac; \
+	drive_letter=$$(printf '%s' "$$drive_input" | cut -c1); \
+	drive_upper=$$(printf '%s' "$$drive_letter" | tr '[:lower:]' '[:upper:]'); \
+	drive_lower=$$(printf '%s' "$$drive_letter" | tr '[:upper:]' '[:lower:]'); \
+	printf 'Menggunakan USB drive %s: melalui /mnt/%s\n' "$$drive_upper" "$$drive_lower"; \
+	VEAM_USB_OVERRIDE_DRIVE="$$drive_upper:" \
+	VEAM_USB_OVERRIDE_HOST_MOUNT="/mnt/$$drive_lower" \
+	$(MAKE) veam-usb-redeploy
+
 veam-usb-mount:
-	@printf 'veam_usb_mode=%s\n' '$(VEAM_USB_MODE)'
-	@printf 'veam_usb_drive=%s\n' '$(VEAM_USB_DRIVE)'
-	@printf 'veam_usb_mount=%s\n' '$(VEAM_USB_HOST_MOUNT)'
-	@if [ '$(VEAM_USB_MODE)' = 'windows-wsl' ]; then \
-		if mountpoint -q '$(VEAM_USB_HOST_MOUNT)'; then \
+	@$(RUN_ENV) \
+		veam_usb_mode="$${VEAM_USB_MODE:-windows-wsl}"; \
+		veam_usb_drive="$${VEAM_USB_OVERRIDE_DRIVE:-$${VEAM_USB_DRIVE:-}}"; \
+		veam_usb_mount="$${VEAM_USB_OVERRIDE_HOST_MOUNT:-$${VEAM_USB_HOST_MOUNT:-}}"; \
+		if [ -z "$$veam_usb_drive" ] && [ -n "$$veam_usb_mount" ]; then \
+			mount_name=$$(basename "$$veam_usb_mount"); \
+			if [ "$${#mount_name}" -eq 1 ]; then \
+				veam_usb_drive=$$(printf '%s:' "$$mount_name" | tr '[:lower:]' '[:upper:]'); \
+			fi; \
+		fi; \
+		veam_usb_drive="$${veam_usb_drive:-E:}"; \
+		drive_letter=$$(printf '%s' "$$veam_usb_drive" | cut -c1 | tr '[:upper:]' '[:lower:]'); \
+		veam_usb_mount="$${veam_usb_mount:-/mnt/$$drive_letter}"; \
+		printf 'veam_usb_mode=%s\n' "$$veam_usb_mode"; \
+		printf 'veam_usb_drive=%s\n' "$$veam_usb_drive"; \
+		printf 'veam_usb_mount=%s\n' "$$veam_usb_mount"; \
+		if [ "$$veam_usb_mode" = 'windows-wsl' ]; then \
+		if mountpoint -q "$$veam_usb_mount"; then \
 			printf 'veam_usb_mount=already_mounted\n'; \
 		else \
-			sudo mkdir -p '$(VEAM_USB_HOST_MOUNT)'; \
-			sudo mount -t drvfs '$(VEAM_USB_DRIVE)' '$(VEAM_USB_HOST_MOUNT)'; \
+			sudo mkdir -p "$$veam_usb_mount"; \
+			sudo mount -t drvfs "$$veam_usb_drive" "$$veam_usb_mount"; \
 			printf 'veam_usb_mount=mounted\n'; \
 		fi; \
 	else \
-		if [ ! -d '$(VEAM_USB_HOST_MOUNT)' ]; then \
-			printf 'veam_usb_mount=missing path=%s\n' '$(VEAM_USB_HOST_MOUNT)' >&2; \
+		if [ ! -d "$$veam_usb_mount" ]; then \
+			printf 'veam_usb_mount=missing path=%s\n' "$$veam_usb_mount" >&2; \
 			exit 1; \
 		fi; \
 		printf 'veam_usb_mount=existing\n'; \
-	fi
-	@find '$(VEAM_USB_HOST_MOUNT)' -maxdepth 2 -iname '*.veam' -print
+	fi; \
+	find "$$veam_usb_mount" -maxdepth 2 -iname '*.veam' -print
 
 veam-usb-redeploy: veam-usb-mount
-	VEAM_USB_HOST_MOUNT='$(VEAM_USB_HOST_MOUNT)' \
-	VEAM_USB_CONTAINER_MOUNT='$(VEAM_USB_CONTAINER_MOUNT)' \
-	VEAM_USB_SCAN_PATHS='$(VEAM_USB_SCAN_PATHS)' \
-	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d --force-recreate backend-api
+	@$(RUN_ENV) \
+		veam_usb_drive="$${VEAM_USB_OVERRIDE_DRIVE:-$${VEAM_USB_DRIVE:-}}"; \
+		veam_usb_mount="$${VEAM_USB_OVERRIDE_HOST_MOUNT:-$${VEAM_USB_HOST_MOUNT:-}}"; \
+		if [ -z "$$veam_usb_drive" ] && [ -n "$$veam_usb_mount" ]; then \
+			mount_name=$$(basename "$$veam_usb_mount"); \
+			if [ "$${#mount_name}" -eq 1 ]; then \
+				veam_usb_drive=$$(printf '%s:' "$$mount_name" | tr '[:lower:]' '[:upper:]'); \
+			fi; \
+		fi; \
+		veam_usb_drive="$${veam_usb_drive:-E:}"; \
+		drive_letter=$$(printf '%s' "$$veam_usb_drive" | cut -c1 | tr '[:upper:]' '[:lower:]'); \
+		veam_usb_mount="$${veam_usb_mount:-/mnt/$$drive_letter}"; \
+		veam_usb_container_mount="$${VEAM_USB_CONTAINER_MOUNT:-/host/usb}"; \
+		veam_usb_scan_paths="$${VEAM_USB_SCAN_PATHS:-$$veam_usb_container_mount,/host/windows,/host/media,/host/run-media,/host/mnt,/mnt,/host/Volumes,/Volumes}"; \
+		VEAM_USB_HOST_MOUNT="$$veam_usb_mount" \
+		VEAM_USB_CONTAINER_MOUNT="$$veam_usb_container_mount" \
+		VEAM_USB_SCAN_PATHS="$$veam_usb_scan_paths" \
+		$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d --force-recreate backend-api
 
 veam-usb-scan:
 	curl -s '$(VEAM_API_URL)/veam/scan-license'

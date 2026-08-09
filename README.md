@@ -513,9 +513,23 @@ make veam-usb-scan
 Default target menganggap USB ada di drive `E:` dan akan mount ke `/mnt/e`. Jika drive letter berbeda:
 
 ```bash
-VEAM_USB_DRIVE=F: VEAM_USB_HOST_MOUNT=/mnt/f make veam-usb-redeploy
+make veam-usb-drive DRIVE=F
 make veam-usb-scan
 ```
+
+Nilai `DRIVE` menerima satu huruf dengan atau tanpa titik dua, misalnya `DRIVE=D` atau `DRIVE=D:`. Target ini memilih drive untuk proses mount dan redeploy saat itu saja; huruf drive Windows tidak diubah secara permanen.
+
+Nilai tersebut juga bisa disimpan di `.env`. Pastikan huruf drive dan path mount cocok, misalnya untuk USB `D:`:
+
+```dotenv
+VEAM_USB_MODE=windows-wsl
+VEAM_USB_DRIVE=D:
+VEAM_USB_HOST_MOUNT=/mnt/d
+VEAM_USB_CONTAINER_MOUNT=/host/usb
+VEAM_USB_SCAN_PATHS=/host/usb
+```
+
+Helper `make veam-usb-redeploy` membaca nilai ini dari `.env` dan melakukan force-recreate pada `backend-api`. File `.veam` harus terlihat saat `make veam-usb-mount` dijalankan sebelum backend dapat membacanya.
 
 Expected scan result:
 
