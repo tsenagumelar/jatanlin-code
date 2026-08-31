@@ -211,7 +211,6 @@ export default function LedDisplayPage() {
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() === "f") {
-        event.preventDefault();
         void toggleFullscreen();
       }
     };
@@ -297,10 +296,8 @@ export default function LedDisplayPage() {
   const content = (
     <section
       ref={ledRef}
-      className={`overflow-hidden bg-black text-white ${
-        isFullscreen
-          ? "absolute inset-0 z-[100] h-screen w-screen"
-          : "relative min-h-[calc(100vh-150px)] rounded-lg border border-slate-800"
+      className={`relative overflow-hidden bg-black text-white ${
+        isFullscreen ? "h-screen" : "min-h-[calc(100vh-150px)] rounded-lg border border-slate-800"
       }`}
     >
       <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:radial-gradient(circle,rgba(148,163,184,0.55)_1.5px,transparent_1.5px)] [background-size:8px_8px]" />
@@ -308,12 +305,28 @@ export default function LedDisplayPage() {
 
       <div className={`relative z-10 flex min-h-full flex-col ${isFullscreen ? "h-screen p-8" : "p-7"}`}>
         <header className="flex shrink-0 items-center justify-between gap-6 border-b border-slate-800 pb-5">
-         
-          <div className="flex items-center gap-4 absolute"> 
+          <div>
+            <p className="text-xl font-black uppercase tracking-[0.3em] text-blue-300">
+              JATANLIN LED DISPLAY
+            </p>
+            <p className="mt-2 text-4xl font-black tracking-[0.08em] text-slate-200">
+              MONITORING PROSES PENINDAKAN
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="font-mono text-5xl font-black leading-none text-white">
+                {clock}
+              </p>
+              <p className="mt-1 text-sm font-bold uppercase tracking-[0.18em] text-slate-500">
+                WIB
+              </p>
+            </div>
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="inline-flex h-36 w-36 items-center justify-center rounded-full border border-slate-600 bg-slate-900/80 text-white transition hover:bg-slate-800"
+              className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-slate-600 bg-slate-900/80 text-white transition hover:bg-slate-800"
               title={isFullscreen ? "Keluar fullscreen" : "Mode fullscreen"}
               aria-label={isFullscreen ? "Keluar fullscreen" : "Mode fullscreen"}
             >
@@ -326,32 +339,17 @@ export default function LedDisplayPage() {
           </div>
         </header>
 
-        <main className="grid flex-1 gap-7 py-7">
+        <main className="grid flex-1 gap-7 py-7 xl:grid-cols-[1fr_390px]">
           <div className="flex min-h-[560px] flex-col justify-center rounded-[2rem] border border-slate-800 bg-slate-950/80 p-10 text-center">
-          
             <div className="mx-auto mb-10 flex h-32 w-32 items-center justify-center rounded-full border-2 border-slate-700 bg-black">
               {!isLedActive ? (
                 <Circle12Filled className="h-12 w-12 animate-pulse text-emerald-400" />
               ) : isAnalysisStep && isViolation ? (
                 <Warning24Filled className="h-24 w-24 text-red-300" />
               ) : activeStep.hasData || isNormal ? (
-                <div>
-                  <p className="font-mono text-[clamp(4rem,7vw,7.5rem)] font-black leading-none text-blue-200">
-                  {isLedActive ? remainingSeconds : activeStep.timeoutSeconds}
-                </p>
-                <p className="mt-3 text-2xl font-black uppercase tracking-[0.2em] text-blue-300">
-                  Detik
-                </p>
-              </div>
+                <CheckmarkCircle24Filled className="h-24 w-24 text-emerald-300" />
               ) : (
-                <div>
-                  <p className="font-mono text-[clamp(4rem,7vw,7.5rem)] font-black leading-none text-blue-200">
-                  {isLedActive ? remainingSeconds : activeStep.timeoutSeconds}
-                </p>
-                <p className="mt-3 text-2xl font-black uppercase tracking-[0.2em] text-blue-300">
-                  Detik
-                </p>
-              </div>
+                <Circle12Filled className="h-12 w-12 animate-pulse text-blue-300" />
               )}
             </div>
 
@@ -373,6 +371,17 @@ export default function LedDisplayPage() {
           </div>
 
           <aside className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950/80 p-6">
+            <p className="text-lg font-black uppercase tracking-[0.24em] text-slate-500">
+              Batas Waktu
+            </p>
+            <div className="mt-5 rounded-[1.5rem] border border-blue-500/30 bg-blue-500/10 p-6 text-center">
+              <p className="font-mono text-[clamp(4rem,7vw,7.5rem)] font-black leading-none text-blue-200">
+                {isLedActive ? remainingSeconds : activeStep.timeoutSeconds}
+              </p>
+              <p className="mt-3 text-2xl font-black uppercase tracking-[0.2em] text-blue-300">
+                Detik
+              </p>
+            </div>
 
             <div className="mt-7 space-y-3 hidden">
               {ledSteps.map((step, index) => {
@@ -419,7 +428,7 @@ export default function LedDisplayPage() {
           </aside>
         </main>
 
-        <footer className="hidden grid shrink-0 gap-5 border-t border-slate-800 pt-5 lg:grid-cols-4">
+        <footer className="grid shrink-0 gap-5 border-t border-slate-800 pt-5 lg:grid-cols-4">
           {processing.metrics.map((metric) => (
             <div
               key={metric.label}

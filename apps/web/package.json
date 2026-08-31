@@ -12,13 +12,15 @@
   "dependencies": {
     "@apollo/client": "^3.14.0",
     "@fluentui/react-components": "^9.72.9",
-    "@fluentui/react-icons": "^2.0.316",
+    "@fluentui/react-icons": "^2.0.339",
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
     "@fortawesome/free-regular-svg-icons": "^7.2.0",
     "@fortawesome/free-solid-svg-icons": "^7.2.0",
     "@fortawesome/react-fontawesome": "^3.3.1",
     "@reduxjs/toolkit": "^2.11.2",
     "dotenv": "^17.2.3",
+    "es-toolkit": "1.39.3",
+    "ffmpeg-static": "5.3.0",
     "graphql": "^16.12.0",
     "graphql-ws": "^6.0.6",
     "jspdf": "^3.0.4",
@@ -51,5 +53,8 @@
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
     "typescript": "5.9.3"
+  },
+  "allowScripts": {
+    "ffmpeg-static@5.3.0": true
   }
 }

@@ -194,6 +194,16 @@ export function V3JatanlinDetailPage({ id }: V3JatanlinDetailProps) {
                         plateNo: detail.getPlate(detail.record),
                         violationType:
                           detail.latestStatus?.result || detail.violation,
+                        weightKg: detail.record?.actual_weight,
+                        lengthM:
+                          detail.record?.actual_length ??
+                          detail.record?.transact_dimension?.length,
+                        widthM:
+                          detail.record?.actual_width ??
+                          detail.record?.transact_dimension?.width,
+                        heightM:
+                          detail.record?.actual_height ??
+                          detail.record?.transact_dimension?.height,
                       })
                     }
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-bold text-white transition hover:bg-red-800"

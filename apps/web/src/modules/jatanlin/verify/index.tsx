@@ -1654,6 +1654,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
               printViolationSticker({
                 plateNo: actualPlatNo,
                 violationType: result,
+                weightKg: actualWeight,
+                lengthM: actualLength,
+                widthM: actualWidth,
+                heightM: actualHeight,
               })
             }
             disabled={submitting || !canPrintViolation}

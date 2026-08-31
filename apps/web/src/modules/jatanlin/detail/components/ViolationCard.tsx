@@ -38,58 +38,46 @@ export const ViolationCard: React.FC<ViolationCardProps> = ({ vehicle }) => {
 
     const plate = plateNo;
     const dd = formattedDate;
-    const isViolation = hasViolation;
-    const activeText = isViolation ? "ODOL" : "NORMAL";
-    const isDim =
-      violationType?.toLowerCase().includes("dimensi") ||
-      violationType?.toLowerCase().includes("dimension");
-    const isWeight =
-      violationType?.toLowerCase().includes("berat") ||
-      violationType?.toLowerCase().includes("loading");
-    const isBoth = isDim && isWeight;
-    const violationLines = isBoth
-      ? ["OVER DIMENSION", "OVER LOADING"]
-      : isDim
-        ? ["OVER DIMENSION"]
-        : isWeight
-          ? ["OVER LOADING"]
-          : isViolation
-            ? [violationType || "ODOL"]
-            : ["NORMAL"];
-
+    const weightValue = Number(vehicle.actual_weight);
+    const weight = Number.isFinite(weightValue) && weightValue > 0
+      ? `${weightValue.toLocaleString("id-ID")} kg`
+      : "-";
     const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Sticker ODOL</title>
+<title></title>
 <style>
 * { box-sizing: border-box; }
-@page { size: 100mm 62mm; margin: 0; }
-html, body { margin: 0; padding: 0; width: 100mm; height: 62mm; font-family: Arial, Helvetica, sans-serif; }
+@page { size: 200mm 62mm; margin: 0; }
+html, body { margin: 0; padding: 0; width: 200mm; height: 62mm; font-family: Arial, Helvetica, sans-serif; }
 .sticker, body {
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-.page { width: 100mm; min-height: 62mm; padding: 2.5mm; }
+.page { width: 200mm; height: 62mm; padding: 0; }
 .sticker {
-  width: 100%; min-height: 57mm;
-  background: #d90429;
-  border: 2mm solid #2b2d42;
-  border-radius: 2mm; color: #fff; position: relative;
+  width: 100%; height: 62mm;
+  background: #fff;
+  border: 0; border-radius: 0; color: #111; position: relative;
   display: flex; flex-direction: column; justify-content: center; align-items: center;
-  text-align: center; padding: 15mm 3mm 10mm;
+  text-align: center; padding: 0; gap: 0;
 }
-.title { font-size: 6mm; line-height: .96; font-weight: 900; letter-spacing: .1mm; margin: 1mm 0 4mm; max-width: 90mm; }
-.subtitle { display: flex; min-height: 18mm; flex-direction: column; justify-content: center; gap: .8mm; font-size: 4.2mm; line-height: 1.05; font-weight: 900; color: #ffea00; text-shadow: 0 1px 0 rgba(0,0,0,.25); }
+.title { font-size: 6.2mm; line-height: .95; font-weight: 900; letter-spacing: .1mm; margin: 4mm 0 2mm; max-width: 54mm; overflow-wrap: anywhere; }
+.subtitle { display: flex; min-height: 20mm; flex: 1; flex-direction: column; justify-content: center; gap: .5mm; font-size: 5.5mm; line-height: .98; font-weight: 900; color: #ffea00; text-shadow: 0 1px 0 rgba(0,0,0,.25); overflow-wrap: anywhere; }
 .subtitle small { color: #ffe066; font-weight: 800; }
-.meta { position: absolute; top: 2.5mm; left: 2.5mm; right: 2.5mm; background: #ffcc99; color: #111; padding: 1.2mm 1.5mm; border-radius: 1mm; font-weight: 700; font-size: 2.5mm; text-align: left; line-height: 1.25; }
-.footer { position: absolute; bottom: 4mm; left: 2.5mm; right: 2.5mm; color: #fff; opacity: .95; font-size: 2.1mm; line-height: 1.14; display:flex; justify-content:space-between; align-items:flex-end; gap: 1.5mm; }
-.footer-text { max-width: 68mm; text-align: left; }
-.badge { display:inline-block; padding: 1mm 1.8mm; border-radius: 999px; font-weight:800; font-size: 2.5mm; white-space: nowrap; }
+.meta { width: 100%; background: #ffcc99; color: #111; padding: 1.1mm 1.4mm; border-radius: 1mm; font-weight: 700; font-size: 2.5mm; text-align: left; line-height: 1.25; }
+.footer { color: #fff; opacity: .95; font-size: 2mm; line-height: 1.15; display:flex; justify-content:center; flex-wrap:wrap; align-items:center; gap: 1.5mm; }
+.footer-text { max-width: 100%; text-align: center; }
+.badge { display:inline-block; padding: .9mm 2mm; border-radius: 999px; font-weight:800; font-size: 2.3mm; white-space: nowrap; }
 .badge-violation { background:#ffd60a; color:#9a031e; }
 .badge-ok { background:#34d399; color:#064e3b; }
+.main { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; }
+.plate { max-width: 196mm; font-size: 38mm; line-height: .92; color: #d90429; font-weight: 900; letter-spacing: 1mm; white-space: nowrap; transform: scaleX(.92); transform-origin: center; }
+.details { width: 100%; border-top: .45mm solid #222; padding: 1mm 3mm 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2mm; font-size: 3.2mm; font-weight: 700; text-align: center; }
+.details strong { display: block; margin-top: .25mm; font-size: 4.5mm; color: #d90429; overflow-wrap: anywhere; }
 @media print {
-  body { background: #fff; width: 100mm; height: 62mm; }
+  body { background: #fff; width: 200mm; height: 62mm; }
   html, body, .page { overflow: hidden; }
   .sticker { background: #d90429 !important; }
 }
@@ -98,16 +86,12 @@ html, body { margin: 0; padding: 0; width: 100mm; height: 62mm; font-family: Ari
 <body onload="window.focus(); window.print();">
   <div class="page">
     <div class="sticker">
-      <div class="meta">NO. POLISI: <strong>${plate}</strong><br/>TANGGAL: <strong>${dd}</strong></div>
-      <div class="title">KENDARAAN INI</div>
-      <div class="subtitle">
-        ${violationLines.map((line) => `<span>${line}</span>`).join("")}
+      <div class="main">
+        <div class="plate">${plate}</div>
       </div>
-      <div class="footer">
-        <div class="footer-text">OPERASI PENERTIBAN KENDARAAN OVER DIMENSION &amp; OVER LOADING</div>
-        <div class="${
-          isViolation ? "badge badge-violation" : "badge badge-ok"
-        }">${activeText}</div>
+      <div class="details">
+        <div>TANGGAL<strong>${dd}</strong></div>
+        <div>BERAT KENDARAAN<strong>${weight}</strong></div>
       </div>
     </div>
   </div>

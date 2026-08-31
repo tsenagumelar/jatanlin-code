@@ -1,6 +1,8 @@
 import http from "node:http";
 import https from "node:https";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 
@@ -13,19 +15,38 @@ const defaultStreams: Record<string, string> = {
   cctv: "rtsp://10.0.43.20:554/profile1",
 };
 
+function withCctvCredentials(target: string, device: string) {
+  if (device !== "cctv" || !target.startsWith("rtsp://")) return target;
+
+  const username = process.env.CCTV_STREAM_USERNAME;
+  const password = process.env.CCTV_STREAM_PASSWORD;
+  if (!username || !password) return target;
+
+  try {
+    const url = new URL(target);
+    if (url.username) return target;
+    url.username = username;
+    url.password = password;
+    return url.toString();
+  } catch {
+    return target;
+  }
+}
+
 function resolveTarget(request: Request) {
   const { searchParams } = new URL(request.url);
   const device = (searchParams.get("device") || "").toLowerCase();
   const rawTarget = searchParams.get("target") || defaultStreams[device] || "";
 
   if (!rawTarget) return null;
-  if (rawTarget.startsWith("http://") || rawTarget.startsWith("https://")) {
-    return rawTarget;
-  }
-  if (rawTarget.startsWith("rtsp://")) {
-    return rawTarget;
-  }
-  return `http://${rawTarget}`;
+  const target =
+    rawTarget.startsWith("http://") ||
+    rawTarget.startsWith("https://") ||
+    rawTarget.startsWith("rtsp://")
+      ? rawTarget
+      : `http://${rawTarget}`;
+
+  return withCctvCredentials(target, device);
 }
 
 function mjpegContentType(raw?: string | string[]) {
@@ -48,7 +69,26 @@ function streamHeaders(contentType = "multipart/x-mixed-replace") {
 }
 
 function transcodeRTSP(target: string) {
-  const ffmpeg = spawn("ffmpeg", [
+  const ffmpegPath =
+    process.env.FFMPEG_PATH ||
+    path.join(
+      process.cwd(),
+      "node_modules",
+      "ffmpeg-static",
+      process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
+    );
+
+  if (!existsSync(ffmpegPath)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "FFmpeg lokal tidak tersedia untuk mengubah stream RTSP.",
+      },
+      { status: 503 },
+    );
+  }
+
+  const ffmpeg = spawn(ffmpegPath, [
     "-hide_banner",
     "-loglevel",
     "error",
@@ -66,26 +106,44 @@ function transcodeRTSP(target: string) {
     "pipe:1",
   ]);
 
+  let closed = false;
   const body = new ReadableStream({
     start(controller) {
-      ffmpeg.stdout.on("data", (chunk) => {
-        controller.enqueue(new Uint8Array(chunk));
-      });
-      ffmpeg.stdout.on("end", () => {
-        controller.close();
-      });
-      ffmpeg.on("error", (error) => {
-        controller.error(error);
-      });
-      ffmpeg.on("close", () => {
+      const close = () => {
+        if (closed) return;
+        closed = true;
         try {
           controller.close();
         } catch {
-          // Stream may already be closed by stdout end.
+          // The client may have cancelled the response first.
         }
+      };
+      const fail = (error: Error) => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.error(error);
+        } catch {
+          // The client may have cancelled the response first.
+        }
+      };
+
+      ffmpeg.stdout.on("data", (chunk) => {
+        if (closed) return;
+        controller.enqueue(new Uint8Array(chunk));
+      });
+      ffmpeg.stdout.on("end", () => {
+        close();
+      });
+      ffmpeg.on("error", (error) => {
+        fail(error);
+      });
+      ffmpeg.on("close", () => {
+        close();
       });
     },
     cancel() {
+      closed = true;
       ffmpeg.kill("SIGTERM");
     },
   });
