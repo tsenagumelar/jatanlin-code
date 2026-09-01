@@ -1,3 +1,5 @@
+name: jatanlin-revamp
+
 services:
   web:
     build:
@@ -21,6 +23,7 @@ services:
         NEXT_PUBLIC_AXLE_IP: ${NEXT_PUBLIC_AXLE_IP:-localhost}
         NEXT_PUBLIC_WIM_IP: ${NEXT_PUBLIC_WIM_IP:-localhost}
         WIM_AGENT_STREAM_URL: ${DOCKER_WIM_AGENT_STREAM_URL:-http://wb-agent:5001/ws/wim/live}
+    image: jtn-revamp-web
     container_name: jtn-revamp-web
     restart: unless-stopped
     extra_hosts: &app_extra_hosts

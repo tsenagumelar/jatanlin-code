@@ -66,29 +66,29 @@ export function printViolationSticker({
 <title></title>
 <style>
 * { box-sizing: border-box; }
-@page { size: 280mm 100mm; margin: 0; }
-html, body { margin: 0; padding: 0; width: 280mm; height: 100mm; font-family: Arial, Helvetica, sans-serif; }
+@page { size: 280mm 120mm; margin: 0; }
+html, body { margin: 0; padding: 0; width: 280mm; height: 120mm; font-family: Arial, Helvetica, sans-serif; }
 .sticker, body {
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-.page { width: 280mm; height: 100mm; padding: 0; }
+.page { width: 280mm; height: 120mm; padding: 0; }
 .sticker {
-  width: 100%; height: 100mm;
+  width: 100%; height: 120mm;
   margin-bottom: 10mm;
   background: #fff;
   border: 0; border-radius: 0; color: #111; position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; padding: 0; gap: 0;
 }
-.main { display: flex; flex: 1; flex-direction: column; align-items: stretch; justify-content: flex-start; padding-top: 10mm; }
+.main { display: flex; flex: 1; flex-direction: column; align-items: stretch; justify-content: flex-start; padding-top: 30mm; }
 .nopol {  font-size: 6.2mm; }
 .plate { width: 100%; display: flex; align-items: center; justify-content: space-between; font-size: 40mm; line-height: .92; color: #d90429; font-weight: 900; }
 .plate span { white-space: pre; }
-.details { margin-top:20mm; width: 100%; border-top: .45mm solid #222; padding: 1mm 3mm 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1mm; font-size: 6.2mm; font-weight: 700; text-align: center; }
-.details strong { display: block; margin-top: .25mm; font-size: 8.5mm; color: #d90429; overflow-wrap: anywhere; }
+.details {  padding-top: 20mm; width: 98%; padding: 1mm 3mm 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1mm; font-size: 6.2mm; font-weight: 700; text-align: center; }
+.details strong { display: block; margin-top: .25mm; font-size: 7.5mm; color: #d90429; overflow-wrap: anywhere; }
 @media print {
-  body { background: #fff; width: 280mm; height: 100mm; }
+  body { background: #fff; width: 280mm; height: 120mm; }
   html, body, .page { overflow: hidden; }
   .sticker { background: #fff !important;  }
 }
