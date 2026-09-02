@@ -281,7 +281,7 @@ func (s *Server) handleSyncAttachmentPrepare(w http.ResponseWriter, r *http.Requ
 			SiteAttachmentID: record.SiteAttachmentID,
 			Bucket:           s.Config.MinIOBucket,
 			ObjectKey:        objectKey,
-			UploadURL:        fmt.Sprintf("http://%s/%s/%s", s.Config.MinIOPublicEndpoint, s.Config.MinIOBucket, objectKey),
+			UploadURL:        minIOPublicObjectURL(s.Config.MinIOPublicEndpoint, s.Config.MinIOBucket, objectKey),
 			UploadMode:       "minio-object-target",
 		})
 	}

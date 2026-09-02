@@ -10,7 +10,7 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:28001}
     ports:
-      - "${DATA_CENTER_WEB_PORT:-3001}:3001"
+      - "127.0.0.1:${DATA_CENTER_WEB_PORT:-3001}:3001"
     depends_on:
       - backend
 
@@ -22,8 +22,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-jatanlin_data_center}
       POSTGRES_USER: ${POSTGRES_USER:-jatanlin_dc}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jatanlin_dc_password}
-    ports:
-      - "${POSTGRES_PORT:-25432}:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../database:/database:ro
@@ -48,7 +48,7 @@ services:
       HASURA_GRAPHQL_DEV_MODE: "true"
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup,http-log,webhook-log,websocket-log,query-log
     ports:
-      - "${HASURA_GRAPHQL_PORT:-28080}:8080"
+      - "127.0.0.1:${HASURA_GRAPHQL_PORT:-28080}:8080"
 
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -59,8 +59,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-jatanlin_dc_minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-jatanlin_dc_minio_password}
     ports:
-      - "${MINIO_API_PORT:-29000}:9000"
-      - "${MINIO_CONSOLE_PORT:-29001}:9001"
+      - "127.0.0.1:${MINIO_API_PORT:-29000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-29001}:9001"
     volumes:
       - minio-data:/data
     healthcheck:
@@ -111,7 +111,7 @@ services:
       MINIO_USE_SSL: "false"
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
     ports:
-      - "${DATA_CENTER_API_PORT:-28001}:8080"
+      - "127.0.0.1:${DATA_CENTER_API_PORT:-28001}:8080"
 
 volumes:
   postgres-data:

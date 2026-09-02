@@ -270,7 +270,7 @@ func (s *Server) transactionAttachments(siteID string, sourceID string) ([]trans
 		); err != nil {
 			return nil, err
 		}
-		item.PublicURL = "http://" + s.Config.MinIOPublicEndpoint + "/" + item.Bucket + "/" + item.ObjectKey
+		item.PublicURL = minIOPublicObjectURL(s.Config.MinIOPublicEndpoint, item.Bucket, item.ObjectKey)
 		attachments = append(attachments, item)
 	}
 	if err := rows.Err(); err != nil {
