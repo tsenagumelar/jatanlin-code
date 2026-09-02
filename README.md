@@ -578,11 +578,13 @@ Aktifkan di `.env`:
 
 ```bash
 DATA_CENTER_SYNC_ENABLED=true
-DATA_CENTER_API_URL=http://localhost:28001
+DATA_CENTER_API_URL=https://api.jatanlinkorlantas.id
 DATA_CENTER_SYNC_KEY=jatanlin-site-sync-key-2026
 DATA_CENTER_SYNC_INTERVAL_SEC=30
 DATA_CENTER_SYNC_BATCH_SIZE=100
 DATA_CENTER_SYNC_CURSOR_FILE=./data/sync-agent-cursors.json
+DATA_CENTER_MINIO_ENDPOINT=minio.jatanlinkorlantas.id
+DATA_CENTER_MINIO_USE_SSL=true
 ```
 
 Jalankan manual:
