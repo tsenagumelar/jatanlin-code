@@ -46,7 +46,27 @@ export function getOdolTolerances(configs?: OdolConfigEntry[]): OdolTolerance {
   return tolerance;
 }
 
-export function checkOdolViolation(
+export interface OdolEvaluation {
+  violationType: ViolationResult;
+  isViolation: boolean;
+  isOverweight: boolean;
+  isOverdimension: boolean;
+  /** Class limit without tolerance, in ton. 0 when the vehicle class has no weight limit. */
+  weightLimit: number;
+  /** Class limit including TOLERANCE_WEIGHT, in ton. This is the threshold for isOverweight. */
+  maxWeight: number;
+  /** Excess against the pure class limit, in ton. Null when not overweight. */
+  excessWeight: number | null;
+  /** Excess against the pure class limit, in percent. Null when not overweight. */
+  overloadPercentage: number | null;
+}
+
+/**
+ * Full ODOL evaluation. isOverweight uses the limit *including* tolerance, while
+ * overloadPercentage is measured against the pure class limit because that is the
+ * figure used as the legal basis for the violation.
+ */
+export function evaluateOdol(
   actual: VehicleActual,
   limit: VehicleClassLimit,
   options?: {
@@ -54,7 +74,7 @@ export function checkOdolViolation(
     toleranceWeightPercent?: number;
     toleranceDimPercent?: number;
   }
-): ViolationResult {
+): OdolEvaluation {
   const CLASS_3_WEIGHT = parseFloat(String(limit.class_3_weight || "0"));
   const BASE_LENGTH = parseFloat(String(limit.length || "0"));
   const BASE_WIDTH = parseFloat(String(limit.width || "0"));
@@ -84,8 +104,47 @@ export function checkOdolViolation(
     (maxWidth > 0 && actual.width > maxWidth) ||
     (maxHeight > 0 && actual.height > maxHeight);
 
-  if (isOverweight && isOverdimension) return "Over Dimension & Over Loading";
-  if (isOverweight) return "Over Loading";
-  if (isOverdimension) return "Over Dimension";
-  return "Normal";
+  const violationType: ViolationResult =
+    isOverweight && isOverdimension
+      ? "Over Dimension & Over Loading"
+      : isOverweight
+        ? "Over Loading"
+        : isOverdimension
+          ? "Over Dimension"
+          : "Normal";
+
+  const excessWeight =
+    isOverweight && baseWeightLimit > 0
+      ? actual.total_weight - baseWeightLimit
+      : null;
+
+  return {
+    violationType,
+    isViolation: violationType !== "Normal",
+    isOverweight,
+    isOverdimension,
+    weightLimit: baseWeightLimit,
+    maxWeight,
+    excessWeight: excessWeight === null ? null : round2(excessWeight),
+    overloadPercentage:
+      excessWeight === null
+        ? null
+        : round2((excessWeight / baseWeightLimit) * 100),
+  };
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+export function checkOdolViolation(
+  actual: VehicleActual,
+  limit: VehicleClassLimit,
+  options?: {
+    axleCount?: number;
+    toleranceWeightPercent?: number;
+    toleranceDimPercent?: number;
+  }
+): ViolationResult {
+  return evaluateOdol(actual, limit, options).violationType;
 }

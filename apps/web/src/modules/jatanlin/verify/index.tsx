@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { gql, useMutation } from "@apollo/client";
 import {
-  checkOdolViolation,
+  evaluateOdol,
   VehicleActual,
   VehicleClassLimit,
 } from "@/src/utils/odol";
@@ -299,12 +299,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     matchingVehicleClass,
   ]);
 
-  // Auto-detect violation type based on limits (menggunakan utilitas ODOL)
-  React.useEffect(() => {
-    if (!matchingVehicleClass) {
-      setResult("");
-      return;
-    }
+  // Evaluasi ODOL (menggunakan utilitas ODOL) - dipakai untuk auto-detect jenis
+  // pelanggaran sekaligus persentase kelebihan muatan yang disimpan saat verifikasi.
+  const odolEvaluation = React.useMemo(() => {
+    if (!matchingVehicleClass) return null;
 
     const actual: VehicleActual = {
       total_weight: parseFloat(actualWeight) || 0,
@@ -321,14 +319,12 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     };
     const tolerances = getOdolTolerances(configData?.master_config);
     const axleCount = parseInt(actualTotalAxle) || 0;
-    const detectedViolation = checkOdolViolation(actual, limit, {
+
+    return evaluateOdol(actual, limit, {
       axleCount,
       toleranceWeightPercent: tolerances.weightPercent,
       toleranceDimPercent: tolerances.dimPercent,
     });
-    if (result !== detectedViolation) {
-      setResult(detectedViolation);
-    }
   }, [
     matchingVehicleClass,
     class2WeightTon,
@@ -339,8 +335,15 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     actualHeight,
     actualTotalAxle,
     configData?.master_config,
-    result,
   ]);
+
+  // Auto-detect violation type based on limits
+  React.useEffect(() => {
+    const detectedViolation = odolEvaluation?.violationType || "";
+    setResult((current) =>
+      current === detectedViolation ? current : detectedViolation,
+    );
+  }, [odolEvaluation]);
 
   // Store initial values
   const [initialValues, setInitialValues] = useState<any>(null);
@@ -654,6 +657,53 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     actualSetters[field](value);
   };
 
+  /**
+   * Mendorong hasil verifikasi ke Data Center dan API ETLE lewat route server-side
+   * (kredensial ETLE tidak boleh sampai ke browser). Response code disimpan oleh route
+   * ke kolom dc_sync_status_code / etle_status_code pada baris status.
+   */
+  const publishVerification = async (statusId: string) => {
+    try {
+      const response = await fetch("/api/etle/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusId }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+
+      const failures: string[] = [];
+      if (payload?.dataCenter?.attempted && !payload.dataCenter.ok) {
+        failures.push("sync Data Center");
+      }
+      if (payload?.etle?.attempted && !payload.etle.ok) {
+        failures.push("kirim ETLE");
+      }
+
+      if (failures.length > 0) {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>{`Verifikasi tersimpan, tapi ${failures.join(" & ")} gagal`}</ToastTitle>
+          </Toast>,
+          { intent: "warning" },
+        );
+      }
+    } catch (err) {
+      console.error("Error publishing verification:", err);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>
+            Verifikasi tersimpan, tapi sync/ETLE gagal dijalankan
+          </ToastTitle>
+        </Toast>,
+        { intent: "warning" },
+      );
+    }
+  };
+
   const handleSubmit = async () => {
     if (!vehicle) return;
 
@@ -898,6 +948,13 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       const attachmentPayload =
         attachmentPaths.length > 0 ? attachmentPaths : null;
 
+      // is_violation mengikuti hasil akhir yang tersimpan (operator boleh mengubah
+      // jenis pelanggaran), sedangkan persentase kelebihan muatan murni dari hitungan berat.
+      const isViolation = !!result && result.toLowerCase() !== "normal";
+      const overloadPercentage = odolEvaluation?.overloadPercentage ?? null;
+
+      let savedStatusId: string | null = null;
+
       if (existingStatus && existingStatus.status === "draft") {
         await updateVehicleStatus({
           variables: {
@@ -905,22 +962,27 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             set: {
               status: statusToSave,
               result: result || null,
+              is_violation: isViolation,
+              overload_percentage: overloadPercentage,
               notes: notes || null,
               attachment: attachmentPayload,
               site_id: vehicle.site_id,
               is_active: true,
               updated_by: "00000000-0000-0000-0000-000000000000",
               updated_date: new Date().toISOString(),
-            },
+            } as any,
           },
         });
+        savedStatusId = existingStatus.id;
       } else {
-        await insertVehicleStatus({
+        const inserted = await insertVehicleStatus({
           variables: {
             object: {
               transact_vehicle_actual_id: id,
               status: statusToSave,
               result: result || null,
+              is_violation: isViolation,
+              overload_percentage: overloadPercentage,
               notes: notes || null,
               attachment: attachmentPayload,
               site_id: vehicle.site_id,
@@ -928,9 +990,17 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
               is_deleted: false,
               created_by: "00000000-0000-0000-0000-000000000000",
               created_date: new Date().toISOString(),
-            },
+            } as any,
           },
         });
+        savedStatusId =
+          inserted.data?.insert_transact_vehicle_status_one?.id || null;
+      }
+
+      // Sync ke Data Center + kirim ke ETLE. Kegagalan di sini tidak membatalkan
+      // verifikasi yang sudah tersimpan - response code-nya dicatat di baris status.
+      if (statusToSave === "verified" && savedStatusId) {
+        await publishVerification(savedStatusId);
       }
 
       dispatchToast(

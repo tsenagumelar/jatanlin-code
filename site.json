@@ -25,6 +25,21 @@
     "siteId": "628f033e-49b2-4ba0-b1e8-12af4b3895ee",
     "locationCode": "GATE-A1"
   },
+  "etle": {
+    "deviceName": "Jatanlin1",
+    "cameraType": "ANPR Camera",
+    "longitude": "",
+    "latitude": "",
+    "locationName": "",
+    "locationDescription": "",
+    "satwil": "Korlantas",
+    "nrp": "",
+    "jurisdiction": {
+      "province": "",
+      "court": "",
+      "prosecutor": ""
+    }
+  },
   "license": {
     "issuedBy": "Activa Digital",
     "expiresAt": "2027-12-31",

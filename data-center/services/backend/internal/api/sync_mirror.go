@@ -477,6 +477,10 @@ var mirrorUpserts = map[string]string{
 				result varchar(50),
 				notes text,
 				attachment text[],
+				is_violation bool,
+				overload_percentage numeric(6, 2),
+				etle_status_code int,
+				etle_sent_at timestamptz,
 				is_active bool,
 				is_deleted bool,
 				created_by uuid,
@@ -487,11 +491,13 @@ var mirrorUpserts = map[string]string{
 		)
 		INSERT INTO public.dc_transact_vehicle_status (
 			site_id, source_id, source_site_id, source_vehicle_actual_id, status,
-			result, notes, attachment, is_active, is_deleted, created_by,
+			result, notes, attachment, is_violation, overload_percentage,
+			etle_status_code, etle_sent_at, is_active, is_deleted, created_by,
 			created_date, updated_by, updated_date, raw_payload
 		)
 		SELECT $1, id, site_id, transact_vehicle_actual_id, COALESCE(status, 'UNKNOWN'),
-			result, notes, attachment, is_active, COALESCE(is_deleted, false),
+			result, notes, attachment, COALESCE(is_violation, false), overload_percentage,
+			etle_status_code, etle_sent_at, is_active, COALESCE(is_deleted, false),
 			created_by, created_date, updated_by, updated_date, to_jsonb(rows)
 		FROM rows
 		WHERE id IS NOT NULL
@@ -502,6 +508,10 @@ var mirrorUpserts = map[string]string{
 		    result = EXCLUDED.result,
 		    notes = EXCLUDED.notes,
 		    attachment = EXCLUDED.attachment,
+		    is_violation = EXCLUDED.is_violation,
+		    overload_percentage = EXCLUDED.overload_percentage,
+		    etle_status_code = EXCLUDED.etle_status_code,
+		    etle_sent_at = EXCLUDED.etle_sent_at,
 		    is_active = EXCLUDED.is_active,
 		    is_deleted = EXCLUDED.is_deleted,
 		    created_by = EXCLUDED.created_by,
