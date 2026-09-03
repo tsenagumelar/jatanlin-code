@@ -109,6 +109,11 @@ function formatWeight(value?: number | null) {
   return `${formatNumber(value / 1000)} ton`;
 }
 
+function googleMapsEmbedUrl(latitude: number, longitude: number) {
+  const coordinates = `${latitude},${longitude}`;
+  return `https://www.google.com/maps?q=${encodeURIComponent(coordinates)}&z=17&output=embed`;
+}
+
 function formatDimensions(detail?: TransactionDetail | null) {
   const length = detail?.transaction.length_mm;
   const width = detail?.transaction.width_mm;
@@ -528,16 +533,34 @@ export default function TransactionDetailPage() {
 
               <div className="space-y-4">
                 <SectionCard title="Ringkasan Transaksi">
-                  <FieldGrid
-                    fields={[
-                      { label: "ID Transaksi Sumber", value: detail.transaction.source_id },
-                      { label: "Waktu Kejadian", value: formatDateTime(detail.transaction.enforcement_started_at) },
-                      { label: "Lokasi", value: detail.transaction.location_address || "-" },
-                      { label: "Operator", value: detail.transaction.operator_name || "-" },
-                      { label: "Situs", value: `${detail.site.site_code} - ${detail.site.site_name}` },
-                      { label: "Terakhir Diperbarui", value: formatDateTime(detail.transaction.source_updated_at) },
-                    ]}
-                  />
+                  <div className="space-y-3">
+                    <FieldGrid
+                      fields={[
+                        { label: "Site", value: `${detail.site.site_code} - ${detail.site.site_name}` },
+                        { label: "Waktu Kejadian", value: formatDateTime(detail.transaction.enforcement_started_at) },
+                      ]}
+                    />
+
+                    {detail.transaction.location_lat !== null &&
+                    detail.transaction.location_lng !== null ? (
+                      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                        <iframe
+                          title={`Lokasi transaksi ${detail.transaction.plate_no || detail.transaction.source_id}`}
+                          src={googleMapsEmbedUrl(
+                            detail.transaction.location_lat,
+                            detail.transaction.location_lng,
+                          )}
+                          className="h-72 w-full"
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-slate-500">
+                        Koordinat lokasi transaksi belum tersedia.
+                      </div>
+                    )}
+                  </div>
                 </SectionCard>
 
                 <SectionCard title="Verifikasi Terbaru">

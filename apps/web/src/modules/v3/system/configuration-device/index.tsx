@@ -677,38 +677,40 @@ export function V3ConfigurationDeviceModule() {
         </div>
       </section>
 
-      {orderedGroups.map((group) => {
-        const meta = groupLabels[group] ?? { title: group, description: "Nilai konfigurasi runtime." };
-        return (
-          <section key={group} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                {group.includes("FTP") || group === "MINIO" ? <Server24Regular /> : <Settings24Regular />}
+      <div className="hidden">
+        {orderedGroups.map((group) => {
+          const meta = groupLabels[group] ?? { title: group, description: "Nilai konfigurasi runtime." };
+          return (
+            <section key={group} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                  {group.includes("FTP") || group === "MINIO" ? <Server24Regular /> : <Settings24Regular />}
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-950">{meta.title}</h2>
+                  <p className="text-sm text-slate-500">{meta.description}</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-950">{meta.title}</h2>
-                <p className="text-sm text-slate-500">{meta.description}</p>
-              </div>
-            </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              {grouped[group].map((row) => (
-                <label key={row.id} className="block">
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-700">{row.label}</span>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-500">
-                      {row.config_key}
-                    </span>
-                    {row.is_secret && <Warning24Filled className="h-3.5 w-3.5 text-amber-500" />}
-                  </div>
-                  {renderInput(row)}
-                  {row.description && <p className="mt-1 text-xs leading-5 text-slate-400">{row.description}</p>}
-                </label>
-              ))}
-            </div>
-          </section>
-        );
-      })}
+              <div className="grid gap-4 md:grid-cols-2">
+                {grouped[group].map((row) => (
+                  <label key={row.id} className="block">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-700">{row.label}</span>
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-500">
+                        {row.config_key}
+                      </span>
+                      {row.is_secret && <Warning24Filled className="h-3.5 w-3.5 text-amber-500" />}
+                    </div>
+                    {renderInput(row)}
+                    {row.description && <p className="mt-1 text-xs leading-5 text-slate-400">{row.description}</p>}
+                  </label>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
 
       {dirty && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
