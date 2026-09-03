@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { gql, useMutation } from "@apollo/client";
 import {
-  checkOdolViolation,
+  evaluateOdol,
   VehicleActual,
   VehicleClassLimit,
 } from "@/src/utils/odol";
@@ -299,12 +299,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     matchingVehicleClass,
   ]);
 
-  // Auto-detect violation type based on limits (menggunakan utilitas ODOL)
-  React.useEffect(() => {
-    if (!matchingVehicleClass) {
-      setResult("");
-      return;
-    }
+  // Evaluasi ODOL (menggunakan utilitas ODOL) - dipakai untuk auto-detect jenis
+  // pelanggaran sekaligus persentase kelebihan muatan yang disimpan saat verifikasi.
+  const odolEvaluation = React.useMemo(() => {
+    if (!matchingVehicleClass) return null;
 
     const actual: VehicleActual = {
       total_weight: parseFloat(actualWeight) || 0,
@@ -321,14 +319,12 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     };
     const tolerances = getOdolTolerances(configData?.master_config);
     const axleCount = parseInt(actualTotalAxle) || 0;
-    const detectedViolation = checkOdolViolation(actual, limit, {
+
+    return evaluateOdol(actual, limit, {
       axleCount,
       toleranceWeightPercent: tolerances.weightPercent,
       toleranceDimPercent: tolerances.dimPercent,
     });
-    if (result !== detectedViolation) {
-      setResult(detectedViolation);
-    }
   }, [
     matchingVehicleClass,
     class2WeightTon,
@@ -339,8 +335,15 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     actualHeight,
     actualTotalAxle,
     configData?.master_config,
-    result,
   ]);
+
+  // Auto-detect violation type based on limits
+  React.useEffect(() => {
+    const detectedViolation = odolEvaluation?.violationType || "";
+    setResult((current) =>
+      current === detectedViolation ? current : detectedViolation,
+    );
+  }, [odolEvaluation]);
 
   // Store initial values
   const [initialValues, setInitialValues] = useState<any>(null);
@@ -654,6 +657,44 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     actualSetters[field](value);
   };
 
+  /**
+   * Mengirim hasil verifikasi ke ETLE lewat route server-side (kredensial ETLE tidak
+   * boleh sampai ke browser). Route yang menentukan apakah ini benar-benar dikirim
+   * (is_violation + status verified + ETLE_ENABLED) dan menyimpan response code-nya
+   * ke transact_vehicle_status.etle_status_code / etle_message / etle_sent_at.
+   */
+  const sendToEtle = async (statusId: string) => {
+    try {
+      const response = await fetch("/api/etle/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusId }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+
+      if (payload?.etle?.attempted && !payload.etle.ok) {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Verifikasi tersimpan, tapi kirim ke ETLE gagal</ToastTitle>
+          </Toast>,
+          { intent: "warning" },
+        );
+      }
+    } catch (err) {
+      console.error("Error sending verification to ETLE:", err);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Verifikasi tersimpan, tapi kirim ke ETLE gagal dijalankan</ToastTitle>
+        </Toast>,
+        { intent: "warning" },
+      );
+    }
+  };
+
   const handleSubmit = async () => {
     if (!vehicle) return;
 
@@ -898,6 +939,13 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       const attachmentPayload =
         attachmentPaths.length > 0 ? attachmentPaths : null;
 
+      // is_violation mengikuti hasil akhir yang tersimpan (operator boleh mengubah
+      // jenis pelanggaran), sedangkan persentase kelebihan muatan murni dari hitungan berat.
+      const isViolation = !!result && result.toLowerCase() !== "normal";
+      const overloadPercentage = odolEvaluation?.overloadPercentage ?? null;
+
+      let savedStatusId: string | null = null;
+
       if (existingStatus && existingStatus.status === "draft") {
         await updateVehicleStatus({
           variables: {
@@ -905,22 +953,27 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             set: {
               status: statusToSave,
               result: result || null,
+              is_violation: isViolation,
+              overload_percentage: overloadPercentage,
               notes: notes || null,
               attachment: attachmentPayload,
               site_id: vehicle.site_id,
               is_active: true,
               updated_by: "00000000-0000-0000-0000-000000000000",
               updated_date: new Date().toISOString(),
-            },
+            } as any,
           },
         });
+        savedStatusId = existingStatus.id;
       } else {
-        await insertVehicleStatus({
+        const inserted = await insertVehicleStatus({
           variables: {
             object: {
               transact_vehicle_actual_id: id,
               status: statusToSave,
               result: result || null,
+              is_violation: isViolation,
+              overload_percentage: overloadPercentage,
               notes: notes || null,
               attachment: attachmentPayload,
               site_id: vehicle.site_id,
@@ -928,9 +981,17 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
               is_deleted: false,
               created_by: "00000000-0000-0000-0000-000000000000",
               created_date: new Date().toISOString(),
-            },
+            } as any,
           },
         });
+        savedStatusId =
+          inserted.data?.insert_transact_vehicle_status_one?.id || null;
+      }
+
+      // Kirim ke ETLE bila diverifikasi sebagai pelanggaran. Sync ke Data Center TIDAK
+      // dipicu di sini - sudah berjalan sebagai background service (sync-agent) terpisah.
+      if (statusToSave === "verified" && savedStatusId) {
+        await sendToEtle(savedStatusId);
       }
 
       dispatchToast(

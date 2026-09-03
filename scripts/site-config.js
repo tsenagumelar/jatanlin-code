@@ -22,6 +22,8 @@ function siteEnv(site) {
   const contact = site.contact || {};
   const admin = site.admin || {};
   const license = site.license || {};
+  const etle = site.etle || {};
+  const jurisdiction = etle.jurisdiction || {};
   const modules = Array.isArray(license.modules) ? license.modules.join(",") : String(license.modules || "PWS,TIIC,DMC");
 
   return {
@@ -50,6 +52,17 @@ function siteEnv(site) {
     NEXT_PUBLIC_SITE_NAME: site.name,
     NEXT_PUBLIC_SITE_LOCATION: site.location || "",
     NEXT_PUBLIC_SITE_REGION: site.region || "",
+    ETLE_DEVICE_NAME: etle.deviceName || "",
+    ETLE_CAMERA_TYPE: etle.cameraType || "ANPR Camera",
+    ETLE_LOCATION_NAME: etle.locationName || site.location || "",
+    ETLE_LOCATION_DESCRIPTION: etle.locationDescription || site.address || "",
+    ETLE_LAT: String(etle.latitude ?? ""),
+    ETLE_LON: String(etle.longitude ?? ""),
+    ETLE_SATWIL: etle.satwil || "",
+    ETLE_NRP: String(etle.nrp ?? ""),
+    ETLE_PROVINCE: jurisdiction.province || site.province || "",
+    ETLE_COURT: jurisdiction.court || "",
+    ETLE_PROSECUTOR: jurisdiction.prosecutor || "",
     VEAM_ISSUED_BY: license.issuedBy || "Activa Digital",
     VEAM_EXPIRES_AT: license.expiresAt || "2027-12-31",
     VEAM_MODULES: modules,
@@ -115,8 +128,9 @@ if (mode === "shell") {
   }
 } else if (mode === "apply") {
   const rootEnvKeys = Object.keys(env);
-  const serviceEnvKeys = rootEnvKeys.filter((key) => !key.startsWith("NEXT_PUBLIC_"));
-  const webEnvKeys = rootEnvKeys.filter((key) => key.startsWith("NEXT_PUBLIC_"));
+  const serviceEnvKeys = rootEnvKeys.filter((key) => !key.startsWith("NEXT_PUBLIC_") && !key.startsWith("ETLE_"));
+  // ETLE_* is read server-side by the web app's route handler, so it ships with the web env.
+  const webEnvKeys = rootEnvKeys.filter((key) => key.startsWith("NEXT_PUBLIC_") || key.startsWith("ETLE_"));
   const wbEnvKeys = serviceEnvKeys.filter((key) => key.startsWith("SITE_") || key.startsWith("WB_"));
 
   const files = [

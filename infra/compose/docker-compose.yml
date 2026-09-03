@@ -36,6 +36,33 @@ services:
       NEXT_PUBLIC_HASURA_SECRET: ${NEXT_PUBLIC_HASURA_SECRET:-devhasurasecret}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
       NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://localhost:19000}
+      # Server-side only (app/api/etle/send): never expose these with a NEXT_PUBLIC_ prefix.
+      ETLE_ENABLED: ${ETLE_ENABLED:-false}
+      ETLE_BASE_URL: ${ETLE_BASE_URL:-https://api-etle.polri.go.id}
+      ETLE_CLIENT_ID: ${ETLE_CLIENT_ID:-integrasi}
+      ETLE_USER_TOKEN: ${ETLE_USER_TOKEN:-}
+      ETLE_PASS_TOKEN: ${ETLE_PASS_TOKEN:-}
+      ETLE_CLIENT_SECRET: ${ETLE_CLIENT_SECRET:-}
+      ETLE_TIMEOUT_MS: ${ETLE_TIMEOUT_MS:-20000}
+      ETLE_VIOLATION_CODE: ${ETLE_VIOLATION_CODE:-TM}
+      ETLE_VIOLATION_NAME: ${ETLE_VIOLATION_NAME:-Melanggar Tata Cara Muatan}
+      ETLE_PUBLIC_IMAGE_BASE_URL: ${ETLE_PUBLIC_IMAGE_BASE_URL:-}
+      ETLE_DEVICE_NAME: ${ETLE_DEVICE_NAME:-}
+      ETLE_CAMERA_TYPE: ${ETLE_CAMERA_TYPE:-ANPR Camera}
+      ETLE_LOCATION_NAME: ${ETLE_LOCATION_NAME:-}
+      ETLE_LOCATION_DESCRIPTION: ${ETLE_LOCATION_DESCRIPTION:-}
+      ETLE_LAT: ${ETLE_LAT:-}
+      ETLE_LON: ${ETLE_LON:-}
+      ETLE_NRP: ${ETLE_NRP:-}
+      ETLE_SATWIL: ${ETLE_SATWIL:-}
+      ETLE_PROVINCE: ${ETLE_PROVINCE:-}
+      ETLE_COURT: ${ETLE_COURT:-}
+      ETLE_PROSECUTOR: ${ETLE_PROSECUTOR:-}
+      # Only used to build ETLE image URLs - points at where the background sync-agent
+      # already copies attachments (see services/backend/cmd/sync-agent). No push happens here.
+      DATA_CENTER_MINIO_ENDPOINT: ${DATA_CENTER_MINIO_ENDPOINT:-minio.jatanlinkorlantas.id}
+      DATA_CENTER_MINIO_BUCKET: ${DATA_CENTER_MINIO_BUCKET:-jatanlin-data-center-attachments}
+      DATA_CENTER_MINIO_USE_SSL: ${DATA_CENTER_MINIO_USE_SSL:-true}
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
