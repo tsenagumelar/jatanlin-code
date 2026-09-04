@@ -12,6 +12,12 @@ import type {
 
 const SITE_TIME_ZONE =
   process.env.NEXT_PUBLIC_SITE_TIMEZONE || "Asia/Jakarta";
+const VERIFIED_RESULTS = new Set([
+  "Normal",
+  "Over Dimension",
+  "Over Loading",
+  "Over Dimension & Over Loading",
+]);
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
@@ -128,7 +134,11 @@ function getCctvUrl(record?: V3JatanlinDetailRecord | null) {
 
 function getViolation(record: V3JatanlinDetailRecord | null | undefined) {
   const latestStatus = getLatestStatus(record);
-  if (latestStatus?.status === "verified" && latestStatus.result) {
+  if (
+    latestStatus?.status === "verified" &&
+    latestStatus.result &&
+    VERIFIED_RESULTS.has(latestStatus.result)
+  ) {
     return latestStatus.result;
   }
   return "Pending";

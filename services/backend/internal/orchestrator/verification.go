@@ -63,6 +63,9 @@ func (s *Service) Verify(ctx context.Context, actorID, vehicleID string, req Ver
 	if action == "verify" && (blank(req.ActualPlateNo) || req.ActualTotalAxle == nil || req.ActualWeight == nil || req.ActualLength == nil || req.ActualWidth == nil || req.ActualHeight == nil) {
 		return nil, fmt.Errorf("all actual vehicle fields are required for verification")
 	}
+	if action == "verify" && !validVerificationResult(req.Result) {
+		return nil, fmt.Errorf("invalid verification result")
+	}
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
@@ -178,6 +181,14 @@ func hasActualFieldChange(changedFields []string) bool {
 		}
 	}
 	return false
+}
+
+func validVerificationResult(result *string) bool {
+	if result == nil {
+		return false
+	}
+	value := strings.TrimSpace(*result)
+	return value == "Normal" || value == "Over Dimension" || value == "Over Loading" || value == "Over Dimension & Over Loading"
 }
 
 func actionStatus(action string) string {

@@ -390,11 +390,19 @@ Definition of done:
 
 ### Phase 7 — Dashboard
 
-- [ ] Pindahkan agregasi ke query/API server-side.
-- [ ] Scope dashboard berdasarkan site dan rentang waktu.
-- [ ] Jangan mengklasifikasikan data tidak lengkap sebagai normal secara otomatis.
-- [ ] Gunakan hasil verifikasi sebagai nilai authoritative.
-- [ ] Tentukan perlakuan transaksi `PENDING` dan `PARTIAL` pada metrik.
+- [x] Pindahkan agregasi ke query/API server-side.
+- [x] Scope dashboard berdasarkan site dan rentang waktu.
+- [x] Jangan mengklasifikasikan data tidak lengkap sebagai normal secara otomatis.
+- [x] Gunakan hasil verifikasi sebagai nilai authoritative.
+- [x] Tentukan perlakuan transaksi `PENDING` dan `PARTIAL` pada metrik.
+
+Catatan implementasi Phase 7:
+
+- Dashboard V3 membaca satu endpoint backend `/api/dashboard/summary`; agregasi metric, trend harian, distribusi, dan recent violations dilakukan SQL server-side dalam satu repeatable-read transaction.
+- Dataset dashboard dibatasi ke configured site dan tujuh tanggal kalender terakhir berdasarkan timezone `master_site`, dengan boundary akhir eksklusif awal hari berikutnya.
+- Hanya current status `verified` dengan result resmi yang masuk normal/pelanggaran. Draft, rejected, belum diverifikasi, status invalid, dan data yang belum lengkap tetap kelompok pending serta tidak dihitung sebagai normal.
+- Nilai verified menjadi authoritative; dashboard tidak lagi menghitung ulang klasifikasi dari raw source atau master batas kendaraan.
+- Endpoint dashboard selalu memakai site backend sehingga caller tidak dapat meminta agregasi site lain.
 
 Definition of done:
 

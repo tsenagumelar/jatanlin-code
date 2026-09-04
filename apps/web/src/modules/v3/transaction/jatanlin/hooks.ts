@@ -19,6 +19,12 @@ const PAGE_SIZE = 10;
 const EXPORT_BATCH_SIZE = 500;
 const SITE_TIME_ZONE =
   process.env.NEXT_PUBLIC_SITE_TIMEZONE || "Asia/Jakarta";
+const VERIFIED_RESULTS = [
+  "Normal",
+  "Over Dimension",
+  "Over Loading",
+  "Over Dimension & Over Loading",
+];
 
 const initialFilters: V3JatanlinFilters = {
   search: "",
@@ -103,7 +109,21 @@ function buildWhere(
   }
 
   if (filters.violation === "Pending") {
-    conditions.push({ verification_status: { _neq: "VERIFIED" } });
+    conditions.push({
+      _or: [
+        { verification_status: { _neq: "VERIFIED" } },
+        {
+          _not: {
+            transact_vehicle_statuses: {
+              is_active: { _eq: true },
+              is_deleted: { _eq: false },
+              status: { _eq: "verified" },
+              result: { _in: VERIFIED_RESULTS },
+            },
+          },
+        },
+      ],
+    });
   } else if (filters.violation) {
     conditions.push({
       verification_status: { _eq: "VERIFIED" },
@@ -267,7 +287,9 @@ export function useV3Jatanlin() {
       const latestStatus = row.transact_vehicle_statuses?.[0];
       const latestStatusValue = latestStatus?.status?.toLowerCase() || "pending";
       const violationType =
-        latestStatusValue === "verified" && latestStatus?.result
+        latestStatusValue === "verified" &&
+        latestStatus?.result &&
+        VERIFIED_RESULTS.includes(latestStatus.result)
           ? latestStatus.result
           : "Pending";
 
@@ -359,7 +381,9 @@ export function useV3Jatanlin() {
           ...row,
           latestStatus: latestStatusValue,
           violationType:
-            latestStatusValue === "verified" && latestStatus?.result
+            latestStatusValue === "verified" &&
+            latestStatus?.result &&
+            VERIFIED_RESULTS.includes(latestStatus.result)
               ? latestStatus.result
               : "Pending",
         };

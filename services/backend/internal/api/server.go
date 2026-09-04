@@ -6,6 +6,7 @@ import (
 	"time"
 	"wim-service/internal/attachment"
 	"wim-service/internal/auth"
+	"wim-service/internal/dashboard"
 	"wim-service/internal/license"
 	"wim-service/internal/orchestrator"
 	"wim-service/internal/veam"
@@ -22,12 +23,17 @@ type Server struct {
 	AttachmentHandler  *attachment.AttachmentHandler
 	VeamHandler        *veam.VeamHandler
 	TransactionHandler *TransactionHandler
+	DashboardHandler   *DashboardHandler
 	AuthEnabled        bool
 }
 
 func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.AttachmentHandler, licenseService *license.Service, authEnabled bool, siteID string, sessionTimeout time.Duration) (*Server, error) {
 	authService := auth.NewAuthService(db, jwtSecret, licenseService)
 	transactionService, err := orchestrator.NewService(db, siteID, sessionTimeout)
+	if err != nil {
+		return nil, err
+	}
+	dashboardService, err := dashboard.NewService(db, siteID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +47,7 @@ func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.Attac
 		AttachmentHandler:  attachmentHandler,
 		VeamHandler:        veam.NewVeamHandler(licenseService),
 		TransactionHandler: NewTransactionHandler(transactionService),
+		DashboardHandler:   NewDashboardHandler(dashboardService),
 		AuthEnabled:        authEnabled,
 	}
 

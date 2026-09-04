@@ -10,6 +10,13 @@ func (s *Server) setupRoutes() {
 	s.registerVeamRoutes()
 	s.registerDataCenterSyncRoutes()
 	s.registerTransactionRoutes()
+	s.registerDashboardRoutes()
+}
+
+func (s *Server) registerDashboardRoutes() {
+	dashboard := s.App.Group("/api").Group("/dashboard")
+	dashboard.Use(JWTMiddleware(s.AuthService))
+	dashboard.Get("/summary", s.DashboardHandler.Summary)
 }
 
 func (s *Server) registerTransactionRoutes() {
