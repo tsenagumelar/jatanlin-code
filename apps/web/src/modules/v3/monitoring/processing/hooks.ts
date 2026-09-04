@@ -8,15 +8,9 @@ import { useSubscribeLatestAxleCaptureSubscription } from "@/src/graphql/hooks/t
 import { useSubscribeLatestCctvSubscription } from "@/src/graphql/hooks/transact-cctv";
 import { useSubscribeLatestWeighingSubscription } from "@/src/graphql/hooks/transact-vehicke-weight";
 import { useSubscribeLatestDimensionSubscription } from "@/src/graphql/hooks/transact-vehicle-dimension";
-import {
-  useInsertTransactWimSessionMutation,
-  useUpdateTransactWimSessionMutation,
-} from "@/src/graphql/hooks/transact-wim-session";
-import {
-  useInsertVehicleActualMutation,
-  useSubscribeLatestVehicleActualSubscription,
-} from "@/src/graphql/hooks/transact-vehicle-actual";
+import { useSubscribeLatestVehicleActualSubscription } from "@/src/graphql/hooks/transact-vehicle-actual";
 import { getImageUrl, getMinioImageUrl } from "@/src/utils/image";
+import { getAuthTokenCookie } from "@/src/utils/auth";
 import {
   checkOdolViolation,
   getOdolTolerances,
@@ -526,6 +520,29 @@ function configuredProcessingLocation(
   return DEFAULT_PROCESSING_LOCATION;
 }
 
+type OrchestratorSession = {
+  id: string;
+  status: string;
+  started_at: string;
+};
+
+async function orchestratorRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  const response = await fetch(`${apiUrl}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getAuthTokenCookie() || ""}`,
+      ...init?.headers,
+    },
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.message || "Transaction orchestrator request failed");
+  }
+  return payload.data as T;
+}
+
 function browserSupportsLocation() {
   return typeof navigator !== "undefined" && "geolocation" in navigator;
 }
@@ -610,12 +627,9 @@ export function useV3Processing() {
     setPhase,
     resetProcessing,
   } = processingContext;
-  const [insertTransactWimSession, insertSessionState] =
-    useInsertTransactWimSessionMutation();
-  const [updateTransactWimSession, updateSessionState] =
-    useUpdateTransactWimSessionMutation();
-  const [insertVehicleActual, insertVehicleActualState] =
-    useInsertVehicleActualMutation();
+  const [isStartingSession, setIsStartingSession] = useState(false);
+  const [isFinalizingSession, setIsFinalizingSession] = useState(false);
+  const finalizingSessionRef = useRef(false);
   const [lastManualCheck, setLastManualCheck] = useState<Date | null>(null);
   const [isStarted, setIsStarted] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
@@ -647,6 +661,35 @@ export function useV3Processing() {
     () => configMap(data?.system_runtime_config),
     [data?.system_runtime_config],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void orchestratorRequest<OrchestratorSession | null>(
+      "/api/transactions/sessions/recover",
+    )
+      .then((activeSession) => {
+        if (cancelled || !activeSession) return;
+        setSessionId(activeSession.id);
+        setSessionStartTime(activeSession.started_at);
+        setSessionStatus("IN_PROGRESS");
+        setIsProcessing(true);
+        setIsStarted(true);
+        setIsFinalized(false);
+        setPhase("processing");
+      })
+      .catch(() => {
+        // Login/session errors remain handled by the existing authenticated shell.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    setIsProcessing,
+    setPhase,
+    setSessionId,
+    setSessionStartTime,
+    setSessionStatus,
+  ]);
   const probeByDevice = useMemo<Record<V3DeviceConnection["key"], ProbeTarget>>(
     () => ({
       anpr: {
@@ -998,22 +1041,6 @@ export function useV3Processing() {
   const liveDimension = dimensionData as Record<string, unknown> | null;
   const liveCctv = cctvData as Record<string, unknown> | null;
 
-  const latestSessionDataRef = useRef({
-    liveAnpr,
-    liveWeight,
-    liveAxle,
-    liveDimension,
-    liveCctv,
-  });
-  useEffect(() => {
-    latestSessionDataRef.current = {
-      liveAnpr,
-      liveWeight,
-      liveAxle,
-      liveDimension,
-      liveCctv,
-    };
-  }, [liveAnpr, liveAxle, liveCctv, liveDimension, liveWeight]);
   const hasSessionData = !!(
     liveAnpr ||
     liveWeight ||
@@ -1026,7 +1053,7 @@ export function useV3Processing() {
     asNumber(liveWeight?.total_axle) || asNumber(liveAxle?.total_axles);
 
   const vehicleClass = (data?.classes ?? []).find(
-    (item) => asNumber(item.total_axle) === axleCount,
+    (item: any) => asNumber(item.total_axle) === axleCount,
   );
 
   const actualWeightKg = asNumber(liveWeight?.total_weight);
@@ -1213,13 +1240,13 @@ export function useV3Processing() {
     (device) => device.status === "online",
   );
   const startProcessing = async () => {
-    if (!allConnectionsOnline || isProcessingStarted || isRequestingLocation)
-      return;
+    if (isProcessingStarted || isRequestingLocation || isStartingSession) return;
 
     const now = new Date();
     const startedAt = now.toISOString();
     setActionError(null);
     setIsRequestingLocation(true);
+    setIsStartingSession(true);
 
     try {
       let location = configuredProcessingLocation(configs);
@@ -1230,34 +1257,28 @@ export function useV3Processing() {
       }
       setProcessingLocation(location);
 
-      const result = await insertTransactWimSession({
-        variables: {
-          object: {
+      const mode = isDemoMode ? "DUMMY" : "REAL";
+      const activeSession = await orchestratorRequest<OrchestratorSession>(
+        "/api/transactions/sessions/start",
+        {
+          method: "POST",
+          body: JSON.stringify({
             session_name: formatSessionName(now),
-            status: "IN_PROGRESS",
-            started_at: startedAt,
-            site_id: siteId,
-            is_active: true,
-            is_dummy: isDemoMode,
-            is_deleted: false,
-            created_by: "00000000-0000-0000-0000-000000000000",
-            created_date: startedAt,
-          },
+            source_modes: {
+              ANPR: mode,
+              AXLE: mode,
+              WIM: mode,
+              CCTV: mode,
+              DIMENSION: mode,
+            },
+          }),
         },
-      });
-
-      const graphQLError = result.errors?.[0]?.message;
-      const nextSessionId =
-        result.data?.insert_transact_wim_session_one?.id || null;
-
-      if (graphQLError || !nextSessionId) {
-        throw new Error(graphQLError || "Failed to create WIM session");
-      }
+      );
 
       setIsStarted(true);
       setIsFinalized(false);
       setTimeoutRemaining(PROCESSING_WAIT_SECONDS);
-      setSessionId(nextSessionId);
+      setSessionId(activeSession.id);
       setVehicleActualId(null);
       setSessionStatus("IN_PROGRESS");
       setIsProcessing(true);
@@ -1267,7 +1288,7 @@ export function useV3Processing() {
       setAxleData(null);
       setDimensionData(null);
       setCctvData(null);
-      setSessionStartTime(startedAt);
+      setSessionStartTime(activeSession.started_at);
     } catch (err) {
       setActionError(
         err instanceof Error
@@ -1280,79 +1301,44 @@ export function useV3Processing() {
       setPhase("init");
     } finally {
       setIsRequestingLocation(false);
+      setIsStartingSession(false);
     }
   };
   const finalizeProcessing = useCallback(async () => {
-    if (!sessionId || isFinalized || vehicleActualId) return;
-
-    const finishedAt = new Date().toISOString();
-    const {
-      liveAnpr: currentAnpr,
-      liveWeight: currentWeight,
-      liveAxle: currentAxle,
-      liveDimension: currentDimension,
-      liveCctv: currentCctv,
-    } = latestSessionDataRef.current;
-    const object: Record<string, unknown> = {
-      session_id: sessionId,
-      site_id: siteId,
-      actual_width: currentDimension?.width ?? null,
-      actual_length: currentDimension?.length ?? currentAxle?.length ?? null,
-      actual_height: currentDimension?.height ?? null,
-      actual_weight: currentWeight?.total_weight ?? null,
-      actual_plat_no: currentAnpr?.plate_no ?? null,
-      actual_total_axle:
-        currentWeight?.total_axle ?? currentAxle?.total_axles ?? null,
-      location_lat: processingLocation?.latitude ?? null,
-      location_lng: processingLocation?.longitude ?? null,
-      is_active: true,
-      is_deleted: false,
-      created_by: "00000000-0000-0000-0000-000000000000",
-      created_date: finishedAt,
-    };
-
-    if (currentAnpr?.id) object.anpr_id = currentAnpr.id;
-    if (currentAxle?.id) object.axle_id = currentAxle.id;
-    if (currentDimension?.id)
-      object.transact_dimension_id = currentDimension.id;
-    if (currentWeight?.id) object.transact_weighing_id = currentWeight.id;
-    if (currentCctv?.id) object.transact_cctv_id = currentCctv.id;
-
-    const result = await insertVehicleActual({
-      variables: {
-        object,
-      },
-    });
-    const nextVehicleActualId =
-      result.data?.insert_transact_vehicle_actual_one?.id || null;
-    if (nextVehicleActualId) {
-      setVehicleActualId(nextVehicleActualId);
-    }
-
-    await updateTransactWimSession({
-      variables: {
-        id: sessionId,
-        set: {
-          status: "COMPLETED",
-          ended_at: finishedAt,
-          is_active: false,
-          updated_date: finishedAt,
+    if (!sessionId || isFinalized || vehicleActualId || finalizingSessionRef.current)
+      return;
+    finalizingSessionRef.current = true;
+    setIsFinalizingSession(true);
+    try {
+      const result = await orchestratorRequest<{ vehicle_actual_id: string }>(
+        `/api/transactions/sessions/${sessionId}/finalize`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            latitude: processingLocation?.latitude,
+            longitude: processingLocation?.longitude,
+          }),
         },
-      },
-    });
-    setSessionStatus("COMPLETED");
-    setIsProcessing(false);
-    setIsFinalized(true);
+      );
+      setVehicleActualId(result.vehicle_actual_id);
+      setSessionStatus("COMPLETED");
+      setIsProcessing(false);
+      setIsFinalized(true);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to finalize processing session",
+      );
+    } finally {
+      finalizingSessionRef.current = false;
+      setIsFinalizingSession(false);
+    }
   }, [
-    insertVehicleActual,
     isFinalized,
     processingLocation,
     sessionId,
     setIsProcessing,
     setSessionStatus,
     setVehicleActualId,
-    siteId,
-    updateTransactWimSession,
     vehicleActualId,
   ]);
 
@@ -1432,10 +1418,9 @@ export function useV3Processing() {
 
   return {
     isLoading: loading,
-    isStarting: insertSessionState.loading || isRequestingLocation,
+    isStarting: isStartingSession || isRequestingLocation,
     isRequestingLocation,
-    isFinalizing:
-      updateSessionState.loading || insertVehicleActualState.loading,
+    isFinalizing: isFinalizingSession,
     error: actionError || error?.message || null,
     devices,
     allConnectionsOnline,

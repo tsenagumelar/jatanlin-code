@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"wim-service/internal/api"
 	"wim-service/internal/attachment"
@@ -47,7 +48,18 @@ func main() {
 	}
 
 	// Create API server
-	apiServer := api.NewServer(cfg.DB, cfg.JWTSecret, attachmentHandler, licenseService, cfg.AuthEnabled)
+	apiServer, err := api.NewServer(
+		cfg.DB,
+		cfg.JWTSecret,
+		attachmentHandler,
+		licenseService,
+		cfg.AuthEnabled,
+		cfg.SiteUUID,
+		time.Duration(cfg.SessionWindowSeconds)*time.Second,
+	)
+	if err != nil {
+		log.Fatal("[API] Failed to create transaction orchestrator:", err)
+	}
 
 	log.Println("")
 	log.Println("API Endpoints:")

@@ -3,9 +3,11 @@ package api
 import (
 	"database/sql"
 	"log"
+	"time"
 	"wim-service/internal/attachment"
 	"wim-service/internal/auth"
 	"wim-service/internal/license"
+	"wim-service/internal/orchestrator"
 	"wim-service/internal/veam"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,11 +21,16 @@ type Server struct {
 	UserHandler       *UserHandler
 	AttachmentHandler *attachment.AttachmentHandler
 	VeamHandler       *veam.VeamHandler
+	TransactionHandler *TransactionHandler
 	AuthEnabled       bool
 }
 
-func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.AttachmentHandler, licenseService *license.Service, authEnabled bool) *Server {
+func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.AttachmentHandler, licenseService *license.Service, authEnabled bool, siteID string, sessionTimeout time.Duration) (*Server, error) {
 	authService := auth.NewAuthService(db, jwtSecret, licenseService)
+	transactionService, err := orchestrator.NewService(db, siteID, sessionTimeout)
+	if err != nil {
+		return nil, err
+	}
 
 	server := &Server{
 		App:               newFiberApp(),
@@ -33,6 +40,7 @@ func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.Attac
 		UserHandler:       NewUserHandler(db),
 		AttachmentHandler: attachmentHandler,
 		VeamHandler:       veam.NewVeamHandler(licenseService),
+		TransactionHandler: NewTransactionHandler(transactionService),
 		AuthEnabled:       authEnabled,
 	}
 
@@ -42,7 +50,7 @@ func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.Attac
 
 	server.setupRoutes()
 
-	return server
+	return server, nil
 }
 
 func (s *Server) Start(port string) error {

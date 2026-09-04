@@ -9,8 +9,16 @@ func (s *Server) setupRoutes() {
 	s.registerUserRoutes()
 	s.registerVeamRoutes()
 	s.registerDataCenterSyncRoutes()
+	s.registerTransactionRoutes()
+}
 
-	// WIM Session management stays in Hasura GraphQL.
+func (s *Server) registerTransactionRoutes() {
+	transactions := s.App.Group("/api").Group("/transactions")
+	transactions.Use(JWTMiddleware(s.AuthService))
+	transactions.Post("/sessions/start", s.TransactionHandler.Start)
+	transactions.Get("/sessions/active", s.TransactionHandler.Active)
+	transactions.Get("/sessions/recover", s.TransactionHandler.Active)
+	transactions.Post("/sessions/:id/finalize", s.TransactionHandler.Finalize)
 }
 
 func (s *Server) registerHealthRoutes() {

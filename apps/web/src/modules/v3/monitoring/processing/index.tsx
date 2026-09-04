@@ -340,16 +340,10 @@ export function V3ProcessingPage() {
               type="button"
               onClick={processing.startProcessing}
               disabled={
-                !processing.allConnectionsOnline ||
                 processing.isStarted ||
                 processing.isStarting ||
                 processing.isRequestingLocation ||
                 processing.isFinalizing
-              }
-              title={
-                processing.allConnectionsOnline
-                  ? undefined
-                    : "Semua koneksi perangkat harus hijau sebelum mulai."
               }
               className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300 ${
                 processing.isStarted

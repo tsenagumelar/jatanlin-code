@@ -293,14 +293,24 @@ Definition of done:
 
 ### Phase 3 — Transaction orchestrator
 
-- [ ] Buat backend use case untuk start session.
-- [ ] Simpan user sebagai `started_by` dan `created_by`.
-- [ ] Inisialisasi mode/status semua source saat session dibuat.
-- [ ] Implementasikan timeout independen per source.
-- [ ] Implementasikan finalisasi idempotent dalam satu database transaction.
-- [ ] Selalu buat `vehicle_actual`, termasuk untuk data `PARTIAL` atau `EMPTY`.
-- [ ] Ubah session menjadi `COMPLETED` hanya setelah `vehicle_actual` berhasil dibuat/upsert.
-- [ ] Sediakan recovery untuk session `IN_PROGRESS` yang ditinggalkan browser/service restart.
+- [x] Buat backend use case untuk start session.
+- [x] Simpan user sebagai `started_by` dan `created_by`.
+- [x] Inisialisasi mode/status semua source saat session dibuat.
+- [x] Implementasikan timeout independen per source.
+- [x] Implementasikan finalisasi idempotent dalam satu database transaction.
+- [x] Selalu buat `vehicle_actual`, termasuk untuk data `PARTIAL` atau `EMPTY`.
+- [x] Ubah session menjadi `COMPLETED` hanya setelah `vehicle_actual` berhasil dibuat/upsert.
+- [x] Sediakan recovery untuk session `IN_PROGRESS` yang ditinggalkan browser/service restart.
+
+Catatan implementasi Phase 3:
+
+- Lifecycle tersedia melalui endpoint backend start, active/recover, dan finalize yang selalu memerlukan JWT.
+- Start diserialisasi dengan advisory transaction lock per site dan mengembalikan session aktif existing secara idempotent.
+- Web v3 memakai orchestrator untuk start/finalize dan memulihkan session ketika halaman dimuat ulang; pemeriksaan device tidak lagi memblokir dimulainya transaksi parsial.
+- Finalisasi menemukan source record terbaru berdasarkan `(site_id, session_id)`, menandai source yang tidak masuk, membuat tepat satu actual, lalu menyelesaikan session.
+- GPS aktual dikirim saat finalisasi; koordinat master site dipakai backend ketika GPS tidak tersedia.
+- Kontrak dan transaction guarantee didokumentasikan di `docs/phase3-transaction-orchestrator.md`.
+- Atas instruksi owner, compilation, migration execution, test, dan end-to-end validation Phase 3 belum dijalankan.
 
 Definition of done:
 
