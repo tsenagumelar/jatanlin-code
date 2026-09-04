@@ -12,6 +12,7 @@ import (
 	"time"
 	"wim-service/internal/ingest"
 	"wim-service/internal/session"
+	"wim-service/internal/source"
 
 	"github.com/google/uuid"
 	"github.com/jlaffaye/ftp"
@@ -159,8 +160,13 @@ func (p *AxleProcessor) HandleNewFileAXLE(ctx context.Context, c *ftp.ServerConn
 		log.Println("[AXLE] No active IN_PROGRESS session found, skipping file:", name)
 		return true
 	}
-	if session.IsDummy {
-		log.Printf("[AXLE] Active session %s is in dummy mode, skipping FTP ingest", session.Code)
+	mode, err := p.SessionService.GetSourceMode(ctx, session.ID, "AXLE")
+	if err != nil {
+		log.Printf("[AXLE] Source mode unavailable for session %s: %v", session.Code, err)
+		return false
+	}
+	if mode != source.ModeReal {
+		log.Printf("[AXLE] Source mode is %s for session %s, skipping FTP ingest", mode, session.Code)
 		return true
 	}
 
@@ -187,7 +193,11 @@ func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
 		log.Println("[AXLE_DUMMY] No active IN_PROGRESS session found")
 		return nil
 	}
-	if !session.IsDummy {
+	mode, err := p.SessionService.GetSourceMode(ctx, session.ID, "AXLE")
+	if err != nil {
+		return fmt.Errorf("AXLE source mode unavailable: %w", err)
+	}
+	if mode != source.ModeDummy {
 		return nil
 	}
 

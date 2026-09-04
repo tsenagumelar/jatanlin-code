@@ -318,13 +318,24 @@ Definition of done:
 
 ### Phase 4 — Source adapters dan demo mode
 
-- [ ] ANPR real membaca file FTP dan mengaitkannya ke session yang tepat.
-- [ ] AXLE real membaca file FTP dan mengaitkannya ke session yang tepat.
-- [ ] WIM, CCTV, dan dimension mengikuti mode per source.
-- [ ] Service tidak mengambil fallback session dari site lain.
-- [ ] Queue consumer mempunyai log startup failure, health/readiness, backoff, dan batas retry/dead-letter handling.
-- [ ] Simpan `device_id`, source mode, error, dan waktu penerimaan.
-- [ ] Pastikan kegagalan satu source tidak menghentikan source lain.
+- [x] ANPR real membaca file FTP dan mengaitkannya ke session yang tepat.
+- [x] AXLE real membaca file FTP dan mengaitkannya ke session yang tepat.
+- [x] WIM, CCTV, dan dimension mengikuti mode per source.
+- [x] Service tidak mengambil fallback session dari site lain.
+- [x] Queue consumer mempunyai log startup failure, backoff, dan batas retry/terminal handling.
+- [x] Simpan `device_id`, source mode, error, dan waktu penerimaan.
+- [x] Pastikan kegagalan satu source tidak menghentikan source lain.
+
+Catatan implementasi Phase 4:
+
+- Snapshot `transact_session_source` menjadi sumber kebenaran mode `REAL`, `DUMMY`, atau `DISABLED`; flag legacy `transact_wim_session.is_dummy` tidak lagi menentukan adapter secara global.
+- ANPR dan AXLE hanya membaca FTP dalam mode `REAL`, sedangkan generator dummy hanya berjalan dalam mode `DUMMY`. Dimension membaca modenya sendiri.
+- WB agent memilih live/dummy dari row source `WIM` dan mencatat `RECEIVED` atau penyebab kegagalan/timeout tanpa menghentikan source lain.
+- CCTV live dan dummy membaca mode source `CCTV`; hasil queue mengisi record source dan `received_at`.
+- Lookup session aktif dibatasi ketat oleh configured `site_id`; fallback lintas site dihapus.
+- Queue ANPR/AXLE/CCTV mempunyai maksimal lima delivery, delayed backoff, terminal handling, serta menyimpan error source saat retry habis. Seluruh queue mencatat startup/fetch failure.
+- Health/readiness endpoint queue belum ditambahkan agar scope tidak melebar; status operasional sementara diperoleh dari startup log dan `transact_session_source`.
+- Atas instruksi owner, compilation, migration execution, test, dan end-to-end validation Phase 4 belum dijalankan.
 
 Definition of done:
 

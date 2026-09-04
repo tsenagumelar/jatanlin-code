@@ -15,6 +15,7 @@ import (
 	"wim-service/internal/dimension"
 	"wim-service/internal/ingest"
 	"wim-service/internal/session"
+	"wim-service/internal/source"
 
 	"github.com/google/uuid"
 	"github.com/jlaffaye/ftp"
@@ -150,8 +151,13 @@ func (p *FileProcessor) HandleNewFile(ctx context.Context, c *ftp.ServerConn, na
 		log.Println("[ANPR] No active IN_PROGRESS session found")
 		return true // Skip file but don't error
 	}
-	if session.IsDummy {
-		log.Printf("[ANPR] Active session %s is in dummy mode, skipping FTP ingest", session.Code)
+	mode, err := p.SessionService.GetSourceMode(ctx, session.ID, "ANPR")
+	if err != nil {
+		log.Printf("[ANPR] Source mode unavailable for session %s: %v", session.Code, err)
+		return false
+	}
+	if mode != source.ModeReal {
+		log.Printf("[ANPR] Source mode is %s for session %s, skipping FTP ingest", mode, session.Code)
 		return true
 	}
 	log.Printf("[ANPR] Active session found: %s", session.Code)
@@ -178,7 +184,11 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 		log.Println("[ANPR_DUMMY] No active IN_PROGRESS session found")
 		return nil
 	}
-	if !session.IsDummy {
+	mode, err := p.SessionService.GetSourceMode(ctx, session.ID, "ANPR")
+	if err != nil {
+		return fmt.Errorf("ANPR source mode unavailable: %w", err)
+	}
+	if mode != source.ModeDummy {
 		return nil
 	}
 
@@ -214,8 +224,13 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 	}
 
 	if p.DimensionHandler != nil {
-		if _, err := p.DimensionHandler.ProcessANPRImageWithSessionMode("", meta.Plate, meta.ID, &session.ID, session.IsDummy); err != nil {
+		dimensionMode, modeErr := p.SessionService.GetSourceMode(ctx, session.ID, "DIMENSION")
+		if modeErr != nil {
+			log.Printf("[ANPR_DUMMY] Dimension source mode unavailable for session=%s: %v", session.ID, modeErr)
+		} else if dimensionMode != source.ModeDisabled {
+			if _, err := p.DimensionHandler.ProcessANPRImageWithSessionMode("", meta.Plate, meta.ID, &session.ID, dimensionMode == source.ModeDummy); err != nil {
 			log.Printf("[ANPR_DUMMY] Dummy dimension failed for session=%s external_id=%s: %v", session.ID, meta.ID, err)
+			}
 		}
 	}
 
@@ -388,10 +403,15 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 		}
 		log.Printf("[ANPR] Enqueued insert: plate=%s id=%s session=%s", plateNo, file.metadata.ID, session.ID)
 
-		// For session-driven flow, dimension mode follows session.is_dummy.
-		if p.DimensionHandler != nil && (file.fullImg != "" || session.IsDummy) {
-			if err := p.processDimensionsFromFTP(ctx, c, file.metadata, &session.ID, file.fullImg, fullImgUploaded, fullObj, session.IsDummy); err != nil {
+		// Dimension has its own source mode and may differ from ANPR.
+		if p.DimensionHandler != nil {
+			dimensionMode, modeErr := p.SessionService.GetSourceMode(ctx, session.ID, "DIMENSION")
+			if modeErr != nil {
+				log.Printf("[ANPR] Dimension source mode unavailable for session=%s: %v", session.ID, modeErr)
+			} else if dimensionMode != source.ModeDisabled && (file.fullImg != "" || dimensionMode == source.ModeDummy) {
+				if err := p.processDimensionsFromFTP(ctx, c, file.metadata, &session.ID, file.fullImg, fullImgUploaded, fullObj, dimensionMode == source.ModeDummy); err != nil {
 				_ = err
+				}
 			}
 		}
 

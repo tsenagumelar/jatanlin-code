@@ -1,10 +1,12 @@
 package session
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"time"
+	"wim-service/internal/source"
 
 	"github.com/google/uuid"
 )
@@ -64,35 +66,8 @@ func (s *SessionService) GetActiveSession() (*ActiveSession, error) {
 	)
 
 	if err == sql.ErrNoRows {
-		// Fallback for single-site deployments where SITE_CODE/SITE_UUID can drift
-		// from web session site_id. Keep service running while exposing warning log.
-		queryAnySite := `
-			SELECT id, code, site_id, started_at, ended_at, status, COALESCE(is_dummy, false)
-			FROM transact_wim_session
-			WHERE status = 'IN_PROGRESS'
-				AND is_active = true
-				AND is_deleted = false
-			ORDER BY started_at DESC
-			LIMIT 1
-		`
-		errAny := s.DB.QueryRow(queryAnySite).Scan(
-			&session.ID,
-			&session.Code,
-			&session.SiteID,
-			&session.StartedAt,
-			&endedAt,
-			&session.Status,
-			&session.IsDummy,
-		)
-		if errAny == sql.ErrNoRows {
-			s.logNoActiveSessionDiagnostics()
-			return nil, nil // No active session
-		}
-		if errAny != nil {
-			return nil, fmt.Errorf("failed to query active session fallback: %w", errAny)
-		}
-		log.Printf("[SESSION] WARNING: site-filtered active session not found for site_id=%s, using fallback session_id=%s site_id=%s",
-			s.SiteUUID, session.ID.String(), session.SiteID.String())
+		s.logNoActiveSessionDiagnostics()
+		return nil, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to query active session: %w", err)
 	}
@@ -105,6 +80,14 @@ func (s *SessionService) GetActiveSession() (*ActiveSession, error) {
 	// No auto-complete logic here
 
 	return &session, nil
+}
+
+func (s *SessionService) GetSourceMode(ctx context.Context, sessionID uuid.UUID, sourceType string) (string, error) {
+	siteID, err := uuid.Parse(s.SiteUUID)
+	if err != nil {
+		return "", fmt.Errorf("invalid configured site UUID: %w", err)
+	}
+	return source.GetMode(ctx, s.DB, siteID, sessionID, sourceType)
 }
 
 func (s *SessionService) logNoActiveSessionDiagnostics() {

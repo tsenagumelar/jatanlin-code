@@ -8,6 +8,7 @@ import (
 	"log"
 	"time"
 	"wim-service/internal/ingest"
+	"wim-service/internal/source"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
@@ -134,8 +135,9 @@ func (q *AxleInsertQueue) Enqueue(meta *AxleMetadata, bucket string, sessionID *
 }
 
 func (q *AxleInsertQueue) consumeLoop() {
-	sub, err := q.js.PullSubscribe(axleSubjectName, axleConsumer, nats.ManualAck())
+	sub, err := q.js.PullSubscribe(axleSubjectName, axleConsumer, nats.ManualAck(), nats.AckWait(15*time.Second), nats.MaxDeliver(5))
 	if err != nil {
+		log.Printf("[AXLE_QUEUE] Consumer startup failed: %v", err)
 		return
 	}
 
@@ -145,18 +147,42 @@ func (q *AxleInsertQueue) consumeLoop() {
 			if err == nats.ErrTimeout {
 				continue
 			}
+			log.Printf("[AXLE_QUEUE] Fetch failed, retrying: %v", err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 
 		for _, msg := range msgs {
 			if err := q.handleMsg(msg); err != nil {
-				_ = msg.Nak()
+				q.handleFailure(msg, err)
 				continue
 			}
 			_ = msg.Ack()
 		}
 	}
+}
+
+func (q *AxleInsertQueue) handleFailure(msg *nats.Msg, processingErr error) {
+	metadata, metadataErr := msg.Metadata()
+	if metadataErr == nil && metadata.NumDelivered < 5 {
+		delay := time.Duration(metadata.NumDelivered*metadata.NumDelivered) * time.Second
+		log.Printf("[AXLE_QUEUE] Processing failed attempt=%d retry_in=%s: %v", metadata.NumDelivered, delay, processingErr)
+		_ = msg.NakWithDelay(delay)
+		return
+	}
+
+	var payload axleInsertPayload
+	if json.Unmarshal(msg.Data, &payload) == nil && payload.SessionID != "" {
+		if sessionID, err := uuid.Parse(payload.SessionID); err == nil {
+			if siteID, err := uuid.Parse(q.siteUUID); err == nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = source.MarkFailed(ctx, q.db, siteID, sessionID, "AXLE", "QUEUE_RETRY_EXHAUSTED", processingErr.Error())
+			}
+		}
+	}
+	log.Printf("[AXLE_QUEUE] Message terminated after retries: %v", processingErr)
+	_ = msg.Term()
 }
 
 func (q *AxleInsertQueue) handleMsg(msg *nats.Msg) error {
@@ -186,6 +212,20 @@ func (q *AxleInsertQueue) handleMsg(msg *nats.Msg) error {
 			return err
 		}
 		if err := insertAxleRecordWithSession(ctx, q.db, q.siteUUID, meta, sessionUUID, p.Bucket, p.DateFolder, p.XMLObject, p.ImgObject); err != nil {
+			return err
+		}
+		record, err := getAxleRecordBySession(ctx, q.db, sessionUUID)
+		if err != nil {
+			return fmt.Errorf("resolve AXLE source record after insert: %w", err)
+		}
+		if record == nil {
+			return fmt.Errorf("AXLE source record missing after insert")
+		}
+		siteID, err := uuid.Parse(q.siteUUID)
+		if err != nil {
+			return fmt.Errorf("invalid queue site UUID: %w", err)
+		}
+		if err := source.MarkReceived(ctx, q.db, siteID, sessionUUID, "AXLE", record.ID); err != nil {
 			return err
 		}
 		log.Printf("[AXLE_QUEUE] Insert success: external_id=%s session_id=%s", p.ExternalID, p.SessionID)
