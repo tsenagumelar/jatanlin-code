@@ -70,7 +70,7 @@ func (s *Service) Summary(ctx context.Context) (*Summary, error) {
 		 count(*) FILTER (WHERE authoritative AND result='Normal'),
 		 count(*) FILTER (WHERE authoritative AND result<>'Normal' AND local_date=end_date),
 		 count(*) FILTER (WHERE NOT authoritative)
-		FROM classified CROSS JOIN bounds
+		FROM bounds LEFT JOIN classified ON true
 		GROUP BY timezone,start_date,end_date`, s.siteID).Scan(
 		&result.Timezone, &result.StartDate, &result.EndDate,
 		&result.Metrics.ODOL, &result.Metrics.Violations, &result.Metrics.Normal,

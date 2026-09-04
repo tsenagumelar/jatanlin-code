@@ -749,7 +749,7 @@ export default function TransactionDetailPage() {
               </div>
             </SectionCard>
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="hidden grid-cols-1 gap-4 xl:grid-cols-2">
               <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-extrabold text-slate-900">
                   Riwayat Koreksi ({detail.raw.revisions?.length ?? 0})

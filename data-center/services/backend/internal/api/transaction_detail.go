@@ -72,6 +72,7 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 
 	var summary transactionSummary
 	var site transactionSite
+	var missingSourcesJSON string
 	err := s.DB.QueryRow(`
 		SELECT
 			v.id::text,
@@ -105,7 +106,7 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 			s.last_seen_at,
 			s.last_sync_at,
 			COALESCE(a.completeness_status, 'EMPTY'),
-			COALESCE(a.missing_sources, '{}'::text[]),
+			COALESCE(to_json(a.missing_sources)::text, '[]'),
 			COALESCE(a.verification_status, 'PENDING'),
 			COALESCE(a.actual_data_origin, 'REAL')
 		FROM public.dc_dashboard_vehicle_actual v
@@ -147,7 +148,7 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 		&site.LastSeenAt,
 		&site.LastSyncAt,
 		&summary.CompletenessStatus,
-		&summary.MissingSources,
+		&missingSourcesJSON,
 		&summary.VerificationStatus,
 		&summary.ActualDataOrigin,
 	)
@@ -157,6 +158,10 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := json.Unmarshal([]byte(missingSourcesJSON), &summary.MissingSources); err != nil {
+		writeError(w, http.StatusInternalServerError, "invalid missing_sources data")
 		return
 	}
 

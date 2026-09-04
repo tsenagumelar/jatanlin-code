@@ -111,7 +111,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-jatanlin_dc_minio_password}
       MINIO_BUCKET: ${MINIO_BUCKET:-jatanlin-data-center-attachments}
       MINIO_USE_SSL: "false"
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://127.0.0.1:3001}
     ports:
       - "${DATA_CENTER_BIND_HOST:-127.0.0.1}:${DATA_CENTER_API_PORT:-28001}:8080"
 

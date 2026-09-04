@@ -10,7 +10,7 @@ SELECT
   NULL::varchar(120) AS transaction_no,
   v.actual_plat_no AS plate_no,
   NULL::varchar(100) AS vehicle_class,
-  NULL::varchar(160) AS operator_name,
+  actor.display_name::varchar(160) AS operator_name,
   v.location_lat::numeric(11,8) AS location_lat,
   v.location_lng::numeric(11,8) AS location_lng,
   v.location_address, v.actual_weight AS total_weight,
@@ -42,6 +42,11 @@ LEFT JOIN LATERAL (
   ORDER BY COALESCE(s.updated_date, s.created_date, s.synced_at) DESC
   LIMIT 1
 ) vs ON true
+LEFT JOIN public.dc_master_record actor
+  ON actor.site_id = v.site_id
+ AND actor.table_name = 'master_user'
+ AND actor.source_id = COALESCE(v.verified_by, vs.updated_by, vs.created_by, v.updated_by, v.created_by)
+ AND COALESCE(actor.is_deleted, false) = false
 WHERE COALESCE(v.is_deleted, false) = false;
 
 COMMENT ON VIEW public.dc_dashboard_vehicle_actual IS

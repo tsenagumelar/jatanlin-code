@@ -24,6 +24,8 @@ This removes the previous `UNION ALL` ambiguity where one site transaction could
 
 The web detail page treats missing device data as an expected partial-data state and displays source failures without inventing fallback values.
 
+Site users remain site-scoped mirror records in `dc_master_record` with `table_name = 'master_user'`. They are not inserted into the data-center `master_user` table, which is reserved for central login accounts. Officer names are resolved by `(site_id, source user ID)`, preferring `verified_by`, then the latest status actor, then the transaction actor.
+
 ## Migration and rollback
 
 Apply `data-center/infra/database/004_phase9_canonical_transactions.sql`. The migration replaces only the read view and does not delete legacy rows.
