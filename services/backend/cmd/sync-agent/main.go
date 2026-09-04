@@ -193,7 +193,7 @@ func main() {
 func loadSyncConfig() syncConfig {
 	return syncConfig{
 		Enabled:                  envBool("DATA_CENTER_SYNC_ENABLED", false),
-		APIBaseURL:               strings.TrimRight(env("DATA_CENTER_API_URL", "https://api.jatanlinkorlantas.id"), "/"),
+		APIBaseURL:               strings.TrimRight(env("DATA_CENTER_API_URL", "http://localhost:28001"), "/"),
 		SyncKey:                  env("DATA_CENTER_SYNC_KEY", "jatanlin-site-sync-key-2026"),
 		Interval:                 time.Duration(envInt("DATA_CENTER_SYNC_INTERVAL_SEC", 30)) * time.Second,
 		BatchSize:                envInt("DATA_CENTER_SYNC_BATCH_SIZE", 100),
@@ -202,7 +202,7 @@ func loadSyncConfig() syncConfig {
 		Lookback:                 time.Duration(envInt("DATA_CENTER_SYNC_LOOKBACK_SEC", 300)) * time.Second,
 		Once:                     envBool("DATA_CENTER_SYNC_ONCE", false),
 		AttachmentSyncEnabled:    envBool("DATA_CENTER_ATTACHMENT_SYNC_ENABLED", true),
-		DataCenterMinIOEndpoint:  env("DATA_CENTER_MINIO_ENDPOINT", "minio.jatanlinkorlantas.id"),
+		DataCenterMinIOEndpoint:  env("DATA_CENTER_MINIO_ENDPOINT", "localhost:29000"),
 		DataCenterMinIOAccessKey: env("DATA_CENTER_MINIO_ACCESS_KEY", "jatanlin_dc_minio"),
 		DataCenterMinIOSecretKey: env("DATA_CENTER_MINIO_SECRET_KEY", "jatanlin_dc_minio_password"),
 		DataCenterMinIOBucket:    env("DATA_CENTER_MINIO_BUCKET", "jatanlin-data-center-attachments"),
