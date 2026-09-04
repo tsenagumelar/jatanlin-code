@@ -347,6 +347,7 @@ func insertActual(ctx context.Context, tx *sql.Tx, siteID, sessionID, actor uuid
 		 max(source_record_id::text) FILTER(WHERE source_type='WIM' AND source_status='RECEIVED')::uuid weighing_id,
 		 max(source_record_id::text) FILTER(WHERE source_type='CCTV' AND source_status='RECEIVED')::uuid cctv_id,
 		 max(source_record_id::text) FILTER(WHERE source_type='DIMENSION' AND source_status='RECEIVED')::uuid dimension_id,
+		 bool_or(source_mode='DUMMY' AND source_status='RECEIVED') has_dummy,
 		 array_agg(source_type ORDER BY source_type) FILTER(WHERE source_status<>'RECEIVED' AND source_mode<>'DISABLED') missing
 		 FROM public.transact_session_source WHERE site_id=$1 AND session_id=$2
 		), values_to_save AS (
@@ -362,11 +363,12 @@ func insertActual(ctx context.Context, tx *sql.Tx, siteID, sessionID, actor uuid
 		(site_id,session_id,anpr_id,axle_id,transact_weighing_id,transact_cctv_id,transact_dimension_id,
 		 actual_width,actual_length,actual_height,actual_weight,actual_plat_no,actual_total_axle,
 		 location_lat,location_lng,completeness_status,missing_sources,verification_status,
-		 is_active,is_deleted,created_by,created_date)
+		 actual_data_origin,is_active,is_deleted,created_by,created_date)
 		SELECT $1,$2,v.anpr_id,v.axle_id,v.weighing_id,v.cctv_id,v.dimension_id,
 		 d.width,COALESCE(d.length,a.length_mm/1000.0),d.height,w.total_weight,n.plate_no,
 		 COALESCE(w.total_axle,a.total_axles),v.latitude,v.longitude,v.completeness,
-		 COALESCE(v.missing,'{}'::text[]),'PENDING',true,false,$3,now()
+		 COALESCE(v.missing,'{}'::text[]),'PENDING',CASE WHEN v.has_dummy THEN 'DUMMY' ELSE 'REAL' END,
+		 true,false,$3,now()
 		FROM values_to_save v LEFT JOIN public.transact_anpr_capture n ON n.id=v.anpr_id
 		LEFT JOIN public.transact_axle_capture a ON a.id=v.axle_id
 		LEFT JOIN public.transact_weighing w ON w.id=v.weighing_id

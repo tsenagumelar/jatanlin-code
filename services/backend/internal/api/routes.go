@@ -19,6 +19,7 @@ func (s *Server) registerTransactionRoutes() {
 	transactions.Get("/sessions/active", s.TransactionHandler.Active)
 	transactions.Get("/sessions/recover", s.TransactionHandler.Active)
 	transactions.Post("/sessions/:id/finalize", s.TransactionHandler.Finalize)
+	transactions.Put("/vehicles/:id/verification", s.TransactionHandler.Verify)
 }
 
 func (s *Server) registerHealthRoutes() {

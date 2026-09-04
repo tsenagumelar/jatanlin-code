@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { gql, useMutation } from "@apollo/client";
 import {
   checkOdolViolation,
   VehicleActual,
@@ -39,31 +38,8 @@ import {
   Image24Regular,
   Print24Regular,
 } from "@fluentui/react-icons";
-import {
-  useGetVehicleActualByIdQuery,
-  useUpdateVehicleActualMutation,
-} from "@/src/graphql/hooks/transact-vehicle-actual";
-import {
-  useInsertAnprCaptureMutation,
-  useUpdateAnprCaptureMutation,
-} from "@/src/graphql/hooks/transact-anpr-capture";
-import {
-  useInsertAxleCaptureMutation,
-  useUpdateAxleCaptureMutation,
-} from "@/src/graphql/hooks/transact-axle-capture";
-import {
-  useInsertWeighingMutation,
-  useUpdateWeighingMutation,
-} from "@/src/graphql/hooks/transact-vehicke-weight";
-import {
-  useInsertDimensionMutation,
-  useUpdateDimensionMutation,
-} from "@/src/graphql/hooks/transact-vehicle-dimension";
-import {
-  useInsertVehicleStatusMutation,
-  useUpdateVehicleStatusMutation,
-  useGetVehicleStatusByActualIdQuery,
-} from "@/src/graphql/hooks/transact-vehicle-status";
+import { useGetVehicleActualByIdQuery } from "@/src/graphql/hooks/transact-vehicle-actual";
+import { useGetVehicleStatusByActualIdQuery } from "@/src/graphql/hooks/transact-vehicle-status";
 import { useGetVehicleClassesQuery } from "@/src/graphql/hooks/master-vehicle-class";
 import { useGetConfigsQuery } from "@/src/graphql/hooks/configuration";
 import { getMinioImageUrl, getImageUrl } from "@/src/utils/image";
@@ -72,36 +48,16 @@ import {
   isPrintableViolation,
   printViolationSticker,
 } from "@/src/utils/violationPrint";
+import { getAuthTokenCookie } from "@/src/utils/auth";
 
 interface JatanlinVerifyModuleProps {
   id: string;
   hideHeader?: boolean;
 }
 
-const INSERT_CCTV = gql`
-  mutation InsertCctv($object: transact_cctv_insert_input!) {
-    insert_transact_cctv_one(object: $object) {
-      id
-      filepath
-      filename
-    }
-  }
-`;
-
-const UPDATE_CCTV = gql`
-  mutation UpdateCctv($id: uuid!, $set: transact_cctv_set_input!) {
-    update_transact_cctv_by_pk(pk_columns: { id: $id }, _set: $set) {
-      id
-      filepath
-      filename
-    }
-  }
-`;
-
 type UploadedImageMeta = {
   filePath: string;
   bucket?: string;
-  dateFolder?: string;
   objectName?: string;
 };
 
@@ -114,22 +70,6 @@ const formatDateTime = (dateString: any) => {
     hour: "2-digit",
     minute: "2-digit",
   });
-};
-
-const formatViolationLabel = (value?: string | null) => {
-  if (value === "Over Dimension & Over Loading") {
-    return "Over Dimension & Over Loading";
-  }
-  if (value === "Over Dimension & Loading") {
-    return "Over Dimension & Over Loading";
-  }
-  if (value === "Over Dimension") return "Over Dimension";
-  if (value === "Over Loading") return "Over Loading";
-  if (value === "Pending") return "Menunggu";
-  if (value === "Verified") return "Terverifikasi";
-  if (value === "Rejected") return "Ditolak";
-  if (value === "Draft") return "Draf";
-  return value || "-";
 };
 
 const parseComparisonNumber = (value: unknown) => {
@@ -165,10 +105,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
   const [sourceAxleImagePath, setSourceAxleImagePath] = useState("");
   const [sourceCctvPath, setSourceCctvPath] = useState("");
   const [sourceAnprBucket, setSourceAnprBucket] = useState("");
-  const [sourceAnprDateFolder, setSourceAnprDateFolder] = useState("");
   const [sourceAnprObjectName, setSourceAnprObjectName] = useState("");
   const [sourceAxleBucket, setSourceAxleBucket] = useState("");
-  const [sourceAxleDateFolder, setSourceAxleDateFolder] = useState("");
   const [sourceAxleObjectName, setSourceAxleObjectName] = useState("");
   const [uploadingSourceImage, setUploadingSourceImage] = useState<
     "anpr" | "axle" | "cctv" | null
@@ -188,6 +126,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
   const [confirmAction, setConfirmAction] = useState<
     "save" | "verify" | "reject"
   >("save");
+  const [submittingVerification, setSubmittingVerification] = useState(false);
 
   const { data, loading, error } = useGetVehicleActualByIdQuery({
     variables: { id },
@@ -209,41 +148,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     },
   });
 
-  const [updateVehicleActual, { loading: updatingVehicle }] =
-    useUpdateVehicleActualMutation({
-      refetchQueries: ["GetVehicleActualById", "GetVehicleActuals"],
-    });
-  const [insertAnprCapture] = useInsertAnprCaptureMutation();
-  const [updateAnprCapture] = useUpdateAnprCaptureMutation();
-  const [insertAxleCapture] = useInsertAxleCaptureMutation();
-  const [updateAxleCapture] = useUpdateAxleCaptureMutation();
-  const [insertWeighing] = useInsertWeighingMutation();
-  const [updateWeighing] = useUpdateWeighingMutation();
-  const [insertDimension] = useInsertDimensionMutation();
-  const [updateDimension] = useUpdateDimensionMutation();
-
-  const [insertVehicleStatus, { loading: insertingStatus }] =
-    useInsertVehicleStatusMutation({
-      refetchQueries: [
-        "GetVehicleActualById",
-        "GetVehicleActuals",
-        "GetVehicleStatusByActualId",
-      ],
-    });
-
-  const [updateVehicleStatus, { loading: updatingStatus }] =
-    useUpdateVehicleStatusMutation({
-      refetchQueries: [
-        "GetVehicleActualById",
-        "GetVehicleActuals",
-        "GetVehicleStatusByActualId",
-      ],
-    });
-
-  const [insertCctv] = useMutation(INSERT_CCTV);
-  const [updateCctv] = useMutation(UPDATE_CCTV);
-
-  const submitting = updatingVehicle || insertingStatus || updatingStatus;
+  const submitting = submittingVerification;
   const listPath = pathname.startsWith("/")
     ? "/transaction/jatanlin"
     : "/jatanlin";
@@ -391,9 +296,6 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         vehicle.transact_anpr_capture?.minio_full_image_object || "",
       );
       setSourceAnprBucket(vehicle.transact_anpr_capture?.minio_bucket || "");
-      setSourceAnprDateFolder(
-        vehicle.transact_anpr_capture?.minio_date_folder || "",
-      );
       setSourceAnprObjectName(
         vehicle.transact_anpr_capture?.minio_full_image_object || "",
       );
@@ -401,9 +303,6 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         vehicle.transact_axle_capture?.minio_image_object || "",
       );
       setSourceAxleBucket(vehicle.transact_axle_capture?.minio_bucket || "");
-      setSourceAxleDateFolder(
-        vehicle.transact_axle_capture?.minio_date_folder || "",
-      );
       setSourceAxleObjectName(
         vehicle.transact_axle_capture?.minio_image_object || "",
       );
@@ -421,10 +320,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         setLocationLat(position.coords.latitude);
         setLocationLng(position.coords.longitude);
       },
-      () => {
-        setLocationLat(null);
-        setLocationLng(null);
-      },
+      () => undefined,
     );
   }, []);
 
@@ -538,7 +434,6 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       return {
         filePath: result.file_path as string,
         bucket: (result.bucket as string | undefined) || undefined,
-        dateFolder: (result.date_folder as string | undefined) || undefined,
         objectName: (result.object_name as string | undefined) || undefined,
       };
     }
@@ -562,9 +457,6 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
           if (uploaded.bucket || fallbackBucket) {
             setSourceAnprBucket(uploaded.bucket || fallbackBucket);
           }
-          if (uploaded.dateFolder !== undefined) {
-            setSourceAnprDateFolder(uploaded.dateFolder);
-          }
           setSourceAnprObjectName(
             uploaded.objectName ||
               uploaded.filePath.split("/").slice(1).join("/"),
@@ -577,9 +469,6 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             : "";
           if (uploaded.bucket || fallbackBucket) {
             setSourceAxleBucket(uploaded.bucket || fallbackBucket);
-          }
-          if (uploaded.dateFolder !== undefined) {
-            setSourceAxleDateFolder(uploaded.dateFolder);
           }
           setSourceAxleObjectName(
             uploaded.objectName ||
@@ -662,275 +551,44 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       if (confirmAction === "verify") statusToSave = "verified";
       if (confirmAction === "reject") statusToSave = "rejected";
 
-      let sourceAnprId =
-        vehicle.transact_anpr_capture?.id || vehicle.anpr_id || null;
-      let sourceAxleId =
-        vehicle.transact_axle_capture?.id || vehicle.axle_id || null;
-      let sourceWeighingId =
-        vehicle.transact_weighing?.id || vehicle.transact_weighing_id || null;
-      let sourceDimensionId =
-        vehicle.transact_dimension?.id || vehicle.transact_dimension_id || null;
-      let sourceCctvId =
-        vehicle.transact_cctv?.id || vehicle.transact_cctv_id || null;
-      const hasExistingAnprImage =
-        !!vehicle.transact_anpr_capture?.minio_full_image_object;
-      const hasExistingAxleImage =
-        !!vehicle.transact_axle_capture?.minio_image_object;
-      const hasExistingCctvPath = !!vehicle.transact_cctv?.filepath;
-
-      if (sourceAnprId) {
-        await updateAnprCapture({
-          variables: {
-            id: sourceAnprId,
-            set: {
-              plate_no: sourcePlateNo || null,
-              minio_bucket:
-                hasExistingAnprImage || !sourceAnprObjectName
-                  ? undefined
-                  : sourceAnprBucket || undefined,
-              minio_date_folder:
-                hasExistingAnprImage || !sourceAnprObjectName
-                  ? undefined
-                  : sourceAnprDateFolder || undefined,
-              minio_full_image_object:
-                hasExistingAnprImage || !sourceAnprObjectName
-                  ? undefined
-                  : sourceAnprObjectName,
-              minio_plate_image_object:
-                hasExistingAnprImage || !sourceAnprObjectName
-                  ? undefined
-                  : sourceAnprObjectName,
-              updated_by: "00000000-0000-0000-0000-000000000000",
-              updated_date: new Date().toISOString(),
-            },
+      setSubmittingVerification(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+      const response = await fetch(
+        `${apiUrl}/api/transactions/vehicles/${id}/verification`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAuthTokenCookie() || ""}`,
           },
-        });
-      } else if (sourcePlateNo) {
-        const inserted = await insertAnprCapture({
-          variables: {
-            object: {
-              plate_no: sourcePlateNo,
-              captured_at: vehicle.created_date,
-              minio_bucket: sourceAnprBucket || null,
-              minio_date_folder: sourceAnprDateFolder || null,
-              minio_full_image_object: sourceAnprObjectName || null,
-              minio_plate_image_object: sourceAnprObjectName || null,
-              site_id: vehicle.site_id,
-              is_active: true,
-              is_deleted: false,
-              created_by: "00000000-0000-0000-0000-000000000000",
-              created_date: new Date().toISOString(),
-            },
-          },
-        });
-        sourceAnprId =
-          inserted.data?.insert_transact_anpr_capture_one?.id || null;
-      }
-
-      if (sourceAxleId) {
-        await updateAxleCapture({
-          variables: {
-            id: sourceAxleId,
-            set: {
-              plate_no: sourcePlateNo || null,
-              total_axles: sourceTotalAxle ? parseInt(sourceTotalAxle) : null,
-              minio_bucket:
-                hasExistingAxleImage || !sourceAxleObjectName
-                  ? undefined
-                  : sourceAxleBucket || undefined,
-              minio_date_folder:
-                hasExistingAxleImage || !sourceAxleObjectName
-                  ? undefined
-                  : sourceAxleDateFolder || undefined,
-              minio_image_object:
-                hasExistingAxleImage || !sourceAxleObjectName
-                  ? undefined
-                  : sourceAxleObjectName,
-              updated_by: "00000000-0000-0000-0000-000000000000",
-              updated_date: new Date().toISOString(),
-            },
-          },
-        });
-      } else if (sourcePlateNo || sourceTotalAxle) {
-        const inserted = await insertAxleCapture({
-          variables: {
-            object: {
-              plate_no: sourcePlateNo || null,
-              captured_at: vehicle.created_date,
-              total_axles: sourceTotalAxle ? parseInt(sourceTotalAxle) : null,
-              minio_bucket: sourceAxleBucket || null,
-              minio_date_folder: sourceAxleDateFolder || null,
-              minio_image_object: sourceAxleObjectName || null,
-              site_id: vehicle.site_id,
-              is_active: true,
-              is_deleted: false,
-              created_by: "00000000-0000-0000-0000-000000000000",
-              created_date: new Date().toISOString(),
-            },
-          },
-        });
-        sourceAxleId =
-          inserted.data?.insert_transact_axle_capture_one?.id || null;
-      }
-
-      if (sourceWeighingId) {
-        await updateWeighing({
-          variables: {
-            id: sourceWeighingId,
-            set: {
-              total_axle: sourceTotalAxle ? parseInt(sourceTotalAxle) : null,
-              total_weight: sourceWeightKg ? parseFloat(sourceWeightKg) : null,
-              updated_by: "00000000-0000-0000-0000-000000000000",
-              updated_date: new Date().toISOString(),
-            },
-          },
-        });
-      } else if (sourceTotalAxle || sourceWeightKg) {
-        const inserted = await insertWeighing({
-          variables: {
-            object: {
-              total_axle: sourceTotalAxle ? parseInt(sourceTotalAxle) : null,
-              total_weight: sourceWeightKg ? parseFloat(sourceWeightKg) : null,
-              site_id: vehicle.site_id,
-              is_active: true,
-              is_deleted: false,
-              created_by: "00000000-0000-0000-0000-000000000000",
-              created_date: new Date().toISOString(),
-            },
-          },
-        });
-        sourceWeighingId =
-          inserted.data?.insert_transact_weighing_one?.id || null;
-      }
-
-      if (sourceDimensionId) {
-        await updateDimension({
-          variables: {
-            id: sourceDimensionId,
-            set: {
-              length: sourceLength ? parseFloat(sourceLength) : null,
-              width: sourceWidth ? parseFloat(sourceWidth) : null,
-              height: sourceHeight ? parseFloat(sourceHeight) : null,
-              updated_by: "00000000-0000-0000-0000-000000000000",
-              updated_date: new Date().toISOString(),
-            },
-          },
-        });
-      } else if (sourceLength || sourceWidth || sourceHeight) {
-        const inserted = await insertDimension({
-          variables: {
-            object: {
-              anpr_id: sourceAnprId,
-              length: sourceLength ? parseFloat(sourceLength) : null,
-              width: sourceWidth ? parseFloat(sourceWidth) : null,
-              height: sourceHeight ? parseFloat(sourceHeight) : null,
-              site_id: vehicle.site_id,
-              is_active: true,
-              is_deleted: false,
-              created_by: "00000000-0000-0000-0000-000000000000",
-              created_date: new Date().toISOString(),
-            },
-          },
-        });
-        sourceDimensionId =
-          inserted.data?.insert_transact_dimension_one?.id || null;
-      }
-
-      if (sourceCctvId) {
-        if (!hasExistingCctvPath && sourceCctvPath) {
-          await updateCctv({
-            variables: {
-              id: sourceCctvId,
-              set: {
-                filepath: sourceCctvPath,
-                filename: sourceCctvPath.split("/").pop() || "cctv.jpg",
-                updated_by: "00000000-0000-0000-0000-000000000000",
-                updated_date: new Date().toISOString(),
-              },
-            },
-          });
-        }
-      } else if (sourceCctvPath) {
-        const inserted = await insertCctv({
-          variables: {
-            object: {
-              filepath: sourceCctvPath,
-              filename: sourceCctvPath.split("/").pop() || "cctv.jpg",
-              site_id: vehicle.site_id,
-              is_active: true,
-              is_deleted: false,
-              created_by: "00000000-0000-0000-0000-000000000000",
-              created_date: new Date().toISOString(),
-            },
-          },
-        });
-        sourceCctvId = inserted.data?.insert_transact_cctv_one?.id || null;
-      }
-
-      await updateVehicleActual({
-        variables: {
-          id,
-          set: {
-            anpr_id: sourceAnprId,
-            axle_id: sourceAxleId,
-            transact_weighing_id: sourceWeighingId,
-            transact_dimension_id: sourceDimensionId,
-            transact_cctv_id: sourceCctvId,
+          body: JSON.stringify({
+            action: confirmAction,
+            reason: notes,
+            result: result || null,
+            attachments: attachmentPaths,
             actual_plat_no: actualPlatNo || null,
-            actual_length: actualLength ? parseFloat(actualLength) : null,
-            actual_width: actualWidth ? parseFloat(actualWidth) : null,
-            actual_height: actualHeight ? parseFloat(actualHeight) : null,
-            actual_weight: actualWeight
-              ? parseFloat(actualWeight) * 1000
-              : null,
+            actual_length: parseComparisonNumber(actualLength),
+            actual_width: parseComparisonNumber(actualWidth),
+            actual_height: parseComparisonNumber(actualHeight),
+            actual_weight:
+              parseComparisonNumber(actualWeight) === null
+                ? null
+                : Number(actualWeight) * 1000,
             actual_total_axle: actualTotalAxle
-              ? parseInt(actualTotalAxle)
+              ? Number.parseInt(actualTotalAxle, 10)
               : null,
             location_address: locationAddress || null,
             location_lat: locationLat,
             location_lng: locationLng,
-            updated_by: "00000000-0000-0000-0000-000000000000",
-            updated_date: new Date().toISOString(),
-          },
+          }),
         },
-      });
-
-      const attachmentPayload =
-        attachmentPaths.length > 0 ? attachmentPaths : null;
-
-      if (existingStatus && existingStatus.status === "draft") {
-        await updateVehicleStatus({
-          variables: {
-            id: existingStatus.id,
-            set: {
-              status: statusToSave,
-              result: result || null,
-              notes: notes || null,
-              attachment: attachmentPayload,
-              site_id: vehicle.site_id,
-              is_active: true,
-              updated_by: "00000000-0000-0000-0000-000000000000",
-              updated_date: new Date().toISOString(),
-            },
-          },
-        });
-      } else {
-        await insertVehicleStatus({
-          variables: {
-            object: {
-              transact_vehicle_actual_id: id,
-              status: statusToSave,
-              result: result || null,
-              notes: notes || null,
-              attachment: attachmentPayload,
-              site_id: vehicle.site_id,
-              is_active: true,
-              is_deleted: false,
-              created_by: "00000000-0000-0000-0000-000000000000",
-              created_date: new Date().toISOString(),
-            },
-          },
-        });
+      );
+      const payload = (await response.json()) as {
+        success?: boolean;
+        message?: string;
+      };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || "Gagal menyimpan verifikasi");
       }
 
       dispatchToast(
@@ -945,14 +603,19 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
         </Toast>,
         { intent: "success" },
       );
-
+      setSubmittingVerification(false);
       setDialogOpen(false);
       setTimeout(() => router.push(listPath), 1000);
     } catch (err) {
+      setSubmittingVerification(false);
       console.error("Error submitting verification:", err);
       dispatchToast(
         <Toast>
-          <ToastTitle>Gagal menyimpan verifikasi</ToastTitle>
+          <ToastTitle>
+            {err instanceof Error
+              ? err.message
+              : "Gagal menyimpan verifikasi"}
+          </ToastTitle>
         </Toast>,
         { intent: "error" },
       );

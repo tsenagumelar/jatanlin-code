@@ -345,12 +345,22 @@ Definition of done:
 
 ### Phase 5 — Verifikasi dan audit koreksi
 
-- [ ] Form verifikasi mengisi nilai `actual_*`, bukan menimpa raw source.
-- [ ] Wajibkan alasan untuk manual completion/override sesuai keputusan bisnis.
-- [ ] Catat setiap perubahan ke `transact_vehicle_revision`.
-- [ ] Isi `verified_by`, `verified_at`, dan status verifikasi.
-- [ ] Pastikan user login tersimpan pada status/penindakan.
-- [ ] Bedakan data `REAL`, `DUMMY`, dan `MANUAL` pada data model tanpa harus mengubah tampilan existing.
+- [x] Form verifikasi mengisi nilai `actual_*`, bukan menimpa raw source.
+- [x] Wajibkan alasan untuk manual completion/override sesuai keputusan bisnis.
+- [x] Catat setiap perubahan ke `transact_vehicle_revision`.
+- [x] Isi `verified_by`, `verified_at`, dan status verifikasi.
+- [x] Pastikan user login tersimpan pada status/penindakan.
+- [x] Bedakan data `REAL`, `DUMMY`, dan `MANUAL` pada data model tanpa harus mengubah tampilan existing.
+
+Catatan implementasi Phase 5:
+
+- Endpoint verifikasi terautentikasi menjadi satu-satunya jalur tulis form; mutation langsung dari browser ke raw ANPR, AXLE, WIM, dimension, dan CCTV telah dihapus.
+- Alasan wajib ketika nilai actual berubah atau tindakan ditolak. Penyimpanan draft tanpa perubahan tetap diperbolehkan.
+- Update actual, snapshot revision, dan status penindakan dijalankan dalam satu serializable database transaction dan menggunakan user dari JWT sebagai actor.
+- `actual_data_origin` menunjukkan `REAL`, `DUMMY`, atau `MANUAL`; provenance per perangkat tetap tersedia secara lebih rinci pada `transact_session_source`.
+- Kegagalan geolocation browser tidak mengosongkan koordinat fallback yang sudah tersimpan pada transaksi.
+- Migration `011_phase5_verification_audit.sql` menambahkan provenance dan foreign key actor status secara idempotent.
+- Smoke test transaksi tanpa data perangkat membuktikan manual completion menghasilkan status `VERIFIED`, origin `MANUAL`, revision immutable, dan tidak membuat/mengubah raw source.
 
 Definition of done:
 

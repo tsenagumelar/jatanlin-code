@@ -67,13 +67,29 @@ func (h *TransactionHandler) Finalize(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "message": "Transaction session finalized", "data": result})
 }
 
+func (h *TransactionHandler) Verify(c *fiber.Ctx) error {
+	actorID, err := authenticatedActorID(c)
+	if err != nil {
+		return errorResponse(c, fiber.StatusUnauthorized, err.Error())
+	}
+	var req orchestrator.VerificationRequest
+	if err := c.BodyParser(&req); err != nil {
+		return errorResponse(c, fiber.StatusBadRequest, "Invalid request body")
+	}
+	result, err := h.service.Verify(c.UserContext(), actorID, c.Params("id"), req)
+	if err != nil {
+		return transactionError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true, "message": "Vehicle verification saved", "data": result})
+}
+
 func transactionError(c *fiber.Ctx, err error) error {
 	log.Printf("[TRANSACTION] %s %s failed: %v", c.Method(), c.OriginalURL(), err)
 	if errors.Is(err, sql.ErrNoRows) {
 		return errorResponse(c, fiber.StatusNotFound, "Transaction session not found")
 	}
 	message := err.Error()
-	if strings.HasPrefix(message, "invalid ") || strings.Contains(message, "must be") {
+	if strings.HasPrefix(message, "invalid ") || strings.Contains(message, "must be") || strings.Contains(message, "is required") {
 		return errorResponse(c, fiber.StatusBadRequest, message)
 	}
 	return errorResponse(c, fiber.StatusInternalServerError, "Transaction operation failed")
