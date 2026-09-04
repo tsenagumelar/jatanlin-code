@@ -254,21 +254,7 @@ func insertAxleRecord(ctx context.Context, db *sql.DB, siteUUID string, meta *Ax
        length_mm, total_wheels, total_axles, vehicle_category, vehicle_body_type,
        minio_bucket, minio_date_folder, minio_xml_object, minio_image_object)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-      ON CONFLICT (external_id) DO UPDATE SET
-       site_id = EXCLUDED.site_id,
-       plate_no = EXCLUDED.plate_no,
-       captured_at = EXCLUDED.captured_at,
-       camera_id = EXCLUDED.camera_id,
-       length_mm = EXCLUDED.length_mm,
-       total_wheels = EXCLUDED.total_wheels,
-       total_axles = EXCLUDED.total_axles,
-       vehicle_category = EXCLUDED.vehicle_category,
-       vehicle_body_type = EXCLUDED.vehicle_body_type,
-       minio_bucket = EXCLUDED.minio_bucket,
-       minio_date_folder = EXCLUDED.minio_date_folder,
-       minio_xml_object = EXCLUDED.minio_xml_object,
-       minio_image_object = EXCLUDED.minio_image_object,
-       updated_date = now();
+	      ON CONFLICT DO NOTHING;
       `
 
 	_, err := db.ExecContext(

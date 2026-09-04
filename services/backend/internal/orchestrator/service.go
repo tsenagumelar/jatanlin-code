@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -130,9 +131,9 @@ func (s *Service) Start(ctx context.Context, actorID string, req StartRequest) (
 			INSERT INTO public.transact_session_source
 			  (site_id, session_id, source_type, source_mode, source_status, device_id,
 			   timeout_at, created_by, created_date)
-			VALUES ($1, $2, $3, $4, $5,
+			VALUES ($1, $2, $3::varchar, $4, $5,
 			  (SELECT d.id FROM public.master_device d JOIN public.master_device_type dt ON dt.id=d.device_type_id
-			   WHERE upper(dt.type_name)=$3 AND COALESCE(d.is_active,false)=true
+			   WHERE upper(dt.type_name::text)=$3::text AND COALESCE(d.is_active,false)=true
 			     AND COALESCE(d.is_deleted,false)=false ORDER BY d.created_date LIMIT 1),
 			  $6, $7, $8)
 		`, s.siteID, created.ID, sourceType, modes[sourceType], initialStatus(modes[sourceType]),
@@ -338,6 +339,7 @@ func attachLatestSourceRecords(ctx context.Context, tx *sql.Tx, siteID, sessionI
 
 func insertActual(ctx context.Context, tx *sql.Tx, siteID, sessionID, actor uuid.UUID, req FinalizeRequest) (*actualSummary, error) {
 	actual := &actualSummary{}
+	var missingJSON string
 	err := tx.QueryRowContext(ctx, `
 		WITH source AS (
 		 SELECT max(source_record_id::text) FILTER(WHERE source_type='ANPR' AND source_status='RECEIVED')::uuid anpr_id,
@@ -370,19 +372,26 @@ func insertActual(ctx context.Context, tx *sql.Tx, siteID, sessionID, actor uuid
 		LEFT JOIN public.transact_weighing w ON w.id=v.weighing_id
 		LEFT JOIN public.transact_dimension d ON d.id=v.dimension_id
 		ON CONFLICT (site_id,session_id) WHERE session_id IS NOT NULL DO NOTHING
-		RETURNING id::text,completeness_status,missing_sources
-	`, siteID, sessionID, actor, req.Latitude, req.Longitude).Scan(&actual.ID, &actual.Completeness, &actual.Missing)
+		RETURNING id::text,completeness_status,to_json(missing_sources)::text
+	`, siteID, sessionID, actor, req.Latitude, req.Longitude).Scan(&actual.ID, &actual.Completeness, &missingJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return findActual(ctx, tx, siteID, sessionID)
+	}
+	if err == nil {
+		err = json.Unmarshal([]byte(missingJSON), &actual.Missing)
 	}
 	return actual, err
 }
 
 func findActual(ctx context.Context, tx *sql.Tx, siteID, sessionID uuid.UUID) (*actualSummary, error) {
 	actual := &actualSummary{}
-	err := tx.QueryRowContext(ctx, `SELECT id::text,completeness_status,missing_sources
+	var missingJSON string
+	err := tx.QueryRowContext(ctx, `SELECT id::text,completeness_status,to_json(missing_sources)::text
 		FROM public.transact_vehicle_actual WHERE site_id=$1 AND session_id=$2 LIMIT 1`, siteID, sessionID).
-		Scan(&actual.ID, &actual.Completeness, &actual.Missing)
+		Scan(&actual.ID, &actual.Completeness, &missingJSON)
+	if err == nil {
+		err = json.Unmarshal([]byte(missingJSON), &actual.Missing)
+	}
 	return actual, err
 }
 

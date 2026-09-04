@@ -1053,7 +1053,7 @@ export function useV3Processing() {
     asNumber(liveWeight?.total_axle) || asNumber(liveAxle?.total_axles);
 
   const vehicleClass = (data?.classes ?? []).find(
-    (item: any) => asNumber(item.total_axle) === axleCount,
+    (item: Record<string, unknown>) => asNumber(item.total_axle) === axleCount,
   );
 
   const actualWeightKg = asNumber(liveWeight?.total_weight);
@@ -1243,7 +1243,6 @@ export function useV3Processing() {
     if (isProcessingStarted || isRequestingLocation || isStartingSession) return;
 
     const now = new Date();
-    const startedAt = now.toISOString();
     setActionError(null);
     setIsRequestingLocation(true);
     setIsStartingSession(true);

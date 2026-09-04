@@ -229,7 +229,7 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 			log.Printf("[ANPR_DUMMY] Dimension source mode unavailable for session=%s: %v", session.ID, modeErr)
 		} else if dimensionMode != source.ModeDisabled {
 			if _, err := p.DimensionHandler.ProcessANPRImageWithSessionMode("", meta.Plate, meta.ID, &session.ID, dimensionMode == source.ModeDummy); err != nil {
-			log.Printf("[ANPR_DUMMY] Dummy dimension failed for session=%s external_id=%s: %v", session.ID, meta.ID, err)
+				log.Printf("[ANPR_DUMMY] Dummy dimension failed for session=%s external_id=%s: %v", session.ID, meta.ID, err)
 			}
 		}
 	}
@@ -410,7 +410,7 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 				log.Printf("[ANPR] Dimension source mode unavailable for session=%s: %v", session.ID, modeErr)
 			} else if dimensionMode != source.ModeDisabled && (file.fullImg != "" || dimensionMode == source.ModeDummy) {
 				if err := p.processDimensionsFromFTP(ctx, c, file.metadata, &session.ID, file.fullImg, fullImgUploaded, fullObj, dimensionMode == source.ModeDummy); err != nil {
-				_ = err
+					_ = err
 				}
 			}
 		}

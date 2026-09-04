@@ -310,7 +310,8 @@ Catatan implementasi Phase 3:
 - Finalisasi menemukan source record terbaru berdasarkan `(site_id, session_id)`, menandai source yang tidak masuk, membuat tepat satu actual, lalu menyelesaikan session.
 - GPS aktual dikirim saat finalisasi; koordinat master site dipakai backend ketika GPS tidak tersedia.
 - Kontrak dan transaction guarantee didokumentasikan di `docs/phase3-transaction-orchestrator.md`.
-- Atas instruksi owner, compilation, migration execution, test, dan end-to-end validation Phase 3 belum dijalankan.
+- Compilation, migration lokal, dan smoke test lifecycle Phase 3 sudah dijalankan setelah Phase 4 selesai.
+- Validasi lanjutan memperbaiki inferensi tipe parameter PostgreSQL dan parsing `missing_sources`; smoke test start, recover, finalize, serta finalize idempotent sudah lulus pada database revamp lokal.
 
 Definition of done:
 
@@ -335,7 +336,8 @@ Catatan implementasi Phase 4:
 - Lookup session aktif dibatasi ketat oleh configured `site_id`; fallback lintas site dihapus.
 - Queue ANPR/AXLE/CCTV mempunyai maksimal lima delivery, delayed backoff, terminal handling, serta menyimpan error source saat retry habis. Seluruh queue mencatat startup/fetch failure.
 - Health/readiness endpoint queue belum ditambahkan agar scope tidak melebar; status operasional sementara diperoleh dari startup log dan `transact_session_source`.
-- Atas instruksi owner, compilation, migration execution, test, dan end-to-end validation Phase 4 belum dijalankan.
+- Compilation dan smoke test transaksi parsial Phase 4 sudah dijalankan; pengujian dengan seluruh device fisik tetap menunggu environment perangkat.
+- Validasi lanjutan memperbaiki race penyimpanan dimension terhadap queue ANPR dan conflict clause legacy ANPR/AXLE. Skenario satu source diterima dan satu source gagal sudah menghasilkan `PARTIAL` dengan `missing_sources=[AXLE]`.
 
 Definition of done:
 

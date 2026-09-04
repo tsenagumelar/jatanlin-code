@@ -255,7 +255,7 @@ func insertANPRRecord(ctx context.Context, db *sql.DB, siteUUID string, meta *AN
 		 minio_bucket, minio_date_folder,
 		 minio_xml_object, minio_full_image_object, minio_plate_image_object)
 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-	ON CONFLICT (external_id) DO NOTHING
+	ON CONFLICT DO NOTHING
 	`
 
 	_, err := db.ExecContext(

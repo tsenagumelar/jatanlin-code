@@ -141,16 +141,31 @@ func (dh *DimensionHandler) ProcessANPRImageWithSessionMode(imagePath string, pl
 		return dh.processDummyDimension(imagePath, plateNumber, externalID, sessionID)
 	}
 
-	result, err := dh.ProcessANPRImage(imagePath, plateNumber, externalID)
+	log.Printf("[DIMENSION_HANDLER] Processing session image for plate: %s (External ID: %s)", plateNumber, externalID)
+	result := &DimensionResult{ImagePath: imagePath, ProcessedAt: time.Now()}
+	dimensions, err := dh.DimensionService.ProcessImage(imagePath)
 	if err != nil {
+		result.ErrorMessage = err.Error()
 		return result, err
 	}
+	result.Dimensions = dimensions
+	result.VehicleCount = len(dimensions)
+	result.Success = true
 
-	if sessionID != nil && *sessionID != uuid.Nil {
-		if err := dh.attachSessionToExistingDimension(*sessionID, externalID); err != nil {
-			log.Printf("[DIMENSION_HANDLER] Warning: failed to attach session_id to dimension: %v", err)
-		} else if err := dh.markDimensionReceived(*sessionID); err != nil {
-			log.Printf("[DIMENSION_HANDLER] Warning: failed to update source state: %v", err)
+	if dh.SaveResults && dh.DB != nil {
+		for i := range dimensions {
+			if err := dh.upsertDimensionRecord(sessionID, externalID, imagePath, &dimensions[i]); err != nil {
+				result.Success = false
+				result.ErrorMessage = err.Error()
+				return result, fmt.Errorf("save session dimension %d: %w", i+1, err)
+			}
+		}
+		if sessionID != nil && *sessionID != uuid.Nil && len(dimensions) > 0 {
+			if err := dh.markDimensionReceived(*sessionID); err != nil {
+				result.Success = false
+				result.ErrorMessage = err.Error()
+				return result, err
+			}
 		}
 	}
 

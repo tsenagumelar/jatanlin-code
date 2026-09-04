@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"strings"
 	"wim-service/internal/orchestrator"
 
@@ -67,6 +68,7 @@ func (h *TransactionHandler) Finalize(c *fiber.Ctx) error {
 }
 
 func transactionError(c *fiber.Ctx, err error) error {
+	log.Printf("[TRANSACTION] %s %s failed: %v", c.Method(), c.OriginalURL(), err)
 	if errors.Is(err, sql.ErrNoRows) {
 		return errorResponse(c, fiber.StatusNotFound, "Transaction session not found")
 	}

@@ -14,15 +14,15 @@ import (
 )
 
 type Server struct {
-	App               *fiber.App
-	DB                *sql.DB
-	AuthService       *auth.AuthService
-	AuthHandler       *AuthHandler
-	UserHandler       *UserHandler
-	AttachmentHandler *attachment.AttachmentHandler
-	VeamHandler       *veam.VeamHandler
+	App                *fiber.App
+	DB                 *sql.DB
+	AuthService        *auth.AuthService
+	AuthHandler        *AuthHandler
+	UserHandler        *UserHandler
+	AttachmentHandler  *attachment.AttachmentHandler
+	VeamHandler        *veam.VeamHandler
 	TransactionHandler *TransactionHandler
-	AuthEnabled       bool
+	AuthEnabled        bool
 }
 
 func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.AttachmentHandler, licenseService *license.Service, authEnabled bool, siteID string, sessionTimeout time.Duration) (*Server, error) {
@@ -33,15 +33,15 @@ func NewServer(db *sql.DB, jwtSecret string, attachmentHandler *attachment.Attac
 	}
 
 	server := &Server{
-		App:               newFiberApp(),
-		DB:                db,
-		AuthService:       authService,
-		AuthHandler:       NewAuthHandler(authService),
-		UserHandler:       NewUserHandler(db),
-		AttachmentHandler: attachmentHandler,
-		VeamHandler:       veam.NewVeamHandler(licenseService),
+		App:                newFiberApp(),
+		DB:                 db,
+		AuthService:        authService,
+		AuthHandler:        NewAuthHandler(authService),
+		UserHandler:        NewUserHandler(db),
+		AttachmentHandler:  attachmentHandler,
+		VeamHandler:        veam.NewVeamHandler(licenseService),
 		TransactionHandler: NewTransactionHandler(transactionService),
-		AuthEnabled:       authEnabled,
+		AuthEnabled:        authEnabled,
 	}
 
 	if !authEnabled {
