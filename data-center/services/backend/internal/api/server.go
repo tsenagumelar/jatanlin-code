@@ -37,11 +37,15 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/data-center/transactions/{id}", s.withAuth(s.handleTransactionDetail))
 	mux.HandleFunc("POST /api/sync/heartbeat", s.withSiteSyncAuth(s.handleSyncHeartbeat))
 	mux.HandleFunc("POST /api/sync/mirror/batch", s.withSiteSyncAuth(s.handleSyncMirrorBatch))
-	mux.HandleFunc("POST /api/sync/vehicle-actual/batch", s.withSiteSyncAuth(s.handleSyncVehicleActualBatch))
+	mux.HandleFunc("POST /api/sync/vehicle-actual/batch", s.withSiteSyncAuth(s.handleLegacyVehicleActualSync))
 	mux.HandleFunc("POST /api/sync/attachments/prepare", s.withSiteSyncAuth(s.handleSyncAttachmentPrepare))
 	mux.HandleFunc("POST /api/sync/attachments/complete", s.withSiteSyncAuth(s.handleSyncAttachmentComplete))
 	mux.HandleFunc("POST /api/sync/cursor", s.withSiteSyncAuth(s.handleSyncCursor))
 	return s.withCORS(mux)
+}
+
+func (s *Server) handleLegacyVehicleActualSync(w http.ResponseWriter, _ *http.Request) {
+	writeError(w, http.StatusGone, "legacy vehicle-actual sync is retired; use /api/sync/mirror/batch")
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {

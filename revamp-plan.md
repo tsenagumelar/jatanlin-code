@@ -432,11 +432,20 @@ Definition of done:
 
 ### Phase 9 — Data center backend dan web
 
-- [ ] Tetapkan satu canonical transaction store di data center.
-- [ ] Migrasikan atau hentikan jalur legacy sebelum menghapus tabel lama.
-- [ ] Hindari `UNION ALL` dari dua store yang dapat memuat transaksi sama.
-- [ ] Sesuaikan detail transaksi dengan partial data dan source status.
-- [ ] Evaluasi perubahan UI data center setelah kontrak data stabil.
+- [x] Tetapkan satu canonical transaction store di data center.
+- [x] Migrasikan atau hentikan jalur legacy sebelum menghapus tabel lama.
+- [x] Hindari `UNION ALL` dari dua store yang dapat memuat transaksi sama.
+- [x] Sesuaikan detail transaksi dengan partial data dan source status.
+- [x] Evaluasi perubahan UI data center setelah kontrak data stabil.
+
+Catatan implementasi Phase 9:
+
+- `dc_transact_vehicle_actual` menjadi canonical store; view dashboard tidak lagi menggabungkannya dengan `dc_vehicle_actual` melalui `UNION ALL`.
+- Endpoint batch legacy mengembalikan `410 Gone`. Tabel legacy tetap dipertahankan sebagai rollback/audit dan belum dihapus secara destructive.
+- Detail API mengembalikan completeness, missing source, verification, origin, seluruh status source session, dan revision history.
+- Web data center menampilkan kondisi partial/empty, asal nilai aktual, error tiap source, dan riwayat koreksi tanpa mengubah raw evidence.
+- Migration `004_phase9_canonical_transactions.sql` additive terhadap tabel dan aman menjaga data legacy. Migration runner tidak lagi mengeksekusi snapshot `manual_migration.sql`.
+- Compose data center mempublikasikan PostgreSQL hanya pada bind host lokal agar migration runner dari host sesuai dengan dokumentasi.
 
 Definition of done:
 

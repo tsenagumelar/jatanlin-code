@@ -364,7 +364,8 @@ CREATE INDEX IF NOT EXISTS idx_dc_transact_weighing_site_session ON public.dc_tr
 CREATE INDEX IF NOT EXISTS idx_dc_transact_vehicle_actual_site_session ON public.dc_transact_vehicle_actual (site_id, source_session_id);
 CREATE INDEX IF NOT EXISTS idx_dc_transact_vehicle_status_site_actual ON public.dc_transact_vehicle_status (site_id, source_vehicle_actual_id);
 
-CREATE OR REPLACE VIEW public.dc_dashboard_vehicle_actual AS
+DROP VIEW IF EXISTS public.dc_dashboard_vehicle_actual;
+CREATE VIEW public.dc_dashboard_vehicle_actual AS
 SELECT
   v.id,
   v.site_id,
