@@ -74,6 +74,10 @@ type batchResult struct {
 	Status         string `json:"status"`
 }
 
+type deliveryRow struct {
+	ID string `json:"id"`
+}
+
 type minioSourceConfig struct {
 	Endpoint  string
 	AccessKey string
@@ -341,11 +345,15 @@ func (a *syncAgent) syncTableBatch(ctx context.Context, table mirrorTable) (bool
 	}
 	var result batchResult
 	if err := a.postJSON(ctx, "/api/sync/mirror/batch", payload, &result); err != nil {
+		a.recordDeliveryResult(ctx, table.Name, rowsJSON, maxCursor, "FAILED", err)
 		return false, err
 	}
 	if result.RecordsFailed > 0 {
-		return false, fmt.Errorf("data center accepted partial batch for %s: %d failed", table.Name, result.RecordsFailed)
+		resultErr := fmt.Errorf("data center accepted partial batch for %s: %d failed", table.Name, result.RecordsFailed)
+		a.recordDeliveryResult(ctx, table.Name, rowsJSON, maxCursor, "FAILED", resultErr)
+		return false, resultErr
 	}
+	a.recordDeliveryResult(ctx, table.Name, rowsJSON, maxCursor, "SUCCESS", nil)
 
 	if advanceCursor {
 		a.state.Tables[table.Name] = maxCursor
@@ -360,6 +368,62 @@ func (a *syncAgent) syncTableBatch(ctx context.Context, table mirrorTable) (bool
 		log.Printf("[SYNC] %s replayed %d record(s), cursor=%s", table.Name, count, cursorValue)
 	}
 	return advanceCursor && count >= a.cfg.BatchSize, nil
+}
+
+func (a *syncAgent) recordDeliveryResult(
+	ctx context.Context,
+	tableName string,
+	rowsJSON string,
+	sourceCursor string,
+	status string,
+	deliveryErr error,
+) {
+	var rows []deliveryRow
+	if err := json.Unmarshal([]byte(rowsJSON), &rows); err != nil {
+		log.Printf("[SYNC] Could not decode %s delivery rows for tracing: %v", tableName, err)
+		return
+	}
+
+	lastError := ""
+	if deliveryErr != nil {
+		lastError = deliveryErr.Error()
+	}
+	tx, err := a.db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Printf("[SYNC] Could not start %s delivery trace transaction: %v", tableName, err)
+		return
+	}
+	defer tx.Rollback()
+
+	for _, row := range rows {
+		if _, err := uuid.Parse(row.ID); err != nil {
+			log.Printf("[SYNC] Skipping invalid %s trace source id %q", tableName, row.ID)
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO public.sync_delivery_status (
+				site_id, table_name, source_id, delivery_status, attempt_count,
+				source_cursor, last_attempt_at, last_success_at, last_error
+			) VALUES ($1, $2, $3::uuid, $4::varchar, 1, $5, now(),
+				CASE WHEN $4::varchar = 'SUCCESS' THEN now() ELSE NULL END, NULLIF($6::text, ''))
+			ON CONFLICT (site_id, table_name, source_id) DO UPDATE SET
+				delivery_status = EXCLUDED.delivery_status,
+				attempt_count = public.sync_delivery_status.attempt_count + 1,
+				source_cursor = EXCLUDED.source_cursor,
+				last_attempt_at = now(),
+				last_success_at = CASE WHEN EXCLUDED.delivery_status = 'SUCCESS'
+					THEN now() ELSE public.sync_delivery_status.last_success_at END,
+				last_error = EXCLUDED.last_error,
+				updated_at = now()
+		`, a.siteID, tableName, row.ID, status, sourceCursor, lastError); err != nil {
+			log.Printf("[SYNC] Could not trace %s row %s: %v", tableName, row.ID, err)
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("[SYNC] Could not commit %s delivery trace: %v", tableName, err)
+	}
 }
 
 func (a *syncAgent) fetchRows(ctx context.Context, table mirrorTable, cursor string) (string, string, int, bool, error) {

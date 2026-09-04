@@ -19,6 +19,8 @@ Format cursor lama pada key `tables` tetap didukung. Key `streams` menambahkan `
 
 Late-arriving row direkonsiliasi melalui configured lookback window. Late-arriving attachment ditahan pada cursor sebelumnya dan dicoba lagi pada interval berikutnya. Dampaknya, satu object yang permanen hilang akan menahan stream attachment, tetapi tidak menahan tabel transaksi lain; kondisi tersebut terlihat melalui retry count dan last error.
 
+Selain cursor per stream, site menyimpan hasil delivery terakhir per row pada `sync_delivery_status`. Key uniknya `(site_id, table_name, source_id)`. Row ini mencatat status `SUCCESS`/`FAILED`, jumlah HTTP attempt termasuk replay idempotent, cursor batch, waktu attempt/sukses terakhir, dan error terakhir. Status `SUCCESS` hanya ditulis setelah data center mengonfirmasi seluruh batch.
+
 ## Kontrak data
 
 Selain tabel transaksi existing, agent sekarang mengirim:
