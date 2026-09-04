@@ -368,12 +368,21 @@ Definition of done:
 
 ### Phase 6 — List transaksi dan report
 
-- [ ] Scope query berdasarkan site.
-- [ ] Perbaiki boundary tanggal dan timezone site.
-- [ ] Pastikan pagination/filter dilakukan server-side untuk dataset besar.
-- [ ] Export seluruh hasil filter, bukan hanya page aktif.
-- [ ] Gunakan nilai final hasil verifikasi untuk report.
-- [ ] Tampilkan/ekspor completeness dan source provenance bila diperlukan bisnis.
+- [x] Scope query berdasarkan site.
+- [x] Perbaiki boundary tanggal dan timezone site.
+- [x] Pastikan pagination/filter dilakukan server-side untuk dataset besar.
+- [x] Export seluruh hasil filter, bukan hanya page aktif.
+- [x] Gunakan nilai final hasil verifikasi untuk report.
+- [x] Tampilkan/ekspor completeness dan source provenance bila diperlukan bisnis.
+
+Catatan implementasi Phase 6:
+
+- List V3 aktif menggunakan `limit/offset`, aggregate count, pencarian, site, tanggal, dan pelanggaran langsung pada query Hasura; batas 200 record dan pagination client-side dihapus.
+- Rentang tanggal memakai waktu site dengan boundary inklusif awal dan eksklusif awal hari berikutnya, sehingga milidetik terakhir hari tersebut tidak hilang.
+- Hanya hasil status `verified` yang menjadi klasifikasi pelanggaran authoritative; transaksi draft, reject, atau belum diverifikasi tetap `Pending` dan tidak dihitung dari raw source secara diam-diam.
+- Migration `012_phase6_current_status.sql` memastikan hanya satu status current yang aktif, sedangkan row lama tetap tersedia sebagai history.
+- Export CSV/PDF mengambil seluruh hasil filter dalam batch server-side dan menggunakan `actual_*`, bukan raw measurement. Export juga memuat completeness, origin `REAL/DUMMY/MANUAL`, dan source yang tidak masuk.
+- List, detail, dan form verifikasi dibatasi pada `NEXT_PUBLIC_SITE_ID`; timezone berasal dari `NEXT_PUBLIC_SITE_TIMEZONE` yang diturunkan dari site catalog.
 
 Definition of done:
 

@@ -23,6 +23,11 @@ fragment VehicleActualDetails on transact_vehicle_actual {
   location_address
   transact_cctv_id
   session_id
+  completeness_status
+  missing_sources
+  verification_status
+  verification_notes
+  actual_data_origin
 
   # ANPR Data (object relation)
   transact_anpr_capture {
@@ -133,6 +138,19 @@ query GetVehicleActuals(
 # Query: Get Vehicle Actual By ID
 query GetVehicleActualById($id: uuid!) {
   transact_vehicle_actual_by_pk(id: $id) {
+    ...VehicleActualDetails
+  }
+}
+
+query GetVehicleActualByIdAndSite($id: uuid!, $site_id: uuid!) {
+  transact_vehicle_actual(
+    where: {
+      id: { _eq: $id }
+      site_id: { _eq: $site_id }
+      is_deleted: { _eq: false }
+    }
+    limit: 1
+  ) {
     ...VehicleActualDetails
   }
 }

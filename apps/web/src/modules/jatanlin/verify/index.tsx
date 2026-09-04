@@ -38,8 +38,7 @@ import {
   Image24Regular,
   Print24Regular,
 } from "@fluentui/react-icons";
-import { useGetVehicleActualByIdQuery } from "@/src/graphql/hooks/transact-vehicle-actual";
-import { useGetVehicleStatusByActualIdQuery } from "@/src/graphql/hooks/transact-vehicle-status";
+import { useGetVehicleActualByIdAndSiteQuery } from "@/src/graphql/hooks/transact-vehicle-actual";
 import { useGetVehicleClassesQuery } from "@/src/graphql/hooks/master-vehicle-class";
 import { useGetConfigsQuery } from "@/src/graphql/hooks/configuration";
 import { getMinioImageUrl, getImageUrl } from "@/src/utils/image";
@@ -128,12 +127,10 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
   >("save");
   const [submittingVerification, setSubmittingVerification] = useState(false);
 
-  const { data, loading, error } = useGetVehicleActualByIdQuery({
-    variables: { id },
-  });
-
-  const { data: statusData } = useGetVehicleStatusByActualIdQuery({
-    variables: { transact_vehicle_actual_id: id },
+  const siteId = process.env.NEXT_PUBLIC_SITE_ID ?? "";
+  const { data, loading, error } = useGetVehicleActualByIdAndSiteQuery({
+    variables: { id, site_id: siteId },
+    skip: !siteId,
   });
 
   const { data: vehicleClassData } = useGetVehicleClassesQuery({
@@ -153,8 +150,8 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     ? "/transaction/jatanlin"
     : "/jatanlin";
 
-  const vehicle = data?.transact_vehicle_actual_by_pk;
-  const existingStatus = statusData?.transact_vehicle_status?.[0];
+  const vehicle = data?.transact_vehicle_actual[0];
+  const existingStatus = vehicle?.transact_vehicle_statuses?.[0];
   const vehicleClasses = React.useMemo(
     () => vehicleClassData?.master_vehicle_class || [],
     [vehicleClassData?.master_vehicle_class],

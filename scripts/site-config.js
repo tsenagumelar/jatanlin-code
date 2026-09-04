@@ -84,6 +84,7 @@ function siteEnv(site, catalog) {
     NEXT_PUBLIC_SITE_NAME: site.name,
     NEXT_PUBLIC_SITE_LOCATION: site.location || "",
     NEXT_PUBLIC_SITE_REGION: site.region || "",
+    NEXT_PUBLIC_SITE_TIMEZONE: site.timezone || "Asia/Jakarta",
     VEAM_ISSUED_BY: license.issuedBy || "Activa Digital",
     VEAM_EXPIRES_AT: license.expiresAt || "2027-12-31",
     VEAM_MODULES: modules,

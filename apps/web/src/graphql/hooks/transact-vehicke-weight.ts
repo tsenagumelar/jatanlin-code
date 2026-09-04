@@ -10,14 +10,14 @@ export type GetWeighingsQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetWeighingsQuery = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id?: any | null }>, transact_weighing_aggregate: { aggregate?: { count: number } | null } };
+export type GetWeighingsQuery = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id: any }>, transact_weighing_aggregate: { aggregate?: { count: number } | null } };
 
 export type GetWeighingByIdQueryVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
 }>;
 
 
-export type GetWeighingByIdQuery = { transact_weighing_by_pk?: { id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id?: any | null, session_id?: any | null } | null };
+export type GetWeighingByIdQuery = { transact_weighing_by_pk?: { id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id: any, session_id?: any | null } | null };
 
 export type GetWeighingsBySiteQueryVariables = Types.Exact<{
   site_id: Types.Scalars['uuid']['input'];
@@ -25,7 +25,7 @@ export type GetWeighingsBySiteQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetWeighingsBySiteQuery = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, created_date?: any | null, site_id?: any | null }> };
+export type GetWeighingsBySiteQuery = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, created_date?: any | null, site_id: any }> };
 
 export type GetWeighingsByDateRangeQueryVariables = Types.Exact<{
   start_date: Types.Scalars['timestamptz']['input'];
@@ -33,14 +33,14 @@ export type GetWeighingsByDateRangeQueryVariables = Types.Exact<{
 }>;
 
 
-export type GetWeighingsByDateRangeQuery = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, created_date?: any | null, site_id?: any | null }> };
+export type GetWeighingsByDateRangeQuery = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, created_date?: any | null, site_id: any }> };
 
 export type InsertWeighingMutationVariables = Types.Exact<{
   object: Types.Transact_Weighing_Insert_Input;
 }>;
 
 
-export type InsertWeighingMutation = { insert_transact_weighing_one?: { id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, created_date?: any | null, site_id?: any | null } | null };
+export type InsertWeighingMutation = { insert_transact_weighing_one?: { id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, created_date?: any | null, site_id: any } | null };
 
 export type UpdateWeighingMutationVariables = Types.Exact<{
   id: Types.Scalars['uuid']['input'];
@@ -64,7 +64,7 @@ export type SubscribeLatestWeighingSubscriptionVariables = Types.Exact<{
 }>;
 
 
-export type SubscribeLatestWeighingSubscription = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, is_active?: boolean | null, created_date?: any | null, updated_date?: any | null, site_id?: any | null }> };
+export type SubscribeLatestWeighingSubscription = { transact_weighing: Array<{ id: any, total_axle?: number | null, axle_detail?: any | null, total_weight?: any | null, is_active?: boolean | null, created_date?: any | null, updated_date?: any | null, site_id: any }> };
 
 
 export const GetWeighingsDocument = gql`

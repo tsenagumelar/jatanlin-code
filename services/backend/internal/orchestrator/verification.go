@@ -121,6 +121,13 @@ func (s *Service) Verify(ctx context.Context, actorID, vehicleID string, req Ver
 		}
 	}
 
+	_, err = tx.ExecContext(ctx, `UPDATE public.transact_vehicle_status
+		SET is_active=false,updated_by=$2,updated_date=now()
+		WHERE transact_vehicle_actual_id=$1 AND is_active=true AND is_deleted=false`, vehicle, actor)
+	if err != nil {
+		return nil, err
+	}
+
 	_, err = tx.ExecContext(ctx, `INSERT INTO public.transact_vehicle_status
 		(site_id,transact_vehicle_actual_id,status,result,notes,attachment,is_active,is_deleted,created_by,created_date)
 		VALUES ($1,$2,$3,NULLIF($4,''),NULLIF($5,''),$6,true,false,$7,now())`,
