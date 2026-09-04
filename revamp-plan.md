@@ -410,12 +410,21 @@ Definition of done:
 
 ### Phase 8 — Sync data center
 
-- [ ] Gunakan cursor, status, dan retry per tabel/source.
-- [ ] Kegagalan satu tabel tidak menghentikan tabel lain.
-- [ ] Jangan memajukan attachment cursor ketika object belum tersedia.
-- [ ] Tambahkan reconciliation untuk late-arriving data dan attachment.
-- [ ] Sinkronkan source status, completeness, verification, revision yang diperlukan, dan actor.
-- [ ] Pastikan payload/update bersifat idempotent.
+- [x] Gunakan cursor, status, dan retry per tabel/source.
+- [x] Kegagalan satu tabel tidak menghentikan tabel lain.
+- [x] Jangan memajukan attachment cursor ketika object belum tersedia.
+- [x] Tambahkan reconciliation untuk late-arriving data dan attachment.
+- [x] Sinkronkan source status, completeness, verification, revision yang diperlukan, dan actor.
+- [x] Pastikan payload/update bersifat idempotent.
+
+Catatan implementasi Phase 8:
+
+- File cursor mempertahankan format cursor lama dan menambahkan status, retry count, last error, serta waktu attempt/success per stream; penyimpanannya menggunakan atomic rename.
+- Heartbeat, masing-masing tabel, dan attachment berjalan independen. Failure satu stream tidak menghentikan stream sesudahnya dan cursor hanya bergerak setelah batch confirmed.
+- Lookback replay merekonsiliasi update yang datang terlambat. Attachment yang belum tersedia menahan cursor attachment dan dicoba ulang tanpa menahan sync transaksi.
+- Data center mirror menerima source-state, completeness, missing source, verification, origin, revision, dan actor melalui migration additive `003_phase8_sync_contract.sql`.
+- Semua mirror menggunakan upsert `(site_id, source_id)`; smoke replay payload revision dua kali menghasilkan tepat satu row.
+- Detail kontrak dan recovery didokumentasikan di `docs/phase8-data-center-sync.md`.
 
 Definition of done:
 

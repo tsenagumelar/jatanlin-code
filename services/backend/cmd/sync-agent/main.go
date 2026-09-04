@@ -51,7 +51,16 @@ type mirrorTable struct {
 }
 
 type cursorState struct {
-	Tables map[string]string `json:"tables"`
+	Tables  map[string]string          `json:"tables"`
+	Streams map[string]syncStreamState `json:"streams,omitempty"`
+}
+
+type syncStreamState struct {
+	Status        string     `json:"status"`
+	RetryCount    int        `json:"retry_count"`
+	LastError     string     `json:"last_error,omitempty"`
+	LastAttemptAt *time.Time `json:"last_attempt_at,omitempty"`
+	LastSuccessAt *time.Time `json:"last_success_at,omitempty"`
 }
 
 type parsedCursor struct {
@@ -83,6 +92,7 @@ type attachmentCandidate struct {
 	SourceCreatedAt *time.Time
 	SourceUpdatedAt *time.Time
 	CursorAt        time.Time
+	CursorID        string
 	RawPayload      json.RawMessage
 }
 
@@ -215,6 +225,7 @@ func loadSyncConfig() syncConfig {
 			{Name: "master_device", CursorExpr: "COALESCE(updated_date, created_date, now())"},
 			{Name: "master_user", CursorExpr: "COALESCE(updated_date, created_date, now())"},
 			{Name: "transact_wim_session", CursorExpr: "COALESCE(updated_date, created_date, started_at, now())", SiteScoped: true},
+			{Name: "transact_session_source", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
 			{Name: "transact_anpr_capture", CursorExpr: "COALESCE(updated_date, created_date, captured_at, now())", SiteScoped: true},
 			{Name: "transact_axle_capture", CursorExpr: "COALESCE(updated_date, created_date, captured_at, now())", SiteScoped: true},
 			{Name: "transact_cctv", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
@@ -222,37 +233,47 @@ func loadSyncConfig() syncConfig {
 			{Name: "transact_weighing", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
 			{Name: "transact_vehicle_actual", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
 			{Name: "transact_vehicle_status", CursorExpr: "COALESCE(updated_date, created_date, now())", SiteScoped: true},
+			{Name: "transact_vehicle_revision", CursorExpr: "COALESCE(changed_at, now())", SiteScoped: true},
 		},
 	}
 }
 
 func (a *syncAgent) runOnce(ctx context.Context) {
+	a.markAttempt("heartbeat")
 	if err := a.sendHeartbeat(ctx); err != nil {
 		log.Printf("[SYNC] Heartbeat failed: %v", err)
-		return
+		a.markFailure("heartbeat", err)
+	} else {
+		a.markSuccess("heartbeat")
 	}
 
 	for _, table := range a.cfg.MirrorTables {
+		a.markAttempt(table.Name)
 		for {
 			hasMore, err := a.syncTableBatch(ctx, table)
 			if err != nil {
 				log.Printf("[SYNC] Table %s failed: %v", table.Name, err)
-				return
+				a.markFailure(table.Name, err)
+				break
 			}
 			if !hasMore {
+				a.markSuccess(table.Name)
 				break
 			}
 		}
 	}
 
 	if a.cfg.AttachmentSyncEnabled {
+		a.markAttempt("attachment:minio")
 		for {
 			hasMore, err := a.syncAttachmentBatch(ctx)
 			if err != nil {
 				log.Printf("[SYNC] Attachment sync failed: %v", err)
-				return
+				a.markFailure("attachment:minio", err)
+				break
 			}
 			if !hasMore {
+				a.markSuccess("attachment:minio")
 				break
 			}
 		}
@@ -573,8 +594,9 @@ func (a *syncAgent) syncAttachmentBatch(ctx context.Context) (bool, error) {
 		}
 	}
 
+	advanceCursor = canAdvanceAttachmentCursor(advanceCursor, skipped)
 	if advanceCursor {
-		a.state.Tables["attachment:minio"] = maxCursor.UTC().Format(time.RFC3339Nano)
+		a.state.Tables["attachment:minio"] = maxCursor
 		if err := a.saveCursorState(); err != nil {
 			return false, err
 		}
@@ -585,13 +607,20 @@ func (a *syncAgent) syncAttachmentBatch(ctx context.Context) (bool, error) {
 	} else {
 		log.Printf("[SYNC] attachments replayed %d object(s), skipped %d object(s), cursor=%s", len(records), skipped, cursorValue)
 	}
+	if skipped > 0 {
+		return false, fmt.Errorf("%d attachment object(s) are not available; cursor retained at %s", skipped, cursorValue)
+	}
 	return advanceCursor && len(candidates) >= a.cfg.BatchSize, nil
 }
 
-func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string) ([]attachmentCandidate, time.Time, bool, error) {
+func canAdvanceAttachmentCursor(batchCanAdvance bool, skipped int) bool {
+	return batchCanAdvance && skipped == 0
+}
+
+func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string) ([]attachmentCandidate, string, bool, error) {
 	candidates, maxCursor, err := a.fetchAttachmentCandidatesWindow(ctx, cursor, sql.NullTime{})
 	if err != nil {
-		return nil, time.Time{}, false, err
+		return nil, "", false, err
 	}
 	if len(candidates) > 0 {
 		return candidates, maxCursor, true, nil
@@ -600,20 +629,21 @@ func (a *syncAgent) fetchAttachmentCandidates(ctx context.Context, cursor string
 		return candidates, maxCursor, false, nil
 	}
 
-	cursorAt, err := time.Parse(time.RFC3339Nano, cursor)
+	parsed, err := parseCursor(cursor)
 	if err != nil {
-		cursorAt, err = time.Parse(time.RFC3339, cursor)
-	}
-	if err != nil {
-		return nil, time.Time{}, false, err
+		return nil, "", false, err
 	}
 
-	lookbackCursor := cursorAt.Add(-a.cfg.Lookback).UTC().Format(time.RFC3339Nano)
-	candidates, maxCursor, err = a.fetchAttachmentCandidatesWindow(ctx, lookbackCursor, sql.NullTime{Time: cursorAt, Valid: true})
+	lookbackCursor := formatCursor(parsed.Time.Add(-a.cfg.Lookback), "")
+	candidates, maxCursor, err = a.fetchAttachmentCandidatesWindow(ctx, lookbackCursor, sql.NullTime{Time: parsed.Time, Valid: true})
 	return candidates, maxCursor, false, err
 }
 
-func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCursor string, upperCursor sql.NullTime) ([]attachmentCandidate, time.Time, error) {
+func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCursor string, upperCursor sql.NullTime) ([]attachmentCandidate, string, error) {
+	parsed, err := parseCursor(lowerCursor)
+	if err != nil {
+		return nil, "", err
+	}
 	const query = `
 		WITH candidates AS (
 			SELECT
@@ -626,6 +656,7 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 				t.created_date AS source_created_at,
 				t.updated_date AS source_updated_at,
 				COALESCE(t.updated_date, t.created_date, t.captured_at, now()) AS cursor_at,
+				concat_ws(':', 'transact_anpr_capture', t.id::text, attachment.attachment_type) AS cursor_id,
 				jsonb_build_object(
 					'source_table', 'transact_anpr_capture',
 					'source_id', t.id,
@@ -642,8 +673,6 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 			WHERE t.site_id = $1
 			  AND t.is_deleted IS NOT TRUE
 			  AND NULLIF(btrim(attachment.object_key), '') IS NOT NULL
-			  AND COALESCE(t.updated_date, t.created_date, t.captured_at, now()) > $2::timestamptz
-			  AND ($4::timestamptz IS NULL OR COALESCE(t.updated_date, t.created_date, t.captured_at, now()) <= $4::timestamptz)
 
 			UNION ALL
 
@@ -657,6 +686,7 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 				t.created_date AS source_created_at,
 				t.updated_date AS source_updated_at,
 				COALESCE(t.updated_date, t.created_date, t.captured_at, now()) AS cursor_at,
+				concat_ws(':', 'transact_axle_capture', t.id::text, attachment.attachment_type) AS cursor_id,
 				jsonb_build_object(
 					'source_table', 'transact_axle_capture',
 					'source_id', t.id,
@@ -672,8 +702,6 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 			WHERE t.site_id = $1
 			  AND t.is_deleted IS NOT TRUE
 			  AND NULLIF(btrim(attachment.object_key), '') IS NOT NULL
-			  AND COALESCE(t.updated_date, t.created_date, t.captured_at, now()) > $2::timestamptz
-			  AND ($4::timestamptz IS NULL OR COALESCE(t.updated_date, t.created_date, t.captured_at, now()) <= $4::timestamptz)
 		)
 		SELECT
 			source_table,
@@ -685,20 +713,23 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 			source_created_at,
 			source_updated_at,
 			cursor_at,
+			cursor_id,
 			raw_payload::text
 		FROM candidates
-		ORDER BY cursor_at ASC, source_table ASC, source_id ASC, attachment_type ASC
-		LIMIT $3
+		WHERE (cursor_at > $2::timestamptz OR (cursor_at = $2::timestamptz AND cursor_id > $3))
+		  AND ($5::timestamptz IS NULL OR cursor_at <= $5::timestamptz)
+		ORDER BY cursor_at ASC, cursor_id ASC
+		LIMIT $4
 	`
 
-	rows, err := a.db.QueryContext(ctx, query, a.siteID, lowerCursor, a.cfg.BatchSize, upperCursor)
+	rows, err := a.db.QueryContext(ctx, query, a.siteID, parsed.Time, parsed.ID, a.cfg.BatchSize, upperCursor)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, "", err
 	}
 	defer rows.Close()
 
 	candidates := make([]attachmentCandidate, 0, a.cfg.BatchSize)
-	var maxCursor time.Time
+	maxCursor := lowerCursor
 	for rows.Next() {
 		var candidate attachmentCandidate
 		var createdAt sql.NullTime
@@ -714,9 +745,10 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 			&createdAt,
 			&updatedAt,
 			&candidate.CursorAt,
+			&candidate.CursorID,
 			&rawPayload,
 		); err != nil {
-			return nil, time.Time{}, err
+			return nil, "", err
 		}
 		if createdAt.Valid {
 			candidate.SourceCreatedAt = &createdAt.Time
@@ -725,13 +757,11 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 			candidate.SourceUpdatedAt = &updatedAt.Time
 		}
 		candidate.RawPayload = json.RawMessage(rawPayload)
-		if candidate.CursorAt.After(maxCursor) {
-			maxCursor = candidate.CursorAt
-		}
+		maxCursor = formatCursor(candidate.CursorAt, candidate.CursorID)
 		candidates = append(candidates, candidate)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, time.Time{}, err
+		return nil, "", err
 	}
 	return candidates, maxCursor, nil
 }
@@ -847,7 +877,7 @@ func (a *syncAgent) postJSON(ctx context.Context, path string, payload any, resp
 }
 
 func (a *syncAgent) loadCursorState() error {
-	a.state = cursorState{Tables: map[string]string{}}
+	a.state = cursorState{Tables: map[string]string{}, Streams: map[string]syncStreamState{}}
 	content, err := os.ReadFile(a.cfg.CursorFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -861,6 +891,9 @@ func (a *syncAgent) loadCursorState() error {
 	if a.state.Tables == nil {
 		a.state.Tables = map[string]string{}
 	}
+	if a.state.Streams == nil {
+		a.state.Streams = map[string]syncStreamState{}
+	}
 	return nil
 }
 
@@ -872,7 +905,46 @@ func (a *syncAgent) saveCursorState() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(a.cfg.CursorFile, content, 0o600)
+	temporaryFile := a.cfg.CursorFile + ".tmp"
+	if err := os.WriteFile(temporaryFile, content, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(temporaryFile, a.cfg.CursorFile)
+}
+
+func (a *syncAgent) markAttempt(stream string) {
+	now := time.Now().UTC()
+	state := a.state.Streams[stream]
+	state.Status = "running"
+	state.LastAttemptAt = &now
+	a.state.Streams[stream] = state
+	if err := a.saveCursorState(); err != nil {
+		log.Printf("[SYNC] Failed to persist attempt state for %s: %v", stream, err)
+	}
+}
+
+func (a *syncAgent) markSuccess(stream string) {
+	now := time.Now().UTC()
+	state := a.state.Streams[stream]
+	state.Status = "success"
+	state.RetryCount = 0
+	state.LastError = ""
+	state.LastSuccessAt = &now
+	a.state.Streams[stream] = state
+	if err := a.saveCursorState(); err != nil {
+		log.Printf("[SYNC] Failed to persist success state for %s: %v", stream, err)
+	}
+}
+
+func (a *syncAgent) markFailure(stream string, syncErr error) {
+	state := a.state.Streams[stream]
+	state.Status = "failed"
+	state.RetryCount++
+	state.LastError = syncErr.Error()
+	a.state.Streams[stream] = state
+	if err := a.saveCursorState(); err != nil {
+		log.Printf("[SYNC] Failed to persist failure state for %s: %v", stream, err)
+	}
 }
 
 func (a *syncAgent) cursor(tableName string) string {
