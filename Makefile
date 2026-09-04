@@ -2,6 +2,7 @@ SHELL := /bin/sh
 
 PROJECT_NAME ?= jatanlin-revamp
 ENV_FILE ?= .env
+SITE ?=
 COMPOSE := docker compose --env-file $(ENV_FILE)
 COMPOSE_FILE := infra/compose/docker-compose.yml
 RUN_ENV := set -a; [ ! -f $(ENV_FILE) ] || . ./$(ENV_FILE); set +a;
@@ -30,7 +31,7 @@ help:
 	@printf '%s\n' 'Jatanlin Revamp'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Environment targets:'
-	@printf '%s\n' '  make site-apply     Apply site.json values into .env files and local service defaults'
+	@printf '%s\n' '  make site-apply SITE=1 Apply selected site.json entry into runtime environment files'
 	@printf '%s\n' '  make env-init       Create missing .env files from .env.example'
 	@printf '%s\n' '  make env-force      Overwrite all .env files from .env.example'
 	@printf '%s\n' ''

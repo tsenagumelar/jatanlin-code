@@ -5,19 +5,50 @@ const path = require("path");
 const rootDir = path.resolve(__dirname, "..");
 const mode = process.argv[2] || "summary";
 const sitePath = process.argv[3] ? path.resolve(process.argv[3]) : path.join(rootDir, "site.json");
+const requestedSite = process.argv[4] || process.env.SITE || process.env.SITE_SELECTOR || "";
 
-function readSite() {
-  const site = JSON.parse(fs.readFileSync(sitePath, "utf8"));
+function readCatalog() {
+  const catalog = JSON.parse(fs.readFileSync(sitePath, "utf8"));
+  if (!Array.isArray(catalog.sites) || catalog.sites.length === 0) {
+    throw new Error("site.json must contain a non-empty sites array");
+  }
+  const ids = new Set();
+  const codes = new Set();
+  for (const [index, site] of catalog.sites.entries()) {
   const required = ["id", "code", "name"];
   for (const key of required) {
     if (!String(site[key] || "").trim()) {
-      throw new Error(`site.json missing required field: ${key}`);
+        throw new Error(`site.json sites[${index}] missing required field: ${key}`);
+      }
     }
+    if (ids.has(site.id) || codes.has(site.code)) {
+      throw new Error(`site.json contains duplicate site id/code at sites[${index}]`);
+    }
+    ids.add(site.id);
+    codes.add(site.code);
+    if (!Number.isFinite(site.latitude) || site.latitude < -90 || site.latitude > 90) {
+      throw new Error(`site.json sites[${index}] has invalid latitude`);
+    }
+    if (!Number.isFinite(site.longitude) || site.longitude < -180 || site.longitude > 180) {
+      throw new Error(`site.json sites[${index}] has invalid longitude`);
+    }
+  }
+  return catalog;
+}
+
+function selectSite(catalog, selector) {
+  const selected = String(selector || catalog.defaultSite || 1).trim();
+  const numericIndex = Number(selected);
+  const site = Number.isInteger(numericIndex) && numericIndex > 0
+    ? catalog.sites[numericIndex - 1]
+    : catalog.sites.find((candidate) => candidate.code === selected || candidate.id === selected);
+  if (!site) {
+    throw new Error(`site selector '${selected}' not found; configured sites: ${catalog.sites.length}`);
   }
   return site;
 }
 
-function siteEnv(site) {
+function siteEnv(site, catalog) {
   const wb = site.wb || {};
   const contact = site.contact || {};
   const admin = site.admin || {};
@@ -25,6 +56,7 @@ function siteEnv(site) {
   const modules = Array.isArray(license.modules) ? license.modules.join(",") : String(license.modules || "PWS,TIIC,DMC");
 
   return {
+    SITE_SELECTOR: String(catalog.sites.findIndex((candidate) => candidate.id === site.id) + 1),
     SITE_CODE: site.code,
     SITE_ID: site.id,
     SITE_NAME: site.name,
@@ -36,6 +68,8 @@ function siteEnv(site) {
     SITE_TIMEZONE: site.timezone || "Asia/Jakarta",
     SITE_CONTACT_NAME: contact.name || "",
     SITE_CONTACT_PHONE: contact.phone || "",
+    SITE_LATITUDE: String(site.latitude),
+    SITE_LONGITUDE: String(site.longitude),
     DEFAULT_ADMIN_USERNAME: admin.username || "admin",
     DEFAULT_ADMIN_PASSWORD: admin.password || "admin123",
     DEFAULT_ADMIN_FULL_NAME: admin.fullName || "Administrator",
@@ -106,10 +140,13 @@ function updateWbAppSettings(filePath, env) {
   return true;
 }
 
-const site = readSite();
-const env = siteEnv(site);
+const catalog = readCatalog();
+const site = selectSite(catalog, requestedSite);
+const env = siteEnv(site, catalog);
 
-if (mode === "shell") {
+if (mode === "count") {
+  process.stdout.write(`${catalog.sites.length}\n`);
+} else if (mode === "shell") {
   for (const [key, value] of Object.entries(env)) {
     process.stdout.write(`${key}=${shellQuote(value)}\nexport ${key}\n`);
   }

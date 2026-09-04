@@ -36,7 +36,9 @@ func (s *Server) registerAttachmentRoutes() {
 
 func (s *Server) registerUserRoutes() {
 	users := s.App.Group("/api").Group("/users")
-	s.useAuthIfEnabled(users)
+	// User mutations always require a verified actor so audit columns cannot be
+	// silently written as NULL when the wider development auth flag is disabled.
+	users.Use(JWTMiddleware(s.AuthService))
 	users.Post("", s.UserHandler.CreateUser)
 	users.Post("/", s.UserHandler.CreateUser)
 	users.Put("/:id", s.UserHandler.UpdateUser)

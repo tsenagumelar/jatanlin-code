@@ -45,6 +45,8 @@ const PROCESSING_QUERY = gql`
             "AXLE_FTP_HOST"
             "CCTV_TRIGGER_URL"
             "WEIGHING_TRIGGER_URL"
+            "SITE_LATITUDE"
+            "SITE_LONGITUDE"
           ]
         }
       }
@@ -505,6 +507,24 @@ const DEFAULT_PROCESSING_LOCATION: ProcessingLocation = {
   latitude: -6.574698,
   longitude: 106.890234,
 };
+
+function configuredProcessingLocation(
+  configs: Record<string, string>,
+): ProcessingLocation {
+  const latitude = Number(configs.SITE_LATITUDE);
+  const longitude = Number(configs.SITE_LONGITUDE);
+  if (
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180
+  ) {
+    return { latitude, longitude };
+  }
+  return DEFAULT_PROCESSING_LOCATION;
+}
 
 function browserSupportsLocation() {
   return typeof navigator !== "undefined" && "geolocation" in navigator;
@@ -1202,11 +1222,11 @@ export function useV3Processing() {
     setIsRequestingLocation(true);
 
     try {
-      let location = DEFAULT_PROCESSING_LOCATION;
+      let location = configuredProcessingLocation(configs);
       try {
         location = await requestProcessingLocation();
       } catch {
-        location = DEFAULT_PROCESSING_LOCATION;
+        location = configuredProcessingLocation(configs);
       }
       setProcessingLocation(location);
 

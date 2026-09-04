@@ -82,6 +82,15 @@ Semua template environment disimpan sebagai `.env.example`. Untuk membuat semua 
 make env-init
 ```
 
+`site.json` adalah katalog seluruh site. Pilih site aktif menggunakan nomor urut satu-based; pilihan tersebut disimpan sebagai `SITE_SELECTOR` di file environment:
+
+```bash
+make site-apply SITE=1
+make infra-bootstrap SITE=1
+```
+
+Seed master data selalu meng-upsert seluruh entri `sites` ke `master_site`. Hanya entri terpilih yang diterapkan sebagai konfigurasi runtime dan fallback koordinat ketika GPS kendaraan tidak tersedia.
+
 Target ini membuat `.env` dari `.env.example` jika file `.env` belum ada. File yang dibuat:
 
 - `.env`

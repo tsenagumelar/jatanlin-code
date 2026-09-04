@@ -14,7 +14,7 @@ if ! command -v "$NODE_BIN" >/dev/null 2>&1 && [ -x "/opt/homebrew/opt/node@20/b
   NODE_BIN="/opt/homebrew/opt/node@20/bin/node"
 fi
 if command -v "$NODE_BIN" >/dev/null 2>&1 && [ -f "$ROOT_DIR/site.json" ]; then
-  eval "$("$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" shell "$ROOT_DIR/site.json")"
+  eval "$("$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" shell "$ROOT_DIR/site.json" "${SITE:-${SITE_SELECTOR:-}}")"
 fi
 
 COMPOSE_FILE="$ROOT_DIR/infra/compose/docker-compose.yml"
@@ -24,6 +24,8 @@ POSTGRES_DB="${POSTGRES_DB:-jatanlin}"
 SITE_ID="${SITE_ID:-628f033e-49b2-4ba0-b1e8-12af4b3895ee}"
 SITE_CODE="${SITE_CODE:-MST-25-00001}"
 SITE_NAME="${SITE_NAME:-Mampang Revamp Local}"
+SITE_LATITUDE="${SITE_LATITUDE:--6.241586}"
+SITE_LONGITUDE="${SITE_LONGITUDE:-106.825031}"
 
 compose() {
   docker compose --env-file "$ROOT_DIR/.env" -p "$PROJECT_NAME" -f "$COMPOSE_FILE" "$@"
@@ -38,6 +40,8 @@ postgres_exec psql \
   -v site_id="$SITE_ID" \
   -v site_code="$SITE_CODE" \
   -v site_name="$SITE_NAME" \
+  -v site_latitude="$SITE_LATITUDE" \
+  -v site_longitude="$SITE_LONGITUDE" \
   -U "$POSTGRES_USER" \
   -d "$POSTGRES_DB" <<'SQL'
 UPDATE public.system_runtime_config
@@ -45,6 +49,8 @@ SET config_value = CASE config_key
   WHEN 'SITE_ID' THEN :'site_id'
   WHEN 'SITE_CODE' THEN :'site_code'
   WHEN 'SITE_NAME' THEN :'site_name'
+  WHEN 'SITE_LATITUDE' THEN :'site_latitude'
+  WHEN 'SITE_LONGITUDE' THEN :'site_longitude'
   WHEN 'NATS_URL' THEN 'nats://nats:4222'
   WHEN 'ANPR_FTP_HOST' THEN 'ftp-local:21'
   WHEN 'ANPR_FTP_DIR' THEN 'anpr'
@@ -64,6 +70,8 @@ WHERE config_key IN (
   'SITE_ID',
   'SITE_CODE',
   'SITE_NAME',
+  'SITE_LATITUDE',
+  'SITE_LONGITUDE',
   'NATS_URL',
   'ANPR_FTP_HOST',
   'ANPR_FTP_DIR',

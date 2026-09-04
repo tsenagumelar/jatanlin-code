@@ -1,17 +1,29 @@
 {
-  "id": "628f033e-49b2-4ba0-b1e8-12af4b3895ee",
-  "code": "MST-25-0001",
-  "name": "Mampang Revamp Local Test",
-  "location": "Central Office",
-  "region": "Default",
-  "address": "Jl. Mampang Prapatan Raya, Jakarta Selatan",
-  "city": "Jakarta Selatan",
-  "province": "DKI Jakarta",
-  "timezone": "Asia/Jakarta",
-  "contact": {
-    "name": "Site Administrator",
-    "phone": ""
-  },
+  "defaultSite": 1,
+  "sites": [
+    {
+      "id": "628f033e-49b2-4ba0-b1e8-12af4b3895ee",
+      "code": "MST-25-0001",
+      "name": "Mampang Revamp Local Test",
+      "location": "Central Office",
+      "region": "Default",
+      "address": "Jl. Mampang Prapatan Raya, Jakarta Selatan",
+      "city": "Jakarta Selatan",
+      "province": "DKI Jakarta",
+      "timezone": "Asia/Jakarta",
+      "latitude": -6.241586,
+      "longitude": 106.825031,
+      "contact": {
+        "name": "Site Administrator",
+        "phone": ""
+      },
+      "wb": {
+        "siteCode": "MST-25-0001",
+        "siteId": "628f033e-49b2-4ba0-b1e8-12af4b3895ee",
+        "locationCode": "GATE-A1"
+      }
+    }
+  ],
   "admin": {
     "username": "admin",
     "password": "admin123",
@@ -19,11 +31,6 @@
     "badgeNo": "ADM-001",
     "phone": "",
     "email": "admin@local.test"
-  },
-  "wb": {
-    "siteCode": "MST-25-0001",
-    "siteId": "628f033e-49b2-4ba0-b1e8-12af4b3895ee",
-    "locationCode": "GATE-A1"
   },
   "license": {
     "issuedBy": "Activa Digital",

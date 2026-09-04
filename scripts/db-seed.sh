@@ -14,7 +14,7 @@ if ! command -v "$NODE_BIN" >/dev/null 2>&1 && [ -x "/opt/homebrew/opt/node@20/b
   NODE_BIN="/opt/homebrew/opt/node@20/bin/node"
 fi
 if command -v "$NODE_BIN" >/dev/null 2>&1 && [ -f "$ROOT_DIR/site.json" ]; then
-  eval "$("$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" shell "$ROOT_DIR/site.json")"
+  eval "$("$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" shell "$ROOT_DIR/site.json" "${SITE:-${SITE_SELECTOR:-}}")"
 fi
 
 COMPOSE_FILE="$ROOT_DIR/infra/compose/docker-compose.yml"
@@ -41,6 +41,35 @@ DEFAULT_ADMIN_BADGE_NO="${DEFAULT_ADMIN_BADGE_NO:-ADM-001}"
 DEFAULT_ADMIN_PHONE="${DEFAULT_ADMIN_PHONE:-}"
 DEFAULT_ADMIN_EMAIL="${DEFAULT_ADMIN_EMAIL:-admin@local.test}"
 
+seed_site_catalog() {
+  site_count=$("$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" count "$ROOT_DIR/site.json")
+  site_index=1
+  while [ "$site_index" -le "$site_count" ]; do
+    (
+      eval "$("$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" shell "$ROOT_DIR/site.json" "$site_index")"
+      printf '%s\n' "Seeding site catalog entry $site_index/$site_count: $SITE_CODE"
+      postgres_exec psql \
+        -v ON_ERROR_STOP=1 \
+        -v site_code="$SITE_CODE" \
+        -v site_id="$SITE_ID" \
+        -v site_name="$SITE_NAME" \
+        -v site_location="$SITE_LOCATION" \
+        -v site_region="$SITE_REGION" \
+        -v site_address="$SITE_ADDRESS" \
+        -v site_city="$SITE_CITY" \
+        -v site_province="$SITE_PROVINCE" \
+        -v site_timezone="$SITE_TIMEZONE" \
+        -v site_contact_name="$SITE_CONTACT_NAME" \
+        -v site_contact_phone="$SITE_CONTACT_PHONE" \
+        -v site_latitude="$SITE_LATITUDE" \
+        -v site_longitude="$SITE_LONGITUDE" \
+        -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+        -f /database/003_site_catalog_seed.sql
+    )
+    site_index=$((site_index + 1))
+  done
+}
+
 compose() {
   docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" "$@"
 }
@@ -65,6 +94,8 @@ seed_file() {
     -v site_timezone="$SITE_TIMEZONE" \
     -v site_contact_name="$SITE_CONTACT_NAME" \
     -v site_contact_phone="$SITE_CONTACT_PHONE" \
+    -v site_latitude="$SITE_LATITUDE" \
+    -v site_longitude="$SITE_LONGITUDE" \
     -v admin_username="$DEFAULT_ADMIN_USERNAME" \
     -v admin_password="$DEFAULT_ADMIN_PASSWORD" \
     -v admin_full_name="$DEFAULT_ADMIN_FULL_NAME" \
@@ -78,12 +109,14 @@ seed_file() {
 
 case "$SEED_MODE" in
   master)
+    seed_site_catalog
     seed_file /database/001_seed.sql
     ;;
   transactions)
     seed_file /database/002_transaction_seed.sql
     ;;
   with-transactions)
+    seed_site_catalog
     seed_file /database/001_seed.sql
     seed_file /database/002_transaction_seed.sql
     ;;
