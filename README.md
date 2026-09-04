@@ -193,7 +193,7 @@ Di dalam Docker, service saling terhubung lewat DNS compose:
 - WB agent: `wb-agent:5001`
 - CCTV streamer: `cctv-streamer:8090`
 
-`sync-agent` full Docker default aktif lewat `DOCKER_DATA_CENTER_SYNC_ENABLED=true` dan memakai `http://api.dc.jatanlin.test`. Jika data-center belum dijalankan dan tidak ingin melihat retry log sync:
+`sync-agent` full Docker default aktif lewat `DOCKER_DATA_CENTER_SYNC_ENABLED=true` dan memakai data-center lokal Mac melalui `http://host.docker.internal:28001`. Jika data-center belum dijalankan dan tidak ingin melihat retry log sync:
 
 ```bash
 DOCKER_DATA_CENTER_SYNC_ENABLED=false make docker-up
@@ -587,12 +587,12 @@ Aktifkan di `.env`:
 
 ```bash
 DATA_CENTER_SYNC_ENABLED=true
-DATA_CENTER_API_URL=https://api.jatanlinkorlantas.id
+DATA_CENTER_API_URL=http://localhost:28001
 DATA_CENTER_SYNC_KEY=jatanlin-site-sync-key-2026
 DATA_CENTER_SYNC_INTERVAL_SEC=30
 DATA_CENTER_SYNC_BATCH_SIZE=100
 DATA_CENTER_SYNC_CURSOR_FILE=./data/sync-agent-cursors.json
-DATA_CENTER_MINIO_ENDPOINT=minio.jatanlinkorlantas.id
+DATA_CENTER_MINIO_ENDPOINT=localhost:29000
 DATA_CENTER_MINIO_USE_SSL=true
 ```
 

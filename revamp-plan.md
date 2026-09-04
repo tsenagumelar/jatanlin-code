@@ -268,15 +268,24 @@ Definition of done:
 
 ### Phase 2 — Migration fondasi transaksi
 
-- [ ] Tambahkan migration incremental; jangan menjalankan migration revamp pada database current.
-- [ ] Tambahkan `transact_session_source`.
-- [ ] Tambahkan verification/completeness fields pada `vehicle_actual`.
-- [ ] Tambahkan `transact_vehicle_revision`.
-- [ ] Tambahkan satu active session per site.
-- [ ] Tambahkan satu `vehicle_actual` per `(site_id, session_id)`.
-- [ ] Tambahkan composite FK untuk site/session consistency.
-- [ ] Ubah uniqueness `external_id` menjadi site/device scoped bila diperlukan.
-- [ ] Siapkan audit query dan backfill terpisah sebelum menambah FK audit.
+- [x] Siapkan migration incremental; jangan menjalankan migration revamp pada database current.
+- [x] Tambahkan `transact_session_source`.
+- [x] Tambahkan verification/completeness fields pada `vehicle_actual`.
+- [x] Tambahkan `transact_vehicle_revision`.
+- [x] Tambahkan satu active session per site.
+- [x] Tambahkan satu `vehicle_actual` per `(site_id, session_id)`.
+- [x] Tambahkan composite FK untuk site/session consistency.
+- [x] Ubah uniqueness `external_id` menjadi site/device scoped bila diperlukan.
+- [x] Siapkan audit query dan backfill terpisah sebelum menambah FK audit.
+
+Catatan implementasi Phase 2:
+
+- Migration disiapkan di `010_phase2_transaction_foundation.sql` dan dibungkus satu database transaction.
+- Migration sengaja gagal tanpa mengubah schema bila menemukan duplicate active session, duplicate actual per site/session, atau duplicate external ID pada scope site/device.
+- Lima source (`ANPR`, `AXLE`, `WIM`, `CCTV`, `DIMENSION`) mempunyai mode dan status independen; source gagal/timeout tidak membuat field payload menjadi wajib.
+- Revision koreksi bersifat immutable dan menyimpan before/after JSON serta user pelaku perubahan.
+- Preflight read-only tersedia di `infra/database/audits/phase2_preflight.sql`; recovery dijelaskan di `docs/phase2-transaction-migration.md`.
+- Atas instruksi owner, migration Phase 2 belum dijalankan dan seluruh test/validasi ditunda untuk dilakukan sekaligus kemudian.
 
 Definition of done:
 
