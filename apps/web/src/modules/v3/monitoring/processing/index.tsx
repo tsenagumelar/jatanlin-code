@@ -52,6 +52,14 @@ const metricStatusLabel: Record<V3ProcessingMetric["status"], string> = {
   pending: "Menunggu",
 };
 
+const demoSourceLabels = {
+  ANPR: "ANPR",
+  AXLE: "AXLE",
+  WIM: "WIM",
+  DIMENSION: "Dimensi",
+  CCTV: "CCTV",
+} as const;
+
 function DeviceCard({ device }: { device: V3DeviceConnection }) {
   const isOnline = device.status === "online";
 
@@ -343,7 +351,8 @@ export function V3ProcessingPage() {
                 processing.isStarted ||
                 processing.isStarting ||
                 processing.isRequestingLocation ||
-                processing.isFinalizing
+                processing.isFinalizing ||
+                (!processing.isDemoMode && !processing.allConnectionsOnline)
               }
               className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300 ${
                 processing.isStarted
@@ -366,8 +375,9 @@ export function V3ProcessingPage() {
               type="button"
               role="switch"
               aria-checked={processing.isDemoMode}
+              disabled={processing.isStarted || processing.isStarting}
               onClick={processing.toggleDemoMode}
-              className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition ${
+              className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 processing.isDemoMode
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -384,9 +394,39 @@ export function V3ProcessingPage() {
                   }`}
                 />
               </span>
-              Demo
+              Mode Demo
             </button>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-4 py-3">
+          <span className="mr-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+            Mode per perangkat
+          </span>
+          {(Object.keys(demoSourceLabels) as Array<keyof typeof demoSourceLabels>).map((source) => {
+            const enabled = processing.demoSources[source];
+            return (
+              <button
+                key={source}
+                type="button"
+                role="switch"
+                aria-checked={enabled}
+                disabled={
+                  !processing.isDemoMode ||
+                  processing.isStarted ||
+                  processing.isStarting
+                }
+                onClick={() => processing.toggleSourceDemoMode(source)}
+                className={`inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  enabled
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${enabled ? "bg-emerald-500" : "bg-slate-300"}`} />
+                {demoSourceLabels[source]}: {enabled ? "Dummy" : "Real"}
+              </button>
+            );
+          })}
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
           {processing.devices.map((device) => (

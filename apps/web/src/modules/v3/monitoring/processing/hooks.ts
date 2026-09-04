@@ -637,6 +637,13 @@ export function useV3Processing() {
     PROCESSING_WAIT_SECONDS,
   );
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [demoSources, setDemoSources] = useState({
+    ANPR: false,
+    AXLE: false,
+    WIM: false,
+    DIMENSION: false,
+    CCTV: false,
+  });
   const [actionError, setActionError] = useState<string | null>(null);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const [processingLocation, setProcessingLocation] =
@@ -1135,13 +1142,21 @@ export function useV3Processing() {
       lastSeen: formatTime(weighing?.created_date || vehicle?.created_date),
     },
   ];
-  const devices: V3DeviceConnection[] = isDemoMode
-    ? rawDevices.map((device) => ({
+  const deviceSource = {
+    anpr: "ANPR",
+    axle: "AXLE",
+    cctv: "CCTV",
+    wim: "WIM",
+  } as const;
+  const devices: V3DeviceConnection[] = rawDevices.map((device) =>
+    demoSources[deviceSource[device.key]]
+      ? {
         ...device,
         status: "online",
         lastSeen: device.lastSeen === "-" ? "Demo online" : device.lastSeen,
-      }))
-    : rawDevices;
+      }
+      : device,
+  );
 
   const metrics: V3ProcessingMetric[] = [
     {
@@ -1236,11 +1251,17 @@ export function useV3Processing() {
     setLastManualCheck(new Date());
     await Promise.all([refetch(), runProbes()]);
   };
-  const allConnectionsOnline = devices.every(
+  const allConnectionsOnline = rawDevices.every(
     (device) => device.status === "online",
   );
   const startProcessing = async () => {
     if (isProcessingStarted || isRequestingLocation || isStartingSession) return;
+    if (!isDemoMode && !allConnectionsOnline) {
+      setActionError(
+        "Semua perangkat harus terkoneksi sebelum memulai dalam mode real.",
+      );
+      return;
+    }
 
     const now = new Date();
     setActionError(null);
@@ -1256,7 +1277,6 @@ export function useV3Processing() {
       }
       setProcessingLocation(location);
 
-      const mode = isDemoMode ? "DUMMY" : "REAL";
       const activeSession = await orchestratorRequest<OrchestratorSession>(
         "/api/transactions/sessions/start",
         {
@@ -1264,11 +1284,12 @@ export function useV3Processing() {
           body: JSON.stringify({
             session_name: formatSessionName(now),
             source_modes: {
-              ANPR: mode,
-              AXLE: mode,
-              WIM: mode,
-              CCTV: mode,
-              DIMENSION: mode,
+              ANPR: isDemoMode && demoSources.ANPR ? "DUMMY" : "REAL",
+              AXLE: isDemoMode && demoSources.AXLE ? "DUMMY" : "REAL",
+              WIM: isDemoMode && demoSources.WIM ? "DUMMY" : "REAL",
+              CCTV: isDemoMode && demoSources.CCTV ? "DUMMY" : "REAL",
+              DIMENSION:
+                isDemoMode && demoSources.DIMENSION ? "DUMMY" : "REAL",
             },
           }),
         },
@@ -1436,9 +1457,27 @@ export function useV3Processing() {
     isWimWaiting: isProcessingStarted && !isProcessingFinalized && !liveWeight,
     isCctvWaiting: isProcessingStarted && !isProcessingFinalized && !liveCctv,
     isDemoMode,
+    demoSources,
     startProcessing,
     resetCurrentProcessing,
-    toggleDemoMode: () => setIsDemoMode((current) => !current),
+    toggleDemoMode: () => {
+      const next = !isDemoMode;
+      setIsDemoMode(next);
+      setDemoSources({
+        ANPR: next,
+        AXLE: next,
+        WIM: next,
+        DIMENSION: next,
+        CCTV: next,
+      });
+    },
+    toggleSourceDemoMode: (source: keyof typeof demoSources) => {
+      if (!isDemoMode) return;
+      setDemoSources((current) => ({
+          ...current,
+          [source]: !current[source],
+        }));
+    },
     checkConnection,
     anprImage: getImageFromMinio(liveAnpr),
     axleImage: getImageFromMinio(liveAxle, "minio_image_object"),
