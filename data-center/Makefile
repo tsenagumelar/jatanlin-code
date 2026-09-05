@@ -17,13 +17,18 @@ GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 
 .DEFAULT_GOAL := help
 
-.PHONY: help full-deployment env-init env-force docker-up docker-bootstrap docker-build docker-deploy-apps docker-down docker-ps docker-logs infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint backend-web dev dev-local
+.PHONY: help full-deployment redeploy-all redeploy-services redeploy-web env-init env-force docker-up docker-bootstrap docker-build docker-deploy-apps docker-down docker-ps docker-logs infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint backend-web dev dev-local
 
 help:
 	@printf '%s\n' 'Jatanlin Data Center'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Full deployment:'
 	@printf '%s\n' '  make full-deployment  Initialize env, infra, database, backend, and web'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Redeployment:'
+	@printf '%s\n' '  make redeploy-all      Redeploy backend and web'
+	@printf '%s\n' '  make redeploy-services Redeploy backend only'
+	@printf '%s\n' '  make redeploy-web      Redeploy web only'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Environment:'
 	@printf '%s\n' '  make env-init         Create missing .env files from .env.example'
@@ -91,6 +96,15 @@ full-deployment:
 	@$(MAKE) docker-deploy-apps
 	@$(MAKE) docker-ps
 	@printf '%s\n' 'Full deployment data center selesai.'
+
+redeploy-all:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d --build --force-recreate --no-deps backend web
+
+redeploy-services:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d --build --force-recreate --no-deps backend
+
+redeploy-web:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d --build --force-recreate --no-deps web
 
 docker-up:
 	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d --build

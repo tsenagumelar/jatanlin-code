@@ -20,9 +20,10 @@ func main() {
 	}
 	defer db.Close()
 
-	go etlenas.NewWorker(db, cfg).Run(context.Background())
+	etlenasWorker := etlenas.NewWorker(db, cfg)
+	go etlenasWorker.Run(context.Background())
 
-	server := api.NewServer(db, cfg)
+	server := api.NewServer(db, cfg, etlenasWorker)
 	log.Printf("data center api listening on :%s", cfg.AppPort)
 	if err := http.ListenAndServe(":"+cfg.AppPort, server.Routes()); err != nil {
 		log.Fatalf("server stopped: %v", err)

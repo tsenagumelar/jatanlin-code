@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 	"strings"
 	"time"
@@ -63,8 +64,74 @@ func (w *Worker) runOnce(ctx context.Context) {
 			log.Printf("ETLENAS claim: %v", err)
 			return
 		}
-		w.deliver(ctx, deliveryID, item)
+		_, _ = w.deliver(ctx, deliveryID, item)
 	}
+}
+
+// DeliverTransaction sends one verified violation immediately. Unlike Run, this
+// manual path intentionally does not inspect ETLENAS.Enabled.
+func (w *Worker) DeliverTransaction(ctx context.Context, transactionID string) (string, error) {
+	if err := w.client.Validate(); err != nil {
+		return "FAILED", err
+	}
+
+	var item candidate
+	err := w.db.QueryRowContext(ctx, `
+		SELECT ds.id::text,ds.site_code,ds.site_name,COALESCE(ds.site_location,''),COALESCE(ds.site_address,''),
+			v.id::text,v.source_id::text,s.source_id::text,
+			COALESCE(v.actual_plat_no,a.plate_no,''),COALESCE(x.vehicle_category,x.vehicle_body_type,''),
+			ds.latitude::text,ds.longitude::text,COALESCE(a.captured_at,x.captured_at,v.created_date,v.synced_at),
+			pa.bucket,pa.object_key,fa.bucket,fa.object_key
+		FROM public.dc_transact_vehicle_actual v
+		JOIN public.dc_site ds ON ds.id=v.site_id AND COALESCE(ds.is_deleted,false)=false
+		JOIN LATERAL (
+			SELECT status.source_id,status.status,status.result
+			FROM public.dc_transact_vehicle_status status
+			WHERE status.site_id=v.site_id AND status.source_vehicle_actual_id=v.source_id
+			  AND COALESCE(status.is_deleted,false)=false
+			ORDER BY COALESCE(status.updated_date,status.created_date,status.synced_at) DESC LIMIT 1
+		) s ON lower(s.status)='verified'
+		LEFT JOIN public.dc_transact_anpr_capture a ON a.site_id=v.site_id AND a.source_id=v.source_anpr_id
+		LEFT JOIN public.dc_transact_axle_capture x ON x.site_id=v.site_id AND x.source_id=v.source_axle_id
+		LEFT JOIN LATERAL (SELECT bucket,object_key FROM public.dc_vehicle_attachment WHERE site_id=v.site_id AND raw_payload->>'source_id'=v.source_anpr_id::text AND attachment_type='anpr_plate_image' AND upload_status='completed' AND COALESCE(is_deleted,false)=false ORDER BY synced_at DESC LIMIT 1) pa ON true
+		LEFT JOIN LATERAL (SELECT bucket,object_key FROM public.dc_vehicle_attachment WHERE site_id=v.site_id AND raw_payload->>'source_id'=v.source_anpr_id::text AND attachment_type='anpr_full_image' AND upload_status='completed' AND COALESCE(is_deleted,false)=false ORDER BY synced_at DESC LIMIT 1) fa ON true
+		WHERE v.id::text=$1 AND COALESCE(v.is_deleted,false)=false
+		  AND lower(trim(COALESCE(s.result,''))) IN ('over dimension','over loading','over dimension & over loading')
+	`, transactionID).Scan(
+		&item.SiteID, &item.SiteCode, &item.SiteName, &item.SiteLocation, &item.SiteAddress,
+		&item.ActualID, &item.SourceActualID, &item.SourceStatusID, &item.Plate, &item.VehicleType,
+		&item.Latitude, &item.Longitude, &item.CaptureTime,
+		&item.PlateImageBucket, &item.PlateImageObject, &item.VehicleImageBucket, &item.VehicleImageObject,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "FAILED", errors.New("transaction must be a verified violation before ETLENAS sync")
+		}
+		return "FAILED", err
+	}
+
+	var existingStatus string
+	err = w.db.QueryRowContext(ctx, `
+		SELECT delivery_status FROM public.dc_etlenas_delivery
+		WHERE site_id=$1::uuid AND source_vehicle_actual_id=$2::uuid AND delivery_status='SUCCESS'
+		LIMIT 1
+	`, item.SiteID, item.SourceActualID).Scan(&existingStatus)
+	if err == nil {
+		return existingStatus, nil
+	}
+	if err != sql.ErrNoRows {
+		return "FAILED", err
+	}
+
+	var deliveryID string
+	err = w.db.QueryRowContext(ctx, `INSERT INTO public.dc_etlenas_delivery
+		(site_id,vehicle_actual_id,source_vehicle_actual_id,source_vehicle_status_id,delivery_status)
+		VALUES ($1::uuid,$2::uuid,$3::uuid,$4::uuid,'PROCESSING') RETURNING id::text`,
+		item.SiteID, item.ActualID, item.SourceActualID, item.SourceStatusID).Scan(&deliveryID)
+	if err != nil {
+		return "FAILED", err
+	}
+	return w.deliver(ctx, deliveryID, item)
 }
 
 func (w *Worker) claim(ctx context.Context) (candidate, string, error) {
@@ -133,7 +200,7 @@ func (w *Worker) claim(ctx context.Context) (candidate, string, error) {
 	return item, deliveryID, nil
 }
 
-func (w *Worker) deliver(ctx context.Context, deliveryID string, item candidate) {
+func (w *Worker) deliver(ctx context.Context, deliveryID string, item candidate) (string, error) {
 	result, sendErr := w.client.Send(ctx, Violation{
 		DeviceName: item.SiteName, LocationName: fallback(item.SiteLocation, item.SiteName), LocationDescription: item.SiteAddress,
 		Latitude: item.Latitude.String, Longitude: item.Longitude.String, Plate: item.Plate,
@@ -158,11 +225,12 @@ func (w *Worker) deliver(ctx context.Context, deliveryID string, item candidate)
 		WHERE id=$1::uuid`, deliveryID, status, result.HTTPStatus, result.StatusCode, string(result.Payload), nullableJSON(responseJSON), string(result.Body), errorMessage)
 	if err != nil {
 		log.Printf("ETLENAS save delivery %s: %v", deliveryID, err)
-		return
+		return status, err
 	}
 	if sendErr != nil {
 		log.Printf("ETLENAS delivery %s failed: %v", deliveryID, sendErr)
 	}
+	return status, sendErr
 }
 
 func (w *Worker) objectURL(bucket, object sql.NullString) string {
