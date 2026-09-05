@@ -36,6 +36,18 @@ type Overview = {
     today_normal: number;
     today_over_loading: number;
     today_over_dimension: number;
+    latitude: number | null;
+    longitude: number | null;
+  }>;
+  transaction_locations: Array<{
+    id: string;
+    site_code: string;
+    site_name: string;
+    plate_no: string;
+    latitude: number;
+    longitude: number;
+    violation_status: string;
+    time: string;
   }>;
   recent_violations: Array<{
     id: string;
@@ -334,11 +346,13 @@ function StatusChip({ status }: { status: SiteStatus }) {
 
 function CommandMap({
   units,
+  transactionLocations,
   selectedSite,
   mode,
   onSelectSite,
 }: {
   units: UnitRow[];
+  transactionLocations: Overview["transaction_locations"];
   selectedSite: string | null;
   mode: MapMode;
   onSelectSite: (id: string) => void;
@@ -346,6 +360,38 @@ function CommandMap({
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<import("leaflet").Map | null>(null);
   const markerLayersRef = useRef<import("leaflet").Layer[]>([]);
+  const mappedUnits = useMemo<UnitRow[]>(
+    () =>
+      mode === "transactions"
+        ? transactionLocations.map((transaction) => ({
+            id: transaction.id,
+            code: transaction.plate_no || "Tanpa Plat",
+            name: transaction.site_name,
+            city: transaction.site_code,
+            province: "",
+            status:
+              transaction.violation_status === "violation"
+                ? "offline"
+                : transaction.violation_status === "normal"
+                  ? "online"
+                  : "warning",
+            healthScore: 100,
+            totalToday: 1,
+            violations: transaction.violation_status === "violation" ? 1 : 0,
+            normal: transaction.violation_status === "normal" ? 1 : 0,
+            overLoading: 0,
+            overDimension: 0,
+            lastSeenAt: transaction.time,
+            lastSyncAt: transaction.time,
+            lastSeenLabel: formatDateTime(transaction.time),
+            lastSyncLabel: formatDateTime(transaction.time),
+            operatorName: "-",
+            lat: transaction.latitude,
+            lng: transaction.longitude,
+          }))
+        : units,
+    [mode, transactionLocations, units],
+  );
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -374,14 +420,16 @@ function CommandMap({
       leafletMapRef.current = map;
       markerLayersRef.current = [];
 
-      units.forEach((unit) => {
+      mappedUnits.forEach((unit) => {
         const selected = selectedSite === unit.id;
         const markerSize = selected ? 30 : 24;
         const markerColor =
           mode === "transactions"
-            ? unit.violations > 0
+            ? unit.status === "offline"
               ? "#ef4444"
-              : "#22c55e"
+              : unit.status === "warning"
+                ? "#f59e0b"
+                : "#22c55e"
             : unit.status === "online"
               ? "#22c55e"
               : unit.status === "warning"
@@ -424,15 +472,15 @@ function CommandMap({
             <div style="font-family:Arial,sans-serif;min-width:210px">
               <div style="font-weight:900;font-size:14px;color:#0f172a">${unit.name}</div>
               <div style="font-size:12px;color:#64748b;margin-top:2px">${unit.code} - ${unit.city}, ${unit.province}</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px">
+              ${mode === "transactions" ? `<div style="margin-top:10px;font-size:12px;color:#334155">Waktu transaksi: <strong>${unit.lastSeenLabel}</strong></div>` : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px">
                 <div><span style="color:#64748b">Kesehatan</span><br/><strong>${unit.healthScore}%</strong></div>
                 <div><span style="color:#64748b">Transaksi</span><br/><strong>${unit.totalToday}</strong></div>
                 <div><span style="color:#64748b">Pelanggaran</span><br/><strong style="color:#dc2626">${unit.violations}</strong></div>
                 <div><span style="color:#64748b">Sinkronisasi</span><br/><strong>${unit.lastSyncLabel}</strong></div>
-              </div>
-              <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155">
+              </div>`}
+              ${mode === "transactions" ? "" : `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155">
                 Operator: <strong>${unit.operatorName}</strong>
-              </div>
+              </div>`}
             </div>
           `);
 
@@ -449,7 +497,7 @@ function CommandMap({
         markerLayersRef.current.push(marker);
       });
 
-      const selectedUnit = units.find((unit) => unit.id === selectedSite);
+      const selectedUnit = mappedUnits.find((unit) => unit.id === selectedSite);
       if (selectedUnit) {
         map.setView(
           [selectedUnit.lat, selectedUnit.lng],
@@ -472,7 +520,7 @@ function CommandMap({
         leafletMapRef.current = null;
       }
     };
-  }, [mode, onSelectSite, selectedSite, units]);
+  }, [mappedUnits, mode, onSelectSite, selectedSite]);
 
   return (
     <div className="dc-card relative h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
@@ -599,8 +647,15 @@ export default function DataCenterPage() {
   const units = useMemo<UnitRow[]>(() => {
     if (!overview) return [];
     return overview.sites.map((site, index) => {
-      const coordinate =
+      const fallbackCoordinate =
         fallbackCoordinates[index % fallbackCoordinates.length];
+      const latitude = Number(site.latitude);
+      const longitude = Number(site.longitude);
+      const hasSiteCoordinates =
+        site.latitude !== null &&
+        site.longitude !== null &&
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude);
       const status = normalizeStatus(site.operational_status);
 
       return {
@@ -621,8 +676,8 @@ export default function DataCenterPage() {
         lastSeenLabel: relativeTime(site.last_seen_at),
         lastSyncLabel: relativeTime(site.last_sync_at),
         operatorName: site.active_operator_name || "-",
-        lat: coordinate.lat,
-        lng: coordinate.lng,
+        lat: hasSiteCoordinates ? latitude : fallbackCoordinate.lat,
+        lng: hasSiteCoordinates ? longitude : fallbackCoordinate.lng,
       };
     });
   }, [overview]);
@@ -968,6 +1023,7 @@ export default function DataCenterPage() {
             <div className="h-[34vh] min-h-[260px] shrink-0">
               <CommandMap
                 units={units}
+                transactionLocations={overview.transaction_locations ?? []}
                 selectedSite={selectedSite}
                 mode="sites"
                 onSelectSite={handleSelectSite}
@@ -1163,6 +1219,7 @@ export default function DataCenterPage() {
             <div className="h-[32vh] min-h-[240px] shrink-0">
               <CommandMap
                 units={units}
+                transactionLocations={overview.transaction_locations ?? []}
                 selectedSite={selectedSite}
                 mode="transactions"
                 onSelectSite={handleSelectSite}

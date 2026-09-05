@@ -158,6 +158,8 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 			COALESCE(s.active_operator_name, ''),
 			s.last_seen_at,
 			s.last_sync_at,
+			s.latitude::float8,
+			s.longitude::float8,
 			COALESCE(v.today_transactions, 0),
 			COALESCE(v.today_violations, 0),
 			COALESCE(v.today_normal, 0),
@@ -184,6 +186,8 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		ActiveOperatorName string     `json:"active_operator_name"`
 		LastSeenAt         *time.Time `json:"last_seen_at"`
 		LastSyncAt         *time.Time `json:"last_sync_at"`
+		Latitude           *float64   `json:"latitude"`
+		Longitude          *float64   `json:"longitude"`
 		TodayTransactions  int        `json:"today_transactions"`
 		TodayViolations    int        `json:"today_violations"`
 		TodayNormal        int        `json:"today_normal"`
@@ -204,6 +208,8 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 			&item.ActiveOperatorName,
 			&item.LastSeenAt,
 			&item.LastSyncAt,
+			&item.Latitude,
+			&item.Longitude,
 			&item.TodayTransactions,
 			&item.TodayViolations,
 			&item.TodayNormal,
@@ -214,6 +220,51 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sites = append(sites, item)
+	}
+
+	transactionRows, err := s.DB.Query(`
+		SELECT v.id::text,s.site_code,s.site_name,COALESCE(v.plate_no,''),
+			v.location_lat::float8,v.location_lng::float8,
+			COALESCE(v.violation_status,'pending'),
+			COALESCE(v.enforcement_started_at,v.created_at)
+		FROM public.dc_dashboard_vehicle_actual v
+		JOIN public.dc_site s ON s.id=v.site_id
+		WHERE COALESCE(v.is_deleted,false)=false
+		  AND COALESCE(v.enforcement_started_at,v.created_at) >= $1
+		  AND COALESCE(v.enforcement_started_at,v.created_at) < $2
+		  AND v.location_lat IS NOT NULL AND v.location_lng IS NOT NULL
+		  AND v.location_lat BETWEEN -90 AND 90
+		  AND v.location_lng BETWEEN -180 AND 180
+		ORDER BY COALESCE(v.enforcement_started_at,v.created_at) DESC
+	`, startAt, endExclusive)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer transactionRows.Close()
+
+	type transactionLocation struct {
+		ID              string    `json:"id"`
+		SiteCode        string    `json:"site_code"`
+		SiteName        string    `json:"site_name"`
+		PlateNo         string    `json:"plate_no"`
+		Latitude        float64   `json:"latitude"`
+		Longitude       float64   `json:"longitude"`
+		ViolationStatus string    `json:"violation_status"`
+		Time            time.Time `json:"time"`
+	}
+	transactionLocations := []transactionLocation{}
+	for transactionRows.Next() {
+		var item transactionLocation
+		if err := transactionRows.Scan(&item.ID, &item.SiteCode, &item.SiteName, &item.PlateNo, &item.Latitude, &item.Longitude, &item.ViolationStatus, &item.Time); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		transactionLocations = append(transactionLocations, item)
+	}
+	if err := transactionRows.Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	recentRows, err := s.DB.Query(`
@@ -322,9 +373,10 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"summary":           summary,
-		"sites":             sites,
-		"recent_violations": recentViolations,
+		"summary":               summary,
+		"sites":                 sites,
+		"recent_violations":     recentViolations,
+		"transaction_locations": transactionLocations,
 	})
 }
 
