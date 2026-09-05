@@ -4,11 +4,11 @@ services:
       context: ../../apps/web
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:28001}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://api.jatanlinkorlantas.id}
     container_name: jtn-dc-web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:28001}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://api.jatanlinkorlantas.id}
     ports:
       - "${DATA_CENTER_BIND_HOST:-127.0.0.1}:${DATA_CENTER_WEB_PORT:-3001}:3001"
     depends_on:
@@ -111,7 +111,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-jatanlin_dc_minio_password}
       MINIO_BUCKET: ${MINIO_BUCKET:-jatanlin-data-center-attachments}
       MINIO_USE_SSL: "false"
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://127.0.0.1:3001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://jatanlinkorlantas.id,https://www.jatanlinkorlantas.id,http://localhost:3001,http://127.0.0.1:3001}
       ETLENAS_ENABLED: ${ETLENAS_ENABLED:-false}
       ETLENAS_BASE_URL: ${ETLENAS_BASE_URL:-https://api-etle.polri.go.id}
       ETLENAS_USER_TOKEN: ${ETLENAS_USER_TOKEN:-}
