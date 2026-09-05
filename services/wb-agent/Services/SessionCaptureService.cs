@@ -92,7 +92,7 @@ public sealed class SessionCaptureService : BackgroundService
                 if (_siteId != Guid.Empty && !loggedReady)
                 {
                     _logger.LogInformation(
-                        "WB session listener enabled for site {SiteId} siteCode={SiteCode}. mode=session-based(real or dummy by transact_wim_session.is_dummy) timeout={TimeoutSeconds}s direction={Direction}",
+                        "WB session listener enabled for site {SiteId} siteCode={SiteCode}. mode=transact_session_source.WIM timeout={TimeoutSeconds}s direction={Direction}",
                         _siteId,
                         _siteCode,
                         _timeoutSeconds,
@@ -144,6 +144,7 @@ public sealed class SessionCaptureService : BackgroundService
         var exists = await WeighingExistsAsync(conn, session.Value.Id, ct);
         if (exists)
         {
+            await MarkWimReceivedAsync(session.Value.Id, session.Value.SiteId, ct);
             return;
         }
 
@@ -155,7 +156,11 @@ public sealed class SessionCaptureService : BackgroundService
 
         try
         {
-            if (session.Value.IsDummy)
+            if (session.Value.SourceMode == "DISABLED")
+            {
+                return;
+            }
+            if (session.Value.SourceMode == "DUMMY")
             {
                 await InsertDummyCaptureAsync(session.Value.Id, session.Value.SiteId, ct);
                 return;
@@ -176,6 +181,7 @@ public sealed class SessionCaptureService : BackgroundService
 
         var vehicle = BuildDummyVehicle(sessionId, siteId);
         await repo.AddVehicleAsync(vehicle, ct);
+        await MarkWimReceivedAsync(sessionId, siteId, ct);
         _logger.LogInformation("WB dummy weighing inserted for session {SessionId}", sessionId);
     }
 
@@ -194,6 +200,7 @@ public sealed class SessionCaptureService : BackgroundService
         var staticRes = await _wsClient.SetModeStaticAsync(ct);
         if (staticRes is null || !staticRes.Result.Equals("OK", StringComparison.OrdinalIgnoreCase))
         {
+            await MarkWimFailedAsync(sessionId, siteId, "WIM_STATIC_MODE_FAILED", "Failed to set static mode before capture", ct);
             _logger.LogWarning("WB live capture failed to set static mode before WIM for session {SessionId}", sessionId);
             return;
         }
@@ -208,6 +215,7 @@ public sealed class SessionCaptureService : BackgroundService
         var startRes = await _wsClient.SetModeWimAsync(_direction, ct);
         if (startRes is null)
         {
+            await MarkWimFailedAsync(sessionId, siteId, "WIM_START_FAILED", "Failed to start WIM mode", ct);
             _logger.LogWarning("WB live capture failed to start WIM mode for session {SessionId}", sessionId);
             return;
         }
@@ -231,6 +239,7 @@ public sealed class SessionCaptureService : BackgroundService
 
         if (ordered.Count == 0)
         {
+            await MarkWimFailedAsync(sessionId, siteId, "WIM_CAPTURE_TIMEOUT", $"No axle data received within {_timeoutSeconds}s", ct);
             _logger.LogInformation(
                 "WB live capture timed out for session {SessionId} after {TimeoutSeconds}s lastTimeout={LastTimeout}",
                 sessionId,
@@ -266,6 +275,7 @@ public sealed class SessionCaptureService : BackgroundService
         }
 
         await repo.AddVehicleAsync(vehicle, ct);
+        await MarkWimReceivedAsync(sessionId, siteId, ct);
         _logger.LogInformation(
             "WB live capture saved for session {SessionId} axles={AxleCount} total={TotalWeight}",
             sessionId,
@@ -306,16 +316,20 @@ public sealed class SessionCaptureService : BackgroundService
         return vehicle;
     }
 
-    private static async Task<(Guid Id, Guid SiteId, bool IsDummy)?> GetActiveSessionAsync(NpgsqlConnection conn, Guid siteId, CancellationToken ct)
+    private static async Task<(Guid Id, Guid SiteId, string SourceMode)?> GetActiveSessionAsync(NpgsqlConnection conn, Guid siteId, CancellationToken ct)
     {
         const string sql = @"
-            SELECT id, site_id, COALESCE(is_dummy, false)
-            FROM public.transact_wim_session
-            WHERE site_id = @site_id
-              AND status = 'IN_PROGRESS'
-              AND COALESCE(is_active, true) = true
-              AND COALESCE(is_deleted, false) = false
-            ORDER BY started_at DESC
+            SELECT s.id, s.site_id, ss.source_mode
+            FROM public.transact_wim_session s
+            JOIN public.transact_session_source ss
+              ON ss.site_id=s.site_id AND ss.session_id=s.id AND ss.source_type='WIM'
+            WHERE s.site_id = @site_id
+              AND s.status = 'IN_PROGRESS'
+              AND COALESCE(s.is_active, true) = true
+              AND COALESCE(s.is_deleted, false) = false
+              AND COALESCE(ss.is_active, true) = true
+              AND COALESCE(ss.is_deleted, false) = false
+            ORDER BY s.started_at DESC
             LIMIT 1;";
 
         await using var cmd = new NpgsqlCommand(sql, conn);
@@ -327,7 +341,48 @@ public sealed class SessionCaptureService : BackgroundService
             return null;
         }
 
-        return (reader.GetGuid(0), reader.GetGuid(1), reader.GetBoolean(2));
+        return (reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2));
+    }
+
+    private async Task MarkWimReceivedAsync(Guid sessionId, Guid siteId, CancellationToken ct)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+        const string sql = @"
+            UPDATE public.transact_session_source ss
+            SET source_status='RECEIVED', source_record_id=w.id, received_at=COALESCE(received_at, now()),
+                last_attempt_at=now(),
+                attempt_count=CASE WHEN source_status='RECEIVED' THEN attempt_count ELSE attempt_count+1 END,
+                error_code=NULL, error_message=NULL, updated_date=now()
+            FROM LATERAL (
+                SELECT id FROM public.transact_weighing
+                WHERE site_id=@site_id AND session_id=@session_id
+                ORDER BY created_date DESC LIMIT 1
+            ) w
+            WHERE ss.site_id=@site_id AND ss.session_id=@session_id
+              AND ss.source_type='WIM' AND ss.source_mode<>'DISABLED';";
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("site_id", siteId);
+        cmd.Parameters.AddWithValue("session_id", sessionId);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    private async Task MarkWimFailedAsync(Guid sessionId, Guid siteId, string code, string message, CancellationToken ct)
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+        const string sql = @"
+            UPDATE public.transact_session_source
+            SET source_status='FAILED', last_attempt_at=now(), attempt_count=attempt_count+1,
+                error_code=@code, error_message=@message, updated_date=now()
+            WHERE site_id=@site_id AND session_id=@session_id AND source_type='WIM'
+              AND source_status<>'RECEIVED' AND source_mode<>'DISABLED';";
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("site_id", siteId);
+        cmd.Parameters.AddWithValue("session_id", sessionId);
+        cmd.Parameters.AddWithValue("code", code);
+        cmd.Parameters.AddWithValue("message", message);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     private static async Task<bool> WeighingExistsAsync(NpgsqlConnection conn, Guid sessionId, CancellationToken ct)

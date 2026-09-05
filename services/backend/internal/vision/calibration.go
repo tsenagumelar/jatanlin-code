@@ -220,16 +220,21 @@ func (cc *CameraCalibration) CalculateGroundDimensions(bbox BoundingBox) (*Vehic
 	centerX := bbox.X + bbox.Width/2
 	centerY := bbox.Y + bbox.Height/2
 
-	lengthScale := cc.LengthScaleMetersPerPixel
-	if bbox.Height >= 650 && bbox.Width >= 520 {
-		lengthScale *= 1.2
+	distance := cc.EstimateDistance(bottomY)
+	distanceScale := 1.0
+	if cc.ReferenceDistanceM > 0 {
+		distanceScale = distance / cc.ReferenceDistanceM
+		// A value outside this range indicates that the vehicle is too far from
+		// the calibrated measurement zone. Keep the screening estimate bounded.
+		distanceScale = math.Max(0.5, math.Min(2.0, distanceScale))
 	}
 
-	length := float64(bbox.Height)*lengthScale + cc.LengthOffsetMeters
-	width := float64(bbox.Width)*cc.WidthScaleMetersPerPixel + cc.WidthOffsetMeters
-	height := float64(bbox.Height)*cc.HeightScaleMetersPerPixel + cc.HeightOffsetMeters
-	distance := cc.EstimateDistance(bottomY)
+	length := float64(bbox.Height)*cc.LengthScaleMetersPerPixel*distanceScale + cc.LengthOffsetMeters
+	width := float64(bbox.Width)*cc.WidthScaleMetersPerPixel*distanceScale + cc.WidthOffsetMeters
+	height := float64(bbox.Height)*cc.HeightScaleMetersPerPixel*distanceScale + cc.HeightOffsetMeters
 	confidence := cc.calculateMeasurementConfidence(bbox)
+	// Confidence decreases as the object moves away from the reference plane.
+	confidence *= 1 / (1 + math.Abs(math.Log(distanceScale)))
 
 	if length < 0 {
 		length = 0
@@ -271,6 +276,9 @@ func (cc *CameraCalibration) Validate() error {
 	}
 	if cc.ReferenceRealLength <= 0 {
 		return fmt.Errorf("reference length must be positive")
+	}
+	if cc.ReferenceDistanceM <= 0 {
+		return fmt.Errorf("reference distance must be positive")
 	}
 	if cc.WidthScaleMetersPerPixel <= 0 {
 		return fmt.Errorf("width scale must be positive")

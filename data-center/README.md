@@ -70,7 +70,7 @@ Endpoint awal:
 - `POST /api/sync/heartbeat`
   - Upsert site, status online/warning/offline, operator aktif, versi app/service.
 - `POST /api/sync/vehicle-actual/batch`
-  - Upsert transaksi dengan key unik `(site_id, site_transaction_id)`.
+  - Endpoint legacy dihentikan dan mengembalikan `410 Gone`; gunakan mirror batch.
 - `POST /api/sync/mirror/batch`
   - Upsert mirror table dari schema site dengan key unik `(site_id, source_id)`.
 - `POST /api/sync/attachments/prepare`
@@ -109,4 +109,4 @@ attachments prepare/upload/complete
 cursor
 ```
 
-Data center juga punya view `dc_dashboard_vehicle_actual` untuk menyatukan data legacy summary dan mirror transaction. Dashboard membaca view ini sehingga data dari sync mirror bisa langsung muncul tanpa kehilangan struktur transaksi asli.
+Sejak Phase 9, `dc_transact_vehicle_actual` adalah canonical transaction store. View `dc_dashboard_vehicle_actual` hanya membaca mirror tersebut agar satu transaksi site muncul tepat satu kali. Tabel `dc_vehicle_actual` dipertahankan sementara sebagai data legacy/rollback dan tidak lagi menerima ingest atau ikut query dashboard.

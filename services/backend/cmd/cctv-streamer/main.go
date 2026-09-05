@@ -34,6 +34,7 @@ import (
 
 	"wim-service/internal/config"
 	"wim-service/internal/session"
+	"wim-service/internal/source"
 )
 
 type rtspState struct {
@@ -638,8 +639,9 @@ func (q *CCTVInsertQueue) Enqueue(filename, filepath string, siteID uuid.UUID, s
 }
 
 func (q *CCTVInsertQueue) consumeLoop() {
-	sub, err := q.js.PullSubscribe(cctvSubjectName, cctvConsumer, nats.ManualAck())
+	sub, err := q.js.PullSubscribe(cctvSubjectName, cctvConsumer, nats.ManualAck(), nats.AckWait(15*time.Second), nats.MaxDeliver(5))
 	if err != nil {
+		log.Printf("[CCTV_QUEUE] Consumer startup failed: %v", err)
 		return
 	}
 
@@ -649,18 +651,42 @@ func (q *CCTVInsertQueue) consumeLoop() {
 			if err == nats.ErrTimeout {
 				continue
 			}
+			log.Printf("[CCTV_QUEUE] Fetch failed, retrying: %v", err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 
 		for _, msg := range msgs {
 			if err := q.handleMsg(msg); err != nil {
-				_ = msg.Nak()
+				q.handleFailure(msg, err)
 				continue
 			}
 			_ = msg.Ack()
 		}
 	}
+}
+
+func (q *CCTVInsertQueue) handleFailure(msg *nats.Msg, processingErr error) {
+	metadata, metadataErr := msg.Metadata()
+	if metadataErr == nil && metadata.NumDelivered < 5 {
+		delay := time.Duration(metadata.NumDelivered*metadata.NumDelivered) * time.Second
+		log.Printf("[CCTV_QUEUE] Processing failed attempt=%d retry_in=%s: %v", metadata.NumDelivered, delay, processingErr)
+		_ = msg.NakWithDelay(delay)
+		return
+	}
+
+	var payload cctvInsertPayload
+	if json.Unmarshal(msg.Data, &payload) == nil && payload.SessionID != "" {
+		if sessionID, err := uuid.Parse(payload.SessionID); err == nil {
+			if siteID, err := uuid.Parse(payload.SiteID); err == nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = source.MarkFailed(ctx, q.db, siteID, sessionID, "CCTV", "QUEUE_RETRY_EXHAUSTED", processingErr.Error())
+			}
+		}
+	}
+	log.Printf("[CCTV_QUEUE] Message terminated after retries: %v", processingErr)
+	_ = msg.Term()
 }
 
 func (q *CCTVInsertQueue) handleMsg(msg *nats.Msg) error {
@@ -693,6 +719,20 @@ func (q *CCTVInsertQueue) handleMsg(msg *nats.Msg) error {
 
 	if err := insertCCTVRecord(ctx, q.db, p.Filename, p.Filepath, siteUUID, sessionID); err != nil {
 		return err
+	}
+	if sessionID != nil {
+		var recordID uuid.UUID
+		err := q.db.QueryRowContext(ctx, `
+			SELECT id FROM public.transact_cctv
+			WHERE site_id=$1 AND session_id=$2
+			ORDER BY created_date DESC LIMIT 1
+		`, siteUUID, *sessionID).Scan(&recordID)
+		if err != nil {
+			return fmt.Errorf("resolve CCTV source record after insert: %w", err)
+		}
+		if err := source.MarkReceived(ctx, q.db, siteUUID, *sessionID, "CCTV", recordID); err != nil {
+			return err
+		}
 	}
 	log.Printf("[CCTV_QUEUE] Insert success: filename=%s session_id=%s", p.Filename, p.SessionID)
 	return nil
@@ -772,23 +812,46 @@ func (s *cctvService) processDummySession(ctx context.Context, sessionService *s
 		log.Println("[CCTV_DUMMY] No active IN_PROGRESS session found")
 		return nil
 	}
-	if !session.IsDummy {
+	mode, err := sessionService.GetSourceMode(ctx, session.ID, "CCTV")
+	if err != nil {
+		return fmt.Errorf("CCTV source mode unavailable: %w", err)
+	}
+	if mode != source.ModeDummy {
+		return nil
+	}
+	exists, err := s.sessionRecordExists(ctx, session.ID)
+	if err != nil {
+		return fmt.Errorf("check dummy CCTV session row: %w", err)
+	}
+	if exists {
 		return nil
 	}
 
 	filename := fmt.Sprintf("dummy-cctv-%s.mp4", session.ID.String())
 	filepath := fmt.Sprintf("dummy-cctv/%s.mp4", session.ID.String())
-
-	sampleFilename, sampleFilepath, err := s.getRandomDummyCCTVSample(ctx, session.SiteID)
-	if err != nil {
-		return fmt.Errorf("pick random CCTV sample failed: %w", err)
+	assetUsed := false
+	if samplePath, ok := dummyCCTVAssetPath(session.ID); ok {
+		objectName, uploadedPath, uploadErr := s.uploadRecording(ctx, samplePath)
+		if uploadErr != nil {
+			return fmt.Errorf("upload dummy CCTV sample: %w", uploadErr)
+		}
+		filename = path.Base(objectName)
+		filepath = uploadedPath
+		assetUsed = true
 	}
-	if strings.TrimSpace(sampleFilepath) != "" {
-		filepath = strings.TrimSpace(sampleFilepath)
-		if strings.TrimSpace(sampleFilename) != "" {
-			filename = strings.TrimSpace(sampleFilename)
-		} else {
-			filename = path.Base(filepath)
+
+	if !assetUsed {
+		sampleFilename, sampleFilepath, err := s.getRandomDummyCCTVSample(ctx, session.SiteID)
+		if err != nil {
+			return fmt.Errorf("pick random CCTV sample failed: %w", err)
+		}
+		if strings.TrimSpace(sampleFilepath) != "" {
+			filepath = strings.TrimSpace(sampleFilepath)
+			if strings.TrimSpace(sampleFilename) != "" {
+				filename = strings.TrimSpace(sampleFilename)
+			} else {
+				filename = path.Base(filepath)
+			}
 		}
 	}
 
@@ -798,6 +861,19 @@ func (s *cctvService) processDummySession(ctx context.Context, sessionService *s
 
 	log.Printf("[CCTV_DUMMY] Ensured dummy CCTV for session=%s filename=%s", session.ID, filename)
 	return nil
+}
+
+func dummyCCTVAssetPath(sessionID uuid.UUID) (string, bool) {
+	index := 1 + int(sessionID[15])%2
+	dir := strings.TrimSpace(os.Getenv("DEMO_SAMPLE_DIR"))
+	if dir == "" {
+		dir = "../../sample-demo"
+	}
+	samplePath := filepath.Join(dir, fmt.Sprintf("cctv-%d.mp4", index))
+	if _, err := os.Stat(samplePath); err != nil {
+		return "", false
+	}
+	return samplePath, true
 }
 
 func (s *cctvService) getRandomDummyCCTVSample(ctx context.Context, siteID uuid.UUID) (string, string, error) {
@@ -840,7 +916,11 @@ func (s *cctvService) processLiveSession(ctx context.Context, sessionService *se
 	if session == nil {
 		return nil
 	}
-	if session.IsDummy {
+	mode, err := sessionService.GetSourceMode(ctx, session.ID, "CCTV")
+	if err != nil {
+		return fmt.Errorf("CCTV source mode unavailable: %w", err)
+	}
+	if mode != source.ModeReal {
 		return nil
 	}
 

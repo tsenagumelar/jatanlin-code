@@ -9,7 +9,7 @@ export type SubscribeLatestCctvSubscriptionVariables = Types.Exact<{
 }>;
 
 
-export type SubscribeLatestCctvSubscription = { transact_cctv: Array<{ id: any, filename?: string | null, filepath?: string | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id?: any | null, session_id?: any | null }> };
+export type SubscribeLatestCctvSubscription = { transact_cctv: Array<{ id: any, filename?: string | null, filepath?: string | null, is_active?: boolean | null, is_deleted?: boolean | null, created_by?: any | null, created_date?: any | null, updated_by?: any | null, updated_date?: any | null, site_id: any, session_id?: any | null }> };
 
 
 export const SubscribeLatestCctvDocument = gql`

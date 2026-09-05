@@ -82,6 +82,15 @@ Semua template environment disimpan sebagai `.env.example`. Untuk membuat semua 
 make env-init
 ```
 
+`site.json` adalah katalog seluruh site. Pilih site aktif menggunakan nomor urut satu-based; pilihan tersebut disimpan sebagai `SITE_SELECTOR` di file environment:
+
+```bash
+make site-apply SITE=1
+make infra-bootstrap SITE=1
+```
+
+Seed master data selalu meng-upsert seluruh entri `sites` ke `master_site`. Hanya entri terpilih yang diterapkan sebagai konfigurasi runtime dan fallback koordinat ketika GPS kendaraan tidak tersedia.
+
 Target ini membuat `.env` dari `.env.example` jika file `.env` belum ada. File yang dibuat:
 
 - `.env`
@@ -184,7 +193,7 @@ Di dalam Docker, service saling terhubung lewat DNS compose:
 - WB agent: `wb-agent:5001`
 - CCTV streamer: `cctv-streamer:8090`
 
-`sync-agent` full Docker default aktif lewat `DOCKER_DATA_CENTER_SYNC_ENABLED=true` dan memakai `http://api.dc.jatanlin.test`. Jika data-center belum dijalankan dan tidak ingin melihat retry log sync:
+`sync-agent` full Docker default aktif lewat `DOCKER_DATA_CENTER_SYNC_ENABLED=true` dan memakai data-center lokal Mac melalui `http://host.docker.internal:28001`. Jika data-center belum dijalankan dan tidak ingin melihat retry log sync:
 
 ```bash
 DOCKER_DATA_CENTER_SYNC_ENABLED=false make docker-up
@@ -578,12 +587,12 @@ Aktifkan di `.env`:
 
 ```bash
 DATA_CENTER_SYNC_ENABLED=true
-DATA_CENTER_API_URL=https://api.jatanlinkorlantas.id
+DATA_CENTER_API_URL=http://localhost:28001
 DATA_CENTER_SYNC_KEY=jatanlin-site-sync-key-2026
 DATA_CENTER_SYNC_INTERVAL_SEC=30
 DATA_CENTER_SYNC_BATCH_SIZE=100
 DATA_CENTER_SYNC_CURSOR_FILE=./data/sync-agent-cursors.json
-DATA_CENTER_MINIO_ENDPOINT=minio.jatanlinkorlantas.id
+DATA_CENTER_MINIO_ENDPOINT=localhost:29000
 DATA_CENTER_MINIO_USE_SSL=true
 ```
 

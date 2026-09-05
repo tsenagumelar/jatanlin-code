@@ -1,14 +1,6 @@
 "use client";
 
-import { useGetConfigsQuery } from "@/src/graphql/hooks/configuration";
-import { useGetVehicleClassesQuery } from "@/src/graphql/hooks/master-vehicle-class";
-import { useGetVehicleActualByIdQuery } from "@/src/graphql/hooks/transact-vehicle-actual";
-import {
-  checkOdolViolation,
-  getOdolTolerances,
-  type VehicleActual,
-  type VehicleClassLimit,
-} from "@/src/utils/odol";
+import { useGetVehicleActualByIdAndSiteQuery } from "@/src/graphql/hooks/transact-vehicle-actual";
 import { getImageUrl, getMinioImageUrl } from "@/src/utils/image";
 import type {
   V3DetailField,
@@ -18,9 +10,19 @@ import type {
   V3MediaItem,
 } from "./types";
 
+const SITE_TIME_ZONE =
+  process.env.NEXT_PUBLIC_SITE_TIMEZONE || "Asia/Jakarta";
+const VERIFIED_RESULTS = new Set([
+  "Normal",
+  "Over Dimension",
+  "Over Loading",
+  "Over Dimension & Over Loading",
+]);
+
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("id-ID", {
+    timeZone: SITE_TIME_ZONE,
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -44,10 +46,15 @@ function formatWeight(value?: string | number | null) {
   return `${formatNumber(Number(value) / 1000)} ton`;
 }
 
+function formatMeters(value?: string | number | null, fractionDigits = 1) {
+  const formatted = formatNumber(value, fractionDigits);
+  return formatted === "-" ? "-" : `${formatted} m`;
+}
+
 function formatDimensions(record?: V3JatanlinDetailRecord | null) {
-  const length = record?.actual_length ?? record?.transact_dimension?.length;
-  const width = record?.actual_width ?? record?.transact_dimension?.width;
-  const height = record?.actual_height ?? record?.transact_dimension?.height;
+  const length = record?.actual_length;
+  const width = record?.actual_width;
+  const height = record?.actual_height;
 
   if (
     length === null ||
@@ -68,7 +75,7 @@ function getPlate(record?: V3JatanlinDetailRecord | null) {
 }
 
 function getAxle(record?: V3JatanlinDetailRecord | null) {
-  return record?.transact_weighing?.total_axle || record?.actual_total_axle || "-";
+  return record?.actual_total_axle || "-";
 }
 
 function getLatestStatus(record?: V3JatanlinDetailRecord | null) {
@@ -130,54 +137,16 @@ function getCctvUrl(record?: V3JatanlinDetailRecord | null) {
   return getImageUrl(record?.transact_cctv?.filepath || null);
 }
 
-function getViolation(
-  record: V3JatanlinDetailRecord | null | undefined,
-  classes: Array<VehicleClassLimit & { total_axle?: number | null }>,
-  configs: Parameters<typeof getOdolTolerances>[0],
-) {
+function getViolation(record: V3JatanlinDetailRecord | null | undefined) {
   const latestStatus = getLatestStatus(record);
-  if (latestStatus?.status === "verified" && latestStatus.result) {
+  if (
+    latestStatus?.status === "verified" &&
+    latestStatus.result &&
+    VERIFIED_RESULTS.has(latestStatus.result)
+  ) {
     return latestStatus.result;
   }
-
-  if (!record) return "Pending";
-
-  const axleCount = Number(record.transact_weighing?.total_axle || record.actual_total_axle || 0);
-  const actualWeight = Number(record.actual_weight || 0);
-  const actualLength = Number(record.actual_length || record.transact_dimension?.length || 0);
-  const actualWidth = Number(record.actual_width || record.transact_dimension?.width || 0);
-  const actualHeight = Number(record.actual_height || record.transact_dimension?.height || 0);
-  const vehicleClass = classes.find((item) => item.total_axle === axleCount);
-
-  if (
-    !vehicleClass ||
-    !axleCount ||
-    !actualWeight ||
-    !actualLength ||
-    !actualWidth ||
-    !actualHeight
-  ) {
-    return "Pending";
-  }
-
-  const tolerances = getOdolTolerances(configs);
-  const actual: VehicleActual = {
-    total_weight: actualWeight / 1000,
-    length: actualLength,
-    width: actualWidth,
-    height: actualHeight,
-  };
-  const limit: VehicleClassLimit = {
-    ...vehicleClass,
-    class_2_weight: Number(vehicleClass.class_2_weight || 0) / 1000,
-    class_3_weight: Number(vehicleClass.class_3_weight || 0) / 1000,
-  };
-
-  return checkOdolViolation(actual, limit, {
-    axleCount,
-    toleranceWeightPercent: tolerances.weightPercent,
-    toleranceDimPercent: tolerances.dimPercent,
-  });
+  return "Pending";
 }
 
 function getSummaryFields(record?: V3JatanlinDetailRecord | null): V3DetailField[] {
@@ -199,14 +168,14 @@ function getSummaryFields(record?: V3JatanlinDetailRecord | null): V3DetailField
 function getSourceFields(record?: V3JatanlinDetailRecord | null) {
   return {
     anpr: [
-      { label: "Nomor Plat", value: record?.transact_anpr_capture?.plate_no || "-" },
+      { label: "Nomor Plat", value: record?.transact_anpr_capture?.plate_no || record?.actual_plat_no || "-" },
       { label: "Confidence", value: formatNumber(record?.transact_anpr_capture?.confidence, 2) },
       { label: "Camera ID", value: record?.transact_anpr_capture?.camera_id || "-" },
       { label: "Waktu Tangkapan", value: formatDateTime(record?.transact_anpr_capture?.captured_at) },
     ],
     axle: [
-      { label: "Nomor Plat", value: record?.transact_axle_capture?.plate_no || "-" },
-      { label: "Total Sumbu", value: String(record?.transact_axle_capture?.total_axles || "-") },
+      { label: "Nomor Plat", value: record?.transact_axle_capture?.plate_no || record?.actual_plat_no || "-" },
+      { label: "Total Sumbu", value: String(record?.transact_axle_capture?.total_axles || record?.actual_total_axle || "-") },
       { label: "Total Roda", value: String(record?.transact_axle_capture?.total_wheels || "-") },
       { label: "Tipe Kendaraan", value: record?.transact_axle_capture?.vehicle_body_type || "-" },
       {
@@ -217,15 +186,15 @@ function getSourceFields(record?: V3JatanlinDetailRecord | null) {
       },
     ],
     wim: [
-      { label: "Total Berat", value: formatWeight(record?.transact_weighing?.total_weight) },
-      { label: "Total Sumbu", value: String(record?.transact_weighing?.total_axle || "-") },
-      { label: "Aktif", value: record?.transact_weighing?.is_active ? "Ya" : "Tidak" },
+      { label: "Total Berat", value: formatWeight(record?.transact_weighing?.total_weight ?? record?.actual_weight) },
+      { label: "Total Sumbu", value: String(record?.transact_weighing?.total_axle || record?.actual_total_axle || "-") },
+      { label: "Aktif", value: record?.transact_weighing ? (record.transact_weighing.is_active ? "Ya" : "Tidak") : "-" },
       { label: "Waktu Dibuat", value: formatDateTime(record?.transact_weighing?.created_date) },
     ],
     dimension: [
-      { label: "Panjang", value: `${formatNumber(record?.transact_dimension?.length, 1)} m` },
-      { label: "Lebar", value: `${formatNumber(record?.transact_dimension?.width, 1)} m` },
-      { label: "Tinggi", value: `${formatNumber(record?.transact_dimension?.height, 1)} m` },
+      { label: "Panjang", value: formatMeters(record?.transact_dimension?.length ?? record?.actual_length) },
+      { label: "Lebar", value: formatMeters(record?.transact_dimension?.width ?? record?.actual_width) },
+      { label: "Tinggi", value: formatMeters(record?.transact_dimension?.height ?? record?.actual_height) },
       { label: "Waktu Dibuat", value: formatDateTime(record?.transact_dimension?.created_date) },
     ],
   };
@@ -295,30 +264,15 @@ function getMediaItems(record?: V3JatanlinDetailRecord | null): V3MediaItem[] {
 }
 
 export function useV3JatanlinDetail({ id }: V3JatanlinDetailProps) {
-  const vehicleActualQuery = useGetVehicleActualByIdQuery({
-    variables: { id },
+  const siteId = process.env.NEXT_PUBLIC_SITE_ID ?? "";
+  const vehicleActualQuery = useGetVehicleActualByIdAndSiteQuery({
+    variables: { id, site_id: siteId },
+    skip: !siteId,
     fetchPolicy: "network-only",
   });
-  const vehicleClassesQuery = useGetVehicleClassesQuery({
-    variables: { limit: 100, offset: 0 },
-    fetchPolicy: "cache-and-network",
-  });
-  const configsQuery = useGetConfigsQuery({
-    variables: {
-      limit: 10,
-      offset: 0,
-      where: { config_key: { _in: ["TOLERANCE_WEIGHT", "TOLERANCE_DIM"] } },
-    },
-    fetchPolicy: "cache-and-network",
-  });
-
-  const record = vehicleActualQuery.data?.transact_vehicle_actual_by_pk || null;
+  const record = vehicleActualQuery.data?.transact_vehicle_actual[0] || null;
   const latestStatus = getLatestStatus(record);
-  const violation = getViolation(
-    record,
-    vehicleClassesQuery.data?.master_vehicle_class ?? [],
-    configsQuery.data?.master_config,
-  );
+  const violation = getViolation(record);
 
   return {
     record,
@@ -328,14 +282,10 @@ export function useV3JatanlinDetail({ id }: V3JatanlinDetailProps) {
     mediaItems: getMediaItems(record),
     summaryFields: getSummaryFields(record),
     sourceFields: getSourceFields(record),
-    isLoading:
-      vehicleActualQuery.loading ||
-      vehicleClassesQuery.loading ||
-      configsQuery.loading,
+    isLoading: vehicleActualQuery.loading,
     error:
       vehicleActualQuery.error?.message ||
-      vehicleClassesQuery.error?.message ||
-      configsQuery.error?.message ||
+      (!siteId ? "NEXT_PUBLIC_SITE_ID belum dikonfigurasi." : null) ||
       null,
     formatDateTime,
     getPlate,

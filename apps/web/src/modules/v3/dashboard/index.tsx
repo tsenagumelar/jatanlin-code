@@ -38,6 +38,22 @@ const metricIcons: Record<V3DashboardMetric["icon"], ReactElement> = {
   today: <CalendarLtr24Regular />,
 };
 
+function transactionStatusLabel(status: string) {
+  const value = status.toLowerCase();
+  if (value === "verified") return "Terverifikasi";
+  if (value === "rejected") return "Ditolak";
+  if (value === "draft") return "Draf";
+  return "Menunggu";
+}
+
+function transactionStatusTone(status: string) {
+  const value = status.toLowerCase();
+  if (value === "verified") return "bg-emerald-50 text-emerald-700";
+  if (value === "rejected") return "bg-red-50 text-red-700";
+  if (value === "draft") return "bg-sky-50 text-sky-700";
+  return "bg-amber-50 text-amber-700";
+}
+
 function MetricCard({ metric }: { metric: V3DashboardMetric }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -260,8 +276,8 @@ export function V3DashboardPage() {
                         {row.officer}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
-                          {row.status}
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${transactionStatusTone(row.status)}`}>
+                          {transactionStatusLabel(row.status)}
                         </span>
                       </td>
                       <td className="px-4 py-3">

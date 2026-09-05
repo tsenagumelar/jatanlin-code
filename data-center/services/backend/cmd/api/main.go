@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"jatanlin-data-center-backend/internal/api"
 	"jatanlin-data-center-backend/internal/config"
 	"jatanlin-data-center-backend/internal/database"
+	"jatanlin-data-center-backend/internal/etlenas"
 )
 
 func main() {
@@ -18,7 +20,10 @@ func main() {
 	}
 	defer db.Close()
 
-	server := api.NewServer(db, cfg)
+	etlenasWorker := etlenas.NewWorker(db, cfg)
+	go etlenasWorker.Run(context.Background())
+
+	server := api.NewServer(db, cfg, etlenasWorker)
 	log.Printf("data center api listening on :%s", cfg.AppPort)
 	if err := http.ListenAndServe(":"+cfg.AppPort, server.Routes()); err != nil {
 		log.Fatalf("server stopped: %v", err)

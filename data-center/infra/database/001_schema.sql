@@ -32,9 +32,12 @@ CREATE TABLE IF NOT EXISTS public.dc_site (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   site_code VARCHAR(80) NOT NULL UNIQUE,
   site_name VARCHAR(160) NOT NULL,
+	site_location VARCHAR(200),
   site_address TEXT,
   city VARCHAR(100),
   province VARCHAR(100),
+	latitude NUMERIC(9,6),
+	longitude NUMERIC(10,6),
   timezone VARCHAR(80) NOT NULL DEFAULT 'Asia/Jakarta',
   operational_status VARCHAR(40) NOT NULL DEFAULT 'offline',
   active_operator_id UUID,
@@ -364,7 +367,8 @@ CREATE INDEX IF NOT EXISTS idx_dc_transact_weighing_site_session ON public.dc_tr
 CREATE INDEX IF NOT EXISTS idx_dc_transact_vehicle_actual_site_session ON public.dc_transact_vehicle_actual (site_id, source_session_id);
 CREATE INDEX IF NOT EXISTS idx_dc_transact_vehicle_status_site_actual ON public.dc_transact_vehicle_status (site_id, source_vehicle_actual_id);
 
-CREATE OR REPLACE VIEW public.dc_dashboard_vehicle_actual AS
+DROP VIEW IF EXISTS public.dc_dashboard_vehicle_actual;
+CREATE VIEW public.dc_dashboard_vehicle_actual AS
 SELECT
   v.id,
   v.site_id,

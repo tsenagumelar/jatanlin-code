@@ -7,6 +7,7 @@ import (
 	"wim-service/internal/auth"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -50,7 +51,10 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		isActive = *req.IsActive
 	}
 
-	actorID, _ := c.Locals("userID").(string)
+	actorID, err := authenticatedActorID(c)
+	if err != nil {
+		return errorResponse(c, fiber.StatusUnauthorized, err.Error())
+	}
 	user, err := h.insertUser(req, passwordHash, isActive, actorID)
 	if err != nil {
 		return databaseErrorResponse(c, err)
@@ -92,7 +96,10 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		isActive = *req.IsActive
 	}
 
-	actorID, _ := c.Locals("userID").(string)
+	actorID, err := authenticatedActorID(c)
+	if err != nil {
+		return errorResponse(c, fiber.StatusUnauthorized, err.Error())
+	}
 	user, err := h.updateUser(userID, req, passwordHash, isActive, actorID)
 	if err != nil {
 		return databaseErrorResponse(c, err)
@@ -111,7 +118,10 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 		return errorResponse(c, fiber.StatusBadRequest, "User id is required")
 	}
 
-	actorID, _ := c.Locals("userID").(string)
+	actorID, err := authenticatedActorID(c)
+	if err != nil {
+		return errorResponse(c, fiber.StatusUnauthorized, err.Error())
+	}
 	if err := h.softDeleteUser(userID, actorID); err != nil {
 		return databaseErrorResponse(c, err)
 	}
@@ -151,6 +161,22 @@ func validateUpdateUser(req userPayload) error {
 func hashPassword(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(hash), err
+}
+
+func authenticatedActorID(c *fiber.Ctx) (string, error) {
+	actorID, _ := c.Locals("userID").(string)
+	return validateActorID(actorID)
+}
+
+func validateActorID(actorID string) (string, error) {
+	actorID = strings.TrimSpace(actorID)
+	if actorID == "" || actorID == uuid.Nil.String() {
+		return "", errors.New("Authenticated user is required")
+	}
+	if _, err := uuid.Parse(actorID); err != nil {
+		return "", errors.New("Authenticated user is invalid")
+	}
+	return actorID, nil
 }
 
 func nullableString(value string) any {

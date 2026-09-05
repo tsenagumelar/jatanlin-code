@@ -15,9 +15,12 @@ import (
 type syncHeartbeatRequest struct {
 	SiteCode           string     `json:"site_code"`
 	SiteName           string     `json:"site_name"`
+	SiteLocation       string     `json:"site_location"`
 	SiteAddress        string     `json:"site_address"`
 	City               string     `json:"city"`
 	Province           string     `json:"province"`
+	Latitude           *float64   `json:"latitude"`
+	Longitude          *float64   `json:"longitude"`
 	OperationalStatus  string     `json:"operational_status"`
 	ActiveOperatorID   *string    `json:"active_operator_id"`
 	ActiveOperatorName string     `json:"active_operator_name"`
@@ -118,9 +121,12 @@ func (s *Server) handleSyncHeartbeat(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO public.dc_site (
 			site_code,
 			site_name,
+			site_location,
 			site_address,
 			city,
 			province,
+			latitude,
+			longitude,
 			operational_status,
 			active_operator_id,
 			active_operator_name,
@@ -129,12 +135,15 @@ func (s *Server) handleSyncHeartbeat(w http.ResponseWriter, r *http.Request) {
 			app_version,
 			service_version
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), $13, $14)
 		ON CONFLICT (site_code) DO UPDATE
 		SET site_name = EXCLUDED.site_name,
+		    site_location = EXCLUDED.site_location,
 		    site_address = EXCLUDED.site_address,
 		    city = EXCLUDED.city,
 		    province = EXCLUDED.province,
+		    latitude = EXCLUDED.latitude,
+		    longitude = EXCLUDED.longitude,
 		    operational_status = EXCLUDED.operational_status,
 		    active_operator_id = EXCLUDED.active_operator_id,
 		    active_operator_name = EXCLUDED.active_operator_name,
@@ -146,7 +155,7 @@ func (s *Server) handleSyncHeartbeat(w http.ResponseWriter, r *http.Request) {
 		    is_deleted = false,
 		    updated_at = now()
 		RETURNING id::text
-	`, request.SiteCode, request.SiteName, nullString(request.SiteAddress), nullString(request.City), nullString(request.Province), request.OperationalStatus, nullUUID(request.ActiveOperatorID), nullString(request.ActiveOperatorName), lastSeen, nullString(request.AppVersion), nullString(request.ServiceVersion)).Scan(&siteID)
+	`, request.SiteCode, request.SiteName, nullString(request.SiteLocation), nullString(request.SiteAddress), nullString(request.City), nullString(request.Province), request.Latitude, request.Longitude, request.OperationalStatus, nullUUID(request.ActiveOperatorID), nullString(request.ActiveOperatorName), lastSeen, nullString(request.AppVersion), nullString(request.ServiceVersion)).Scan(&siteID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -16,6 +16,7 @@ services:
         NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-Mampang Revamp Local}
         NEXT_PUBLIC_SITE_LOCATION: ${NEXT_PUBLIC_SITE_LOCATION:-Central Office}
         NEXT_PUBLIC_SITE_REGION: ${NEXT_PUBLIC_SITE_REGION:-Default}
+        NEXT_PUBLIC_SITE_TIMEZONE: ${NEXT_PUBLIC_SITE_TIMEZONE:-Asia/Jakarta}
         NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://localhost:19000}
         NEXT_PUBLIC_DEVICE_CHECK_PROD_MODE: ${NEXT_PUBLIC_DEVICE_CHECK_PROD_MODE:-false}
         NEXT_PUBLIC_DEVICE_CHECK_TIMEOUT_MS: ${NEXT_PUBLIC_DEVICE_CHECK_TIMEOUT_MS:-3000}
@@ -35,6 +36,7 @@ services:
       NEXT_PUBLIC_HASURA_WS_IP: ${NEXT_PUBLIC_HASURA_WS_IP:-ws://localhost:18080/v1/graphql}
       NEXT_PUBLIC_HASURA_SECRET: ${NEXT_PUBLIC_HASURA_SECRET:-devhasurasecret}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+      NEXT_PUBLIC_SITE_TIMEZONE: ${NEXT_PUBLIC_SITE_TIMEZONE:-Asia/Jakarta}
       NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://localhost:19000}
     ports:
       - "${WEB_PORT:-3000}:3000"
@@ -62,6 +64,7 @@ services:
       SITE_NAME: ${SITE_NAME:-Mampang Revamp Local}
       SITE_LOCATION: ${SITE_LOCATION:-Central Office}
       SITE_REGION: ${SITE_REGION:-Default}
+      SESSION_WINDOW_SECONDS: ${SESSION_WINDOW_SECONDS:-120}
       NATS_URL: nats://nats:4222
       ANPR_FTP_HOST: ${DOCKER_ANPR_FTP_HOST:-ftp-local:21}
       ANPR_FTP_USER: ${FTP_USER:-ftpuser}
@@ -89,7 +92,7 @@ services:
       ATTACHMENT_MINIO_BUCKET: ${ATTACHMENT_MINIO_BUCKET:-attachment}
       ATTACHMENT_MINIO_USE_SSL: "false"
       DATA_CENTER_SYNC_ENABLED: ${DATA_CENTER_SYNC_ENABLED:-false}
-      DATA_CENTER_API_URL: ${DATA_CENTER_API_URL:-https://api.jatanlinkorlantas.id}
+      DATA_CENTER_API_URL: ${DATA_CENTER_API_URL:-http://host.docker.internal:28001}
       DATA_CENTER_SYNC_KEY: ${DATA_CENTER_SYNC_KEY:-jatanlin-site-sync-key-2026}
       DATA_CENTER_SYNC_INTERVAL_SEC: ${DATA_CENTER_SYNC_INTERVAL_SEC:-30}
       DATA_CENTER_SYNC_BATCH_SIZE: ${DATA_CENTER_SYNC_BATCH_SIZE:-100}
@@ -98,7 +101,7 @@ services:
       DATA_CENTER_SYNC_LOOKBACK_SEC: ${DATA_CENTER_SYNC_LOOKBACK_SEC:-300}
       DATA_CENTER_SYNC_ONCE: ${DATA_CENTER_SYNC_ONCE:-false}
       DATA_CENTER_ATTACHMENT_SYNC_ENABLED: ${DATA_CENTER_ATTACHMENT_SYNC_ENABLED:-true}
-      DATA_CENTER_MINIO_ENDPOINT: ${DATA_CENTER_MINIO_ENDPOINT:-minio.jatanlinkorlantas.id}
+      DATA_CENTER_MINIO_ENDPOINT: ${DATA_CENTER_MINIO_ENDPOINT:-host.docker.internal:29000}
       DATA_CENTER_MINIO_ACCESS_KEY: ${DATA_CENTER_MINIO_ACCESS_KEY:-jatanlin_dc_minio}
       DATA_CENTER_MINIO_SECRET_KEY: ${DATA_CENTER_MINIO_SECRET_KEY:-jatanlin_dc_minio_password}
       DATA_CENTER_MINIO_BUCKET: ${DATA_CENTER_MINIO_BUCKET:-jatanlin-data-center-attachments}
@@ -119,6 +122,7 @@ services:
       CCTV_RECORD_SECONDS: ${CCTV_RECORD_SECONDS:-30}
       CCTV_SESSION_RECORD_SECONDS: ${CCTV_SESSION_RECORD_SECONDS:-30}
       CCTV_DUMMY_ENABLED: ${CCTV_DUMMY_ENABLED:-true}
+      DEMO_SAMPLE_DIR: /app/sample-demo
       CCTV_HTTP_PORT: ${CCTV_HTTP_PORT:-8090}
       VEAM_LICENSE_PATH: ${VEAM_LICENSE_PATH:-./data/license.veam}
       VEAM_PUBLIC_KEY_B64: ${VEAM_PUBLIC_KEY_B64:-2CKPRGxWNdr2ZT1Q1vOwp2cZqh4MxYmFsOlFtx83eW4=}
@@ -129,6 +133,7 @@ services:
       - "${API_PORT:-4000}:${API_PORT:-4000}"
     volumes:
       - backend-data:/app/data
+      - ../../sample-demo:/app/sample-demo:ro
       - ${VEAM_USB_HOST_MOUNT:-/run/desktop/mnt/host}:${VEAM_USB_CONTAINER_MOUNT:-/host/windows}:ro
       - /Volumes:/host/Volumes:ro
     depends_on: &backend_depends_on
@@ -181,9 +186,9 @@ services:
     environment:
       <<: *backend_environment
       SERVICE: sync-agent
-      DATA_CENTER_API_URL: ${DOCKER_DATA_CENTER_API_URL:-https://api.jatanlinkorlantas.id}
-      DATA_CENTER_MINIO_ENDPOINT: ${DOCKER_DATA_CENTER_MINIO_ENDPOINT:-minio.jatanlinkorlantas.id}
-      DATA_CENTER_MINIO_USE_SSL: ${DOCKER_DATA_CENTER_MINIO_USE_SSL:-true}
+      DATA_CENTER_API_URL: ${DOCKER_DATA_CENTER_API_URL:-http://host.docker.internal:28001}
+      DATA_CENTER_MINIO_ENDPOINT: ${DOCKER_DATA_CENTER_MINIO_ENDPOINT:-host.docker.internal:29000}
+      DATA_CENTER_MINIO_USE_SSL: ${DOCKER_DATA_CENTER_MINIO_USE_SSL:-false}
       DATA_CENTER_SYNC_ENABLED: ${DOCKER_DATA_CENTER_SYNC_ENABLED:-true}
 
   wb-agent:

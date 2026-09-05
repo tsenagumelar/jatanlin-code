@@ -1,6 +1,7 @@
 package dimension
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"wim-service/internal/source"
 	"wim-service/internal/vision"
 )
 
@@ -139,14 +141,31 @@ func (dh *DimensionHandler) ProcessANPRImageWithSessionMode(imagePath string, pl
 		return dh.processDummyDimension(imagePath, plateNumber, externalID, sessionID)
 	}
 
-	result, err := dh.ProcessANPRImage(imagePath, plateNumber, externalID)
+	log.Printf("[DIMENSION_HANDLER] Processing session image for plate: %s (External ID: %s)", plateNumber, externalID)
+	result := &DimensionResult{ImagePath: imagePath, ProcessedAt: time.Now()}
+	dimensions, err := dh.DimensionService.ProcessImage(imagePath)
 	if err != nil {
+		result.ErrorMessage = err.Error()
 		return result, err
 	}
+	result.Dimensions = dimensions
+	result.VehicleCount = len(dimensions)
+	result.Success = true
 
-	if sessionID != nil && *sessionID != uuid.Nil {
-		if err := dh.attachSessionToExistingDimension(*sessionID, externalID); err != nil {
-			log.Printf("[DIMENSION_HANDLER] Warning: failed to attach session_id to dimension: %v", err)
+	if dh.SaveResults && dh.DB != nil {
+		for i := range dimensions {
+			if err := dh.upsertDimensionRecord(sessionID, externalID, imagePath, &dimensions[i]); err != nil {
+				result.Success = false
+				result.ErrorMessage = err.Error()
+				return result, fmt.Errorf("save session dimension %d: %w", i+1, err)
+			}
+		}
+		if sessionID != nil && *sessionID != uuid.Nil && len(dimensions) > 0 {
+			if err := dh.markDimensionReceived(*sessionID); err != nil {
+				result.Success = false
+				result.ErrorMessage = err.Error()
+				return result, err
+			}
 		}
 	}
 
@@ -297,10 +316,34 @@ func (dh *DimensionHandler) processDummyDimension(imagePath string, plateNumber 
 			result.ErrorMessage = err.Error()
 			return result, err
 		}
+		if sessionID != nil && *sessionID != uuid.Nil {
+			if err := dh.markDimensionReceived(*sessionID); err != nil {
+				result.Success = false
+				result.ErrorMessage = err.Error()
+				return result, err
+			}
+		}
 	}
 
 	log.Printf("[DIMENSION_HANDLER] Dummy dimension generated for external_id=%s session_id=%v", externalID, sessionID)
 	return result, nil
+}
+
+func (dh *DimensionHandler) markDimensionReceived(sessionID uuid.UUID) error {
+	siteID, err := uuid.Parse(dh.SiteUUID)
+	if err != nil {
+		return fmt.Errorf("invalid dimension site UUID: %w", err)
+	}
+	var recordID uuid.UUID
+	err = dh.DB.QueryRow(`
+		SELECT id FROM public.transact_dimension
+		WHERE site_id=$1 AND session_id=$2
+		ORDER BY created_date DESC LIMIT 1
+	`, siteID, sessionID).Scan(&recordID)
+	if err != nil {
+		return fmt.Errorf("resolve dimension source record: %w", err)
+	}
+	return source.MarkReceived(context.Background(), dh.DB, siteID, sessionID, "DIMENSION", recordID)
 }
 
 func (dh *DimensionHandler) attachSessionToExistingDimension(sessionID uuid.UUID, externalID string) error {

@@ -323,6 +323,11 @@ export function useV3VehicleClasses() {
       return;
     }
 
+    if (!currentUser?.id) {
+      setFormError("Sesi pengguna tidak valid. Silakan login kembali.");
+      return;
+    }
+
     const input = {
       type: formData.type.trim(),
       description: formData.description.trim(),
@@ -343,7 +348,7 @@ export function useV3VehicleClasses() {
             id: modal.vehicleClass.id,
             set: {
               ...input,
-              updated_by: currentUser?.id,
+              updated_by: currentUser.id,
               updated_date: "now()",
             },
           },
@@ -353,7 +358,7 @@ export function useV3VehicleClasses() {
           variables: {
             object: {
               ...input,
-              created_by: currentUser?.id,
+              created_by: currentUser.id,
               created_date: "now()",
             },
           },
@@ -377,11 +382,16 @@ export function useV3VehicleClasses() {
     );
     if (!confirmed) return;
 
+    if (!currentUser?.id) {
+      setFormError("Sesi pengguna tidak valid. Silakan login kembali.");
+      return;
+    }
+
     try {
       await softDeleteVehicleClass({
         variables: {
           id: vehicleClass.id,
-          updated_by: currentUser?.id || vehicleClass.id,
+          updated_by: currentUser.id,
         },
       });
       await vehicleClassesQuery.refetch();

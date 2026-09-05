@@ -157,7 +157,9 @@ export const apolloClient = new ApolloClient({
       errorPolicy: "all",
     },
     mutate: {
-      errorPolicy: "all",
+      // Mutations must reject GraphQL errors so the UI never reports a failed
+      // write as successful.
+      errorPolicy: "none",
     },
   },
 });

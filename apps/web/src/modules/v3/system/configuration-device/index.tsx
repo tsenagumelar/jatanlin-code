@@ -175,6 +175,10 @@ const groupLabels: Record<string, { title: string; description: string }> = {
     title: "Kalibrasi Kamera",
     description: "Nilai geometri kamera dan kalibrasi objek referensi.",
   },
+  OPERATION: {
+    title: "Operasional Transaksi",
+    description: "Batas waktu dan perilaku penggabungan data lintas perangkat.",
+  },
   WEIGHING: {
     title: "Trigger Penimbangan",
     description: "Pengaturan trigger tangkapan penimbangan eksternal.",

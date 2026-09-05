@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 	"wim-service/internal/ingest"
 	"wim-service/internal/session"
+	"wim-service/internal/source"
 
 	"github.com/google/uuid"
 	"github.com/jlaffaye/ftp"
@@ -159,8 +162,13 @@ func (p *AxleProcessor) HandleNewFileAXLE(ctx context.Context, c *ftp.ServerConn
 		log.Println("[AXLE] No active IN_PROGRESS session found, skipping file:", name)
 		return true
 	}
-	if session.IsDummy {
-		log.Printf("[AXLE] Active session %s is in dummy mode, skipping FTP ingest", session.Code)
+	mode, err := p.SessionService.GetSourceMode(ctx, session.ID, "AXLE")
+	if err != nil {
+		log.Printf("[AXLE] Source mode unavailable for session %s: %v", session.Code, err)
+		return false
+	}
+	if mode != source.ModeReal {
+		log.Printf("[AXLE] Source mode is %s for session %s, skipping FTP ingest", mode, session.Code)
 		return true
 	}
 
@@ -187,7 +195,11 @@ func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
 		log.Println("[AXLE_DUMMY] No active IN_PROGRESS session found")
 		return nil
 	}
-	if !session.IsDummy {
+	mode, err := p.SessionService.GetSourceMode(ctx, session.ID, "AXLE")
+	if err != nil {
+		return fmt.Errorf("AXLE source mode unavailable: %w", err)
+	}
+	if mode != source.ModeDummy {
 		return nil
 	}
 
@@ -205,8 +217,14 @@ func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
 	category := fmt.Sprintf("CAT-%d", 1+time.Now().Unix()%5)
 	bodyType := fmt.Sprintf("BODY-%d", 1+time.Now().Unix()%5)
 	imgObj := ""
+	if samplePath, ok := dummyAxleAssetPath(session.ID); ok {
+		imgObj = fmt.Sprintf("demo/%s/%s", session.ID, filepath.Base(samplePath))
+		if err := p.uploadLocalDummyImage(ctx, samplePath, imgObj); err != nil {
+			return fmt.Errorf("upload dummy AXLE image: %w", err)
+		}
+	}
 
-	if sample != nil {
+	if imgObj == "" && sample != nil {
 		if sample.MinioImageObj.Valid {
 			imgObj = strings.TrimSpace(sample.MinioImageObj.String)
 		}
@@ -229,6 +247,34 @@ func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
 	}
 
 	log.Printf("[AXLE_DUMMY] Enqueued dummy AXLE for session=%s external_id=%s", session.ID, externalID)
+	return nil
+}
+
+func dummyAxleAssetPath(sessionID uuid.UUID) (string, bool) {
+	index := 1 + int(sessionID[15])%2
+	dir := strings.TrimSpace(os.Getenv("DEMO_SAMPLE_DIR"))
+	if dir == "" {
+		dir = "../../sample-demo"
+	}
+	imagePath := filepath.Join(dir, fmt.Sprintf("axle-%d.xml.jpg", index))
+	if _, err := os.Stat(imagePath); err != nil {
+		return "", false
+	}
+	return imagePath, true
+}
+
+func (p *AxleProcessor) uploadLocalDummyImage(ctx context.Context, sourcePath, objectName string) error {
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		return err
+	}
+	_, err = p.Minio.FPutObject(ctx, p.Bucket, objectName, sourcePath, minio.PutObjectOptions{
+		ContentType: "image/jpeg",
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("[AXLE_DUMMY] Uploaded sample %s (%d bytes) to %s/%s", filepath.Base(sourcePath), info.Size(), p.Bucket, objectName)
 	return nil
 }
 

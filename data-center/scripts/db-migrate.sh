@@ -19,7 +19,7 @@ POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-jatanlin_dc_password}"
 for file in "$ROOT_DIR"/infra/database/*.sql; do
   [ -f "$file" ] || continue
   case "$(basename "$file")" in
-    *_seed.sql) continue ;;
+    *_seed.sql|manual_migration.sql) continue ;;
   esac
   echo "Applying $(basename "$file")"
   PGPASSWORD="$POSTGRES_PASSWORD" psql \

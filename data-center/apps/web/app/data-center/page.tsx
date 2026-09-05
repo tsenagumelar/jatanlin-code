@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -35,6 +36,18 @@ type Overview = {
     today_normal: number;
     today_over_loading: number;
     today_over_dimension: number;
+    latitude: number | null;
+    longitude: number | null;
+  }>;
+  transaction_locations: Array<{
+    id: string;
+    site_code: string;
+    site_name: string;
+    plate_no: string;
+    latitude: number;
+    longitude: number;
+    violation_status: string;
+    time: string;
   }>;
   recent_violations: Array<{
     id: string;
@@ -46,6 +59,10 @@ type Overview = {
     verification_status: string;
     officer: string;
     site_code: string;
+    etlenas_status: string;
+    etlenas_error: string;
+    etlenas_synced_at: string | null;
+    anpr_image_url: string;
   }>;
 };
 
@@ -188,6 +205,20 @@ function verificationStatusLabel(status?: string | null) {
   return "Menunggu";
 }
 
+function etlenasStatusLabel(status?: string | null) {
+  if (status === "SUCCESS") return "Berhasil";
+  if (status === "FAILED") return "Gagal";
+  if (status === "PROCESSING") return "Sedang Sync";
+  return "Belum Sync";
+}
+
+function etlenasStatusTone(status?: string | null) {
+  if (status === "SUCCESS") return "bg-emerald-50 text-emerald-700";
+  if (status === "FAILED") return "bg-red-50 text-red-700";
+  if (status === "PROCESSING") return "bg-blue-50 text-blue-700";
+  return "bg-slate-100 text-slate-600";
+}
+
 function KpiTile({
   label,
   value,
@@ -315,11 +346,13 @@ function StatusChip({ status }: { status: SiteStatus }) {
 
 function CommandMap({
   units,
+  transactionLocations,
   selectedSite,
   mode,
   onSelectSite,
 }: {
   units: UnitRow[];
+  transactionLocations: Overview["transaction_locations"];
   selectedSite: string | null;
   mode: MapMode;
   onSelectSite: (id: string) => void;
@@ -327,6 +360,38 @@ function CommandMap({
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<import("leaflet").Map | null>(null);
   const markerLayersRef = useRef<import("leaflet").Layer[]>([]);
+  const mappedUnits = useMemo<UnitRow[]>(
+    () =>
+      mode === "transactions"
+        ? transactionLocations.map((transaction) => ({
+            id: transaction.id,
+            code: transaction.plate_no || "Tanpa Plat",
+            name: transaction.site_name,
+            city: transaction.site_code,
+            province: "",
+            status:
+              transaction.violation_status === "violation"
+                ? "offline"
+                : transaction.violation_status === "normal"
+                  ? "online"
+                  : "warning",
+            healthScore: 100,
+            totalToday: 1,
+            violations: transaction.violation_status === "violation" ? 1 : 0,
+            normal: transaction.violation_status === "normal" ? 1 : 0,
+            overLoading: 0,
+            overDimension: 0,
+            lastSeenAt: transaction.time,
+            lastSyncAt: transaction.time,
+            lastSeenLabel: formatDateTime(transaction.time),
+            lastSyncLabel: formatDateTime(transaction.time),
+            operatorName: "-",
+            lat: transaction.latitude,
+            lng: transaction.longitude,
+          }))
+        : units,
+    [mode, transactionLocations, units],
+  );
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -355,14 +420,16 @@ function CommandMap({
       leafletMapRef.current = map;
       markerLayersRef.current = [];
 
-      units.forEach((unit) => {
+      mappedUnits.forEach((unit) => {
         const selected = selectedSite === unit.id;
         const markerSize = selected ? 30 : 24;
         const markerColor =
           mode === "transactions"
-            ? unit.violations > 0
+            ? unit.status === "offline"
               ? "#ef4444"
-              : "#22c55e"
+              : unit.status === "warning"
+                ? "#f59e0b"
+                : "#22c55e"
             : unit.status === "online"
               ? "#22c55e"
               : unit.status === "warning"
@@ -405,15 +472,15 @@ function CommandMap({
             <div style="font-family:Arial,sans-serif;min-width:210px">
               <div style="font-weight:900;font-size:14px;color:#0f172a">${unit.name}</div>
               <div style="font-size:12px;color:#64748b;margin-top:2px">${unit.code} - ${unit.city}, ${unit.province}</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px">
+              ${mode === "transactions" ? `<div style="margin-top:10px;font-size:12px;color:#334155">Waktu transaksi: <strong>${unit.lastSeenLabel}</strong></div>` : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px">
                 <div><span style="color:#64748b">Kesehatan</span><br/><strong>${unit.healthScore}%</strong></div>
                 <div><span style="color:#64748b">Transaksi</span><br/><strong>${unit.totalToday}</strong></div>
                 <div><span style="color:#64748b">Pelanggaran</span><br/><strong style="color:#dc2626">${unit.violations}</strong></div>
                 <div><span style="color:#64748b">Sinkronisasi</span><br/><strong>${unit.lastSyncLabel}</strong></div>
-              </div>
-              <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155">
+              </div>`}
+              ${mode === "transactions" ? "" : `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:12px;color:#334155">
                 Operator: <strong>${unit.operatorName}</strong>
-              </div>
+              </div>`}
             </div>
           `);
 
@@ -430,7 +497,7 @@ function CommandMap({
         markerLayersRef.current.push(marker);
       });
 
-      const selectedUnit = units.find((unit) => unit.id === selectedSite);
+      const selectedUnit = mappedUnits.find((unit) => unit.id === selectedSite);
       if (selectedUnit) {
         map.setView(
           [selectedUnit.lat, selectedUnit.lng],
@@ -453,7 +520,7 @@ function CommandMap({
         leafletMapRef.current = null;
       }
     };
-  }, [mode, onSelectSite, selectedSite, units]);
+  }, [mappedUnits, mode, onSelectSite, selectedSite]);
 
   return (
     <div className="dc-card relative h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
@@ -500,6 +567,7 @@ export default function DataCenterPage() {
   const [analyticsSiteFilter, setAnalyticsSiteFilter] = useState("all");
   const [analyticsViolationFilter, setAnalyticsViolationFilter] =
     useState("all");
+  const [etlenasSyncingIDs, setEtlenasSyncingIDs] = useState<string[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem("dc_token");
@@ -528,11 +596,66 @@ export default function DataCenterPage() {
       });
   }, [dateRange.end, dateRange.start, router]);
 
+  async function syncETLENAS(row: Overview["recent_violations"][number]) {
+    const token = localStorage.getItem("dc_token");
+    if (!token || etlenasSyncingIDs.includes(row.id)) return;
+
+    setEtlenasSyncingIDs((current) => [...current, row.id]);
+    setError("");
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/data-center/transactions/${row.id}/sync-etlenas`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const payload = await response.json();
+      setOverview((current) =>
+        current
+          ? {
+              ...current,
+              recent_violations: current.recent_violations.map((item) =>
+                item.id === row.id
+                  ? {
+                      ...item,
+                      etlenas_status: payload.status || "FAILED",
+                      etlenas_error: payload.error || "",
+                      etlenas_synced_at: new Date().toISOString(),
+                    }
+                  : item,
+              ),
+            }
+          : current,
+      );
+      if (!response.ok) {
+        throw new Error(payload.error || "Sinkronisasi ETLE NAS gagal");
+      }
+    } catch (syncError) {
+      setError(
+        syncError instanceof Error
+          ? syncError.message
+          : "Sinkronisasi ETLE NAS gagal",
+      );
+    } finally {
+      setEtlenasSyncingIDs((current) =>
+        current.filter((id) => id !== row.id),
+      );
+    }
+  }
+
   const units = useMemo<UnitRow[]>(() => {
     if (!overview) return [];
     return overview.sites.map((site, index) => {
-      const coordinate =
+      const fallbackCoordinate =
         fallbackCoordinates[index % fallbackCoordinates.length];
+      const latitude = Number(site.latitude);
+      const longitude = Number(site.longitude);
+      const hasSiteCoordinates =
+        site.latitude !== null &&
+        site.longitude !== null &&
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude);
       const status = normalizeStatus(site.operational_status);
 
       return {
@@ -553,8 +676,8 @@ export default function DataCenterPage() {
         lastSeenLabel: relativeTime(site.last_seen_at),
         lastSyncLabel: relativeTime(site.last_sync_at),
         operatorName: site.active_operator_name || "-",
-        lat: coordinate.lat,
-        lng: coordinate.lng,
+        lat: hasSiteCoordinates ? latitude : fallbackCoordinate.lat,
+        lng: hasSiteCoordinates ? longitude : fallbackCoordinate.lng,
       };
     });
   }, [overview]);
@@ -788,9 +911,9 @@ export default function DataCenterPage() {
   );
 
   return (
-    <main className="dc-compact flex h-screen flex-col overflow-hidden bg-[#eef2f7] text-slate-900">
+    <main className="dc-compact flex min-h-screen flex-col overflow-x-hidden bg-[#eef2f7] text-slate-900">
       <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-black tracking-tight">Data Center</h1>
@@ -867,8 +990,8 @@ export default function DataCenterPage() {
         </div>
       ) : null}
 
-      <nav className="shrink-0 border-y border-slate-200 bg-white px-6">
-        <div className="flex gap-2">
+      <nav className="shrink-0 overflow-x-auto border-y border-slate-200 bg-white px-6">
+        <div className="flex min-w-max gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -886,7 +1009,7 @@ export default function DataCenterPage() {
         </div>
       </nav>
 
-      <section className="dc-shell min-h-0 flex-1 overflow-hidden p-5">
+      <section className="dc-shell flex-1 p-5">
         {!overview ? (
           <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500 shadow-sm">
             Memuat data center...
@@ -894,12 +1017,13 @@ export default function DataCenterPage() {
         ) : null}
 
         {overview && activeTab === "overview" ? (
-          <div className="flex h-full min-h-0 flex-col gap-4">
+          <div className="flex flex-col gap-4">
             {operationalKpiGrid}
 
             <div className="h-[34vh] min-h-[260px] shrink-0">
               <CommandMap
                 units={units}
+                transactionLocations={overview.transaction_locations ?? []}
                 selectedSite={selectedSite}
                 mode="sites"
                 onSelectSite={handleSelectSite}
@@ -944,7 +1068,7 @@ export default function DataCenterPage() {
               </div>
 
               <div className="h-full overflow-auto">
-                <table className="w-full min-w-[1280px] text-base">
+                <table className="w-full min-w-[1400px] text-base">
                   <thead className="sticky top-0 z-10 bg-slate-50 text-sm uppercase tracking-wide text-slate-400">
                     <tr className="border-b border-slate-100">
                       <th className="px-5 py-4 text-left">Unit</th>
@@ -976,11 +1100,6 @@ export default function DataCenterPage() {
                               <p className="text-lg font-black text-slate-800">
                                 {unit.code}
                               </p>
-                              {unit.status === "online" ? (
-                                <span className="rounded bg-blue-100 px-2 py-1 text-xs font-black text-blue-700">
-                                  SINI
-                                </span>
-                              ) : null}
                             </div>
                             <p className="ml-5 mt-1 text-sm font-semibold uppercase text-slate-400">
                               {unit.province}
@@ -1094,12 +1213,13 @@ export default function DataCenterPage() {
         ) : null}
 
         {overview && activeTab === "transactions" ? (
-          <div className="flex h-full min-h-0 flex-col gap-4">
+          <div className="flex flex-col gap-4">
             {operationalKpiGrid}
 
             <div className="h-[32vh] min-h-[240px] shrink-0">
               <CommandMap
                 units={units}
+                transactionLocations={overview.transaction_locations ?? []}
                 selectedSite={selectedSite}
                 mode="transactions"
                 onSelectSite={handleSelectSite}
@@ -1239,7 +1359,7 @@ export default function DataCenterPage() {
         ) : null}
 
         {overview && activeTab === "sites" ? (
-          <div className="flex h-full min-h-0 flex-col gap-4">
+          <div className="flex flex-col gap-4">
             {operationalKpiGrid}
 
             <div className="dc-card dc-panel-header flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
@@ -1334,7 +1454,7 @@ export default function DataCenterPage() {
         ) : null}
 
         {overview && activeTab === "analytics" ? (
-          <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+          <div className="flex flex-col gap-3">
             <div className="dc-card shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
@@ -1580,19 +1700,29 @@ export default function DataCenterPage() {
             </div>
 
             <div className="dc-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="dc-panel-header shrink-0 border-b border-slate-100 px-5 py-4">
-                <h2 className="text-2xl font-black text-slate-900">
-                  Ringkasan 10 Pelanggaran Terbaru
-                </h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Kendaraan terbaru yang terdeteksi melakukan pelanggaran.
-                </p>
+              <div className="dc-panel-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">
+                    Ringkasan 10 Pelanggaran Terbaru
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Kendaraan terbaru yang terdeteksi melakukan pelanggaran.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push("/data-center/transactions")}
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 hover:bg-blue-100"
+                >
+                  Lihat Semua Data
+                </button>
               </div>
               <div className="min-h-0 flex-1 overflow-auto">
                 <table className="w-full min-w-[1280px] text-base">
                   <thead className="sticky top-0 z-10 bg-slate-50 text-sm uppercase tracking-[0.2em] text-slate-400">
                     <tr>
                       <th className="px-5 py-4 text-left">No</th>
+                      <th className="px-5 py-4 text-left">Gambar ANPR</th>
                       <th className="px-5 py-4 text-left">Waktu</th>
                       <th className="px-5 py-4 text-left">No. Polisi</th>
                       <th className="px-5 py-4 text-left">Lokasi</th>
@@ -1600,6 +1730,7 @@ export default function DataCenterPage() {
                       <th className="px-5 py-4 text-left">Pasal</th>
                       <th className="px-5 py-4 text-left">Petugas</th>
                       <th className="px-5 py-4 text-left">Status</th>
+                      <th className="px-5 py-4 text-left">Sync ETLE NAS</th>
                       <th className="px-5 py-4 text-right">Aksi</th>
                     </tr>
                   </thead>
@@ -1609,6 +1740,24 @@ export default function DataCenterPage() {
                         <tr key={row.id} className="hover:bg-slate-50">
                           <td className="px-5 py-5 font-black text-slate-500">
                             {index + 1}
+                          </td>
+                          <td className="px-5 py-5">
+                            <div className="relative h-16 w-24 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                              {row.anpr_image_url ? (
+                                <Image
+                                  src={row.anpr_image_url}
+                                  alt={`ANPR ${row.plate_no || row.id}`}
+                                  fill
+                                  sizes="96px"
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              ) : (
+                                <span className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
+                                  Tidak ada
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-5 py-5 font-bold text-slate-600">
                             {formatDateTime(row.time)}
@@ -1649,23 +1798,48 @@ export default function DataCenterPage() {
                               {verificationStatusLabel(row.verification_status)}
                             </span>
                           </td>
-                          <td className="px-5 py-5 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                router.push(`/data-center/transactions/${row.id}`)
-                              }
-                              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600"
+                          <td className="px-5 py-5">
+                            <span
+                              title={row.etlenas_error || undefined}
+                              className={`whitespace-nowrap rounded-full px-3 py-1 text-sm font-black ${etlenasStatusTone(row.etlenas_status)}`}
                             >
-                              Lihat
-                            </button>
+                              {etlenasStatusLabel(row.etlenas_status)}
+                            </span>
+                          </td>
+                          <td className="px-5 py-5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                disabled={
+                                  etlenasSyncingIDs.includes(row.id) ||
+                                  row.verification_status !== "verified" ||
+                                  row.violation_status !== "violation" ||
+                                  row.etlenas_status === "SUCCESS"
+                                }
+                                onClick={() => void syncETLENAS(row)}
+                                className="whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {etlenasSyncingIDs.includes(row.id)
+                                  ? "Mengirim..."
+                                  : "Sync ETLE"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(`/data-center/transactions/${row.id}`)
+                                }
+                                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-600"
+                              >
+                                Lihat
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={11}
                           className="px-5 py-10 text-center text-base font-bold text-slate-400"
                         >
                           Belum ada data sesuai filter.

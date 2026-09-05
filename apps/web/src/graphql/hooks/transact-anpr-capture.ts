@@ -64,7 +64,7 @@ export type SubscribeLatestAnprCaptureSubscriptionVariables = Types.Exact<{
 }>;
 
 
-export type SubscribeLatestAnprCaptureSubscription = { transact_anpr_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_full_image_object?: string | null, minio_plate_image_object?: string | null, updated_date?: any | null, site_id?: any | null, session_id?: any | null }> };
+export type SubscribeLatestAnprCaptureSubscription = { transact_anpr_capture: Array<{ id: any, external_id?: string | null, plate_no?: string | null, confidence?: any | null, captured_at?: any | null, location_code?: string | null, camera_id?: string | null, minio_bucket?: string | null, minio_date_folder?: string | null, minio_full_image_object?: string | null, minio_plate_image_object?: string | null, updated_date?: any | null, site_id: any, session_id?: any | null }> };
 
 
 export const GetAnprCapturesDocument = gql`

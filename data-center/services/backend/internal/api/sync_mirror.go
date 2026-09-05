@@ -75,6 +75,33 @@ var mirrorUpserts = map[string]string{
 	"master_config":        masterRecordUpsert("master_config", "config_key"),
 	"master_device":        masterRecordUpsert("master_device", "device_name"),
 	"master_user":          masterRecordUpsert("master_user", "full_name"),
+	"transact_session_source": `
+		WITH rows AS (SELECT * FROM jsonb_to_recordset($2::jsonb) AS x(
+			id uuid, site_id uuid, session_id uuid, source_type varchar(20), source_mode varchar(20),
+			source_status varchar(20), device_id uuid, source_record_id uuid, received_at timestamptz,
+			timeout_at timestamptz, last_attempt_at timestamptz, attempt_count int, error_code varchar(100),
+			error_message text, metadata jsonb, created_by uuid, created_date timestamptz,
+			updated_by uuid, updated_date timestamptz))
+		INSERT INTO public.dc_transact_session_source (
+			site_id, source_id, source_site_id, source_session_id, source_type, source_mode,
+			source_status, device_id, source_record_id, received_at, timeout_at, last_attempt_at,
+			attempt_count, error_code, error_message, metadata, created_by, created_date,
+			updated_by, updated_date, raw_payload)
+		SELECT $1,id,site_id,session_id,source_type,source_mode,source_status,device_id,
+			source_record_id,received_at,timeout_at,last_attempt_at,attempt_count,error_code,
+			error_message,COALESCE(metadata,'{}'::jsonb),created_by,created_date,updated_by,
+			updated_date,to_jsonb(rows) FROM rows WHERE id IS NOT NULL
+		ON CONFLICT (site_id,source_id) DO UPDATE SET
+			source_site_id=EXCLUDED.source_site_id, source_session_id=EXCLUDED.source_session_id,
+			source_type=EXCLUDED.source_type, source_mode=EXCLUDED.source_mode,
+			source_status=EXCLUDED.source_status, device_id=EXCLUDED.device_id,
+			source_record_id=EXCLUDED.source_record_id, received_at=EXCLUDED.received_at,
+			timeout_at=EXCLUDED.timeout_at, last_attempt_at=EXCLUDED.last_attempt_at,
+			attempt_count=EXCLUDED.attempt_count, error_code=EXCLUDED.error_code,
+			error_message=EXCLUDED.error_message, metadata=EXCLUDED.metadata,
+			created_by=EXCLUDED.created_by, created_date=EXCLUDED.created_date,
+			updated_by=EXCLUDED.updated_by, updated_date=EXCLUDED.updated_date,
+			synced_at=now(), raw_payload=EXCLUDED.raw_payload`,
 	"transact_wim_session": `
 		WITH rows AS (
 			SELECT *
@@ -285,6 +312,13 @@ var mirrorUpserts = map[string]string{
 				location_lat numeric(10,7),
 				location_lng numeric(10,7),
 				location_address text,
+				completeness_status varchar(20),
+				missing_sources text[],
+				verification_status varchar(20),
+				verified_by uuid,
+				verified_at timestamptz,
+				verification_notes text,
+				actual_data_origin varchar(20),
 				is_active bool,
 				is_deleted bool,
 				created_by uuid,
@@ -297,7 +331,8 @@ var mirrorUpserts = map[string]string{
 			site_id, source_id, source_site_id, source_session_id, source_anpr_id,
 			source_axle_id, source_dimension_id, source_weighing_id, source_cctv_id,
 			actual_width, actual_length, actual_height, actual_weight, actual_plat_no,
-			actual_total_axle, location_lat, location_lng, location_address,
+			actual_total_axle, location_lat, location_lng, location_address, completeness_status,
+			missing_sources, verification_status, verified_by, verified_at, verification_notes, actual_data_origin,
 			is_active, is_deleted, created_by, created_date, updated_by, updated_date,
 			raw_payload
 		)
@@ -305,6 +340,9 @@ var mirrorUpserts = map[string]string{
 			axle_id, transact_dimension_id, transact_weighing_id, transact_cctv_id,
 			actual_width, actual_length, actual_height, actual_weight, actual_plat_no,
 			actual_total_axle, location_lat, location_lng, location_address,
+			COALESCE(completeness_status,'EMPTY'), COALESCE(missing_sources,'{}'::text[]),
+			COALESCE(verification_status,'PENDING'), verified_by, verified_at, verification_notes,
+			COALESCE(actual_data_origin,'REAL'),
 			is_active, COALESCE(is_deleted, false), created_by, created_date,
 			updated_by, updated_date, to_jsonb(rows)
 		FROM rows
@@ -326,6 +364,13 @@ var mirrorUpserts = map[string]string{
 		    location_lat = EXCLUDED.location_lat,
 		    location_lng = EXCLUDED.location_lng,
 		    location_address = EXCLUDED.location_address,
+		    completeness_status = EXCLUDED.completeness_status,
+		    missing_sources = EXCLUDED.missing_sources,
+		    verification_status = EXCLUDED.verification_status,
+		    verified_by = EXCLUDED.verified_by,
+		    verified_at = EXCLUDED.verified_at,
+		    verification_notes = EXCLUDED.verification_notes,
+		    actual_data_origin = EXCLUDED.actual_data_origin,
 		    is_active = EXCLUDED.is_active,
 		    is_deleted = EXCLUDED.is_deleted,
 		    created_by = EXCLUDED.created_by,
@@ -511,6 +556,23 @@ var mirrorUpserts = map[string]string{
 		    synced_at = now(),
 		    raw_payload = EXCLUDED.raw_payload
 	`,
+	"transact_vehicle_revision": `
+		WITH rows AS (SELECT * FROM jsonb_to_recordset($2::jsonb) AS x(
+			id uuid, site_id uuid, vehicle_actual_id uuid, revision_no int, reason text,
+			changed_fields text[], before_data jsonb, after_data jsonb, changed_by uuid,
+			changed_at timestamptz))
+		INSERT INTO public.dc_transact_vehicle_revision (
+			site_id,source_id,source_site_id,source_vehicle_actual_id,revision_no,reason,
+			changed_fields,before_data,after_data,changed_by,changed_at,raw_payload)
+		SELECT $1,id,site_id,vehicle_actual_id,revision_no,reason,changed_fields,before_data,
+			after_data,changed_by,changed_at,to_jsonb(rows) FROM rows WHERE id IS NOT NULL
+		ON CONFLICT (site_id,source_id) DO UPDATE SET
+			source_site_id=EXCLUDED.source_site_id,
+			source_vehicle_actual_id=EXCLUDED.source_vehicle_actual_id,
+			revision_no=EXCLUDED.revision_no, reason=EXCLUDED.reason,
+			changed_fields=EXCLUDED.changed_fields, before_data=EXCLUDED.before_data,
+			after_data=EXCLUDED.after_data, changed_by=EXCLUDED.changed_by,
+			changed_at=EXCLUDED.changed_at, synced_at=now(), raw_payload=EXCLUDED.raw_payload`,
 }
 
 func masterRecordUpsert(tableName string, displayKey string) string {

@@ -30,6 +30,10 @@ type transactionSummary struct {
 	EnforcementFinishedAt *time.Time `json:"enforcement_finished_at"`
 	SourceUpdatedAt       *time.Time `json:"source_updated_at"`
 	SyncedAt              *time.Time `json:"synced_at"`
+	CompletenessStatus    string     `json:"completeness_status"`
+	MissingSources        []string   `json:"missing_sources"`
+	VerificationStatus    string     `json:"verification_status"`
+	ActualDataOrigin      string     `json:"actual_data_origin"`
 }
 
 type transactionSite struct {
@@ -68,6 +72,7 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 
 	var summary transactionSummary
 	var site transactionSite
+	var missingSourcesJSON string
 	err := s.DB.QueryRow(`
 		SELECT
 			v.id::text,
@@ -99,9 +104,15 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 			s.operational_status,
 			COALESCE(s.active_operator_name, ''),
 			s.last_seen_at,
-			s.last_sync_at
+			s.last_sync_at,
+			COALESCE(a.completeness_status, 'EMPTY'),
+			COALESCE(to_json(a.missing_sources)::text, '[]'),
+			COALESCE(a.verification_status, 'PENDING'),
+			COALESCE(a.actual_data_origin, 'REAL')
 		FROM public.dc_dashboard_vehicle_actual v
 		JOIN public.dc_site s ON s.id = v.site_id
+		JOIN public.dc_transact_vehicle_actual a
+		  ON a.site_id = v.site_id AND a.source_id::text = v.source_id
 		WHERE v.id::text = $1
 		  AND COALESCE(v.is_deleted, false) = false
 		LIMIT 1
@@ -136,6 +147,10 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 		&site.ActiveOperatorName,
 		&site.LastSeenAt,
 		&site.LastSyncAt,
+		&summary.CompletenessStatus,
+		&missingSourcesJSON,
+		&summary.VerificationStatus,
+		&summary.ActualDataOrigin,
 	)
 	if err == sql.ErrNoRows {
 		writeError(w, http.StatusNotFound, "transaction not found")
@@ -143,6 +158,10 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := json.Unmarshal([]byte(missingSourcesJSON), &summary.MissingSources); err != nil {
+		writeError(w, http.StatusInternalServerError, "invalid missing_sources data")
 		return
 	}
 
@@ -167,7 +186,7 @@ func (s *Server) handleTransactionDetail(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) transactionRawDetail(siteID string, sourceID string) (map[string]any, error) {
-	var session, anpr, axle, cctv, dimension, weighing, actual, status sql.NullString
+	var session, sources, anpr, axle, cctv, dimension, weighing, actual, status, revisions sql.NullString
 	err := s.DB.QueryRow(`
 		WITH actual_row AS (
 			SELECT *
@@ -179,27 +198,31 @@ func (s *Server) transactionRawDetail(siteID string, sourceID string) (map[strin
 		)
 		SELECT
 			(SELECT to_jsonb(t)::text FROM public.dc_transact_wim_session t WHERE t.site_id = $1::uuid AND t.source_id = (SELECT source_session_id FROM actual_row) LIMIT 1),
+			(SELECT jsonb_agg(to_jsonb(t) ORDER BY t.source_type)::text FROM public.dc_transact_session_source t WHERE t.site_id = $1::uuid AND t.source_session_id = (SELECT source_session_id FROM actual_row)),
 			(SELECT to_jsonb(t)::text FROM public.dc_transact_anpr_capture t WHERE t.site_id = $1::uuid AND t.source_id = (SELECT source_anpr_id FROM actual_row) LIMIT 1),
 			(SELECT to_jsonb(t)::text FROM public.dc_transact_axle_capture t WHERE t.site_id = $1::uuid AND t.source_id = (SELECT source_axle_id FROM actual_row) LIMIT 1),
 			(SELECT to_jsonb(t)::text FROM public.dc_transact_cctv t WHERE t.site_id = $1::uuid AND t.source_id = (SELECT source_cctv_id FROM actual_row) LIMIT 1),
 			(SELECT to_jsonb(t)::text FROM public.dc_transact_dimension t WHERE t.site_id = $1::uuid AND t.source_id = (SELECT source_dimension_id FROM actual_row) LIMIT 1),
 			(SELECT to_jsonb(t)::text FROM public.dc_transact_weighing t WHERE t.site_id = $1::uuid AND t.source_id = (SELECT source_weighing_id FROM actual_row) LIMIT 1),
 			(SELECT to_jsonb(t)::text FROM actual_row t LIMIT 1),
-			(SELECT to_jsonb(t)::text FROM public.dc_transact_vehicle_status t WHERE t.site_id = $1::uuid AND t.source_vehicle_actual_id = (SELECT source_id FROM actual_row) ORDER BY COALESCE(t.updated_date, t.created_date, t.synced_at) DESC LIMIT 1)
-	`, siteID, sourceID).Scan(&session, &anpr, &axle, &cctv, &dimension, &weighing, &actual, &status)
+			(SELECT to_jsonb(t)::text FROM public.dc_transact_vehicle_status t WHERE t.site_id = $1::uuid AND t.source_vehicle_actual_id = (SELECT source_id FROM actual_row) ORDER BY COALESCE(t.updated_date, t.created_date, t.synced_at) DESC LIMIT 1),
+			(SELECT jsonb_agg(to_jsonb(t) ORDER BY t.revision_no)::text FROM public.dc_transact_vehicle_revision t WHERE t.site_id = $1::uuid AND t.source_vehicle_actual_id = (SELECT source_id FROM actual_row))
+	`, siteID, sourceID).Scan(&session, &sources, &anpr, &axle, &cctv, &dimension, &weighing, &actual, &status, &revisions)
 	if err != nil {
 		return nil, err
 	}
 
 	return map[string]any{
-		"session":        nullableRawJSON(session),
-		"anpr":           nullableRawJSON(anpr),
-		"axle":           nullableRawJSON(axle),
-		"cctv":           nullableRawJSON(cctv),
-		"dimension":      nullableRawJSON(dimension),
-		"weighing":       nullableRawJSON(weighing),
-		"vehicle_actual": nullableRawJSON(actual),
-		"vehicle_status": nullableRawJSON(status),
+		"session":         nullableRawJSON(session),
+		"session_sources": nullableRawJSON(sources),
+		"anpr":            nullableRawJSON(anpr),
+		"axle":            nullableRawJSON(axle),
+		"cctv":            nullableRawJSON(cctv),
+		"dimension":       nullableRawJSON(dimension),
+		"weighing":        nullableRawJSON(weighing),
+		"vehicle_actual":  nullableRawJSON(actual),
+		"vehicle_status":  nullableRawJSON(status),
+		"revisions":       nullableRawJSON(revisions),
 	}, nil
 }
 

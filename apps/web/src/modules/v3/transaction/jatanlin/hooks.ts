@@ -1,26 +1,30 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useApolloClient } from "@apollo/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useGetConfigsQuery } from "@/src/graphql/hooks/configuration";
-import { useGetVehicleClassesQuery } from "@/src/graphql/hooks/master-vehicle-class";
 import {
+  GetVehicleActualsDocument,
+  type GetVehicleActualsQuery,
   useGetVehicleActualsQuery,
   useSoftDeleteVehicleActualMutation,
 } from "@/src/graphql/hooks/transact-vehicle-actual";
 import { useAppSelector } from "@/src/redux/hooks";
-import {
-  checkOdolViolation,
-  getOdolTolerances,
-  type VehicleActual,
-  type VehicleClassLimit,
-} from "@/src/utils/odol";
 import { getMinioImageUrl } from "@/src/utils/image";
 import type { Transact_Vehicle_Actual_Bool_Exp } from "@/src/graphql/schema/types";
 import type { V3JatanlinFilters, V3JatanlinRow } from "./types";
 
 const PAGE_SIZE = 10;
+const EXPORT_BATCH_SIZE = 500;
+const SITE_TIME_ZONE =
+  process.env.NEXT_PUBLIC_SITE_TIMEZONE || "Asia/Jakarta";
+const VERIFIED_RESULTS = [
+  "Normal",
+  "Over Dimension",
+  "Over Loading",
+  "Over Dimension & Over Loading",
+];
 
 const initialFilters: V3JatanlinFilters = {
   search: "",
@@ -38,8 +42,45 @@ const violationOptions = [
   { value: "Pending", label: "Menunggu" },
 ];
 
-function buildWhere(filters: V3JatanlinFilters): Transact_Vehicle_Actual_Bool_Exp {
-  const conditions: Transact_Vehicle_Actual_Bool_Exp[] = [];
+function timeZoneOffset(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const representedAsUtc = Date.UTC(
+    Number(value.year),
+    Number(value.month) - 1,
+    Number(value.day),
+    Number(value.hour),
+    Number(value.minute),
+    Number(value.second),
+  );
+  return representedAsUtc - date.getTime();
+}
+
+function siteDateBoundary(dateValue: string, nextDay: boolean, timeZone: string) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const desiredUtc = Date.UTC(year, month - 1, day + (nextDay ? 1 : 0));
+  let result = new Date(desiredUtc - timeZoneOffset(new Date(desiredUtc), timeZone));
+  result = new Date(desiredUtc - timeZoneOffset(result, timeZone));
+  return result.toISOString();
+}
+
+function buildWhere(
+  filters: V3JatanlinFilters,
+  siteId: string,
+  timeZone: string,
+): Transact_Vehicle_Actual_Bool_Exp {
+  const conditions: Transact_Vehicle_Actual_Bool_Exp[] = [
+    { site_id: { _eq: siteId } },
+  ];
   const search = filters.search.trim();
 
   if (search) {
@@ -53,24 +94,55 @@ function buildWhere(filters: V3JatanlinFilters): Transact_Vehicle_Actual_Bool_Ex
 
   if (filters.startDate) {
     conditions.push({
-      created_date: { _gte: new Date(filters.startDate).toISOString() },
+      created_date: {
+        _gte: siteDateBoundary(filters.startDate, false, timeZone),
+      },
     });
   }
 
   if (filters.endDate) {
     conditions.push({
       created_date: {
-        _lte: new Date(`${filters.endDate}T23:59:59`).toISOString(),
+        _lt: siteDateBoundary(filters.endDate, true, timeZone),
       },
     });
   }
 
-  return conditions.length > 0 ? { _and: conditions } : {};
+  if (filters.violation === "Pending") {
+    conditions.push({
+      _or: [
+        { verification_status: { _neq: "VERIFIED" } },
+        {
+          _not: {
+            transact_vehicle_statuses: {
+              is_active: { _eq: true },
+              is_deleted: { _eq: false },
+              status: { _eq: "verified" },
+              result: { _in: VERIFIED_RESULTS },
+            },
+          },
+        },
+      ],
+    });
+  } else if (filters.violation) {
+    conditions.push({
+      verification_status: { _eq: "VERIFIED" },
+      transact_vehicle_statuses: {
+        is_active: { _eq: true },
+        is_deleted: { _eq: false },
+        status: { _eq: "verified" },
+        result: { _eq: filters.violation },
+      },
+    });
+  }
+
+  return { _and: conditions };
 }
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("id-ID", {
+    timeZone: SITE_TIME_ZONE,
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -96,16 +168,16 @@ function getWeight(row: V3JatanlinRow) {
 }
 
 function getDimensions(row: V3JatanlinRow) {
-  const length = row.actual_length ?? row.transact_dimension?.length;
-  const width = row.actual_width ?? row.transact_dimension?.width;
-  const height = row.actual_height ?? row.transact_dimension?.height;
+  const length = row.actual_length;
+  const width = row.actual_width;
+  const height = row.actual_height;
   if (length === null || width === null || height === null) return "-";
   if (length === undefined || width === undefined || height === undefined) return "-";
   return `${formatNumber(length, 1)} x ${formatNumber(width, 1)} x ${formatNumber(height, 1)} m`;
 }
 
 function getAxle(row: V3JatanlinRow) {
-  return row.transact_weighing?.total_axle || row.actual_total_axle || "-";
+  return row.actual_total_axle || "-";
 }
 
 function getPhotoUrl(row: V3JatanlinRow) {
@@ -155,14 +227,17 @@ function getViolationLabel(violation: string) {
 function getExportRows(rows: V3JatanlinRow[]) {
   return rows.map((row, index) => [
     String(index + 1),
-    getPlate(row),
+    row.actual_plat_no || "-",
     formatDateTime(row.created_date),
-    row.location_address || row.transact_anpr_capture?.location_code || "-",
+    row.location_address || "-",
     String(getAxle(row)),
     getWeight(row),
     getDimensions(row),
     getViolationLabel(row.violationType),
     getLatestStatusLabel(row.latestStatus),
+    row.completeness_status || "-",
+    row.actual_data_origin || "-",
+    row.missing_sources?.join(", ") || "-",
   ]);
 }
 
@@ -182,29 +257,23 @@ function downloadCsv(filename: string, rows: string[][]) {
 }
 
 export function useV3Jatanlin() {
+  const apolloClient = useApolloClient();
   const currentUser = useAppSelector((state) => state.login.user);
   const [filters, setFilters] = useState<V3JatanlinFilters>(initialFilters);
   const [page, setPage] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<V3JatanlinRow | null>(null);
-  const where = useMemo(() => buildWhere(filters), [filters]);
+  const siteId = process.env.NEXT_PUBLIC_SITE_ID ?? "";
+  const where = useMemo(
+    () => buildWhere(filters, siteId, SITE_TIME_ZONE),
+    [filters, siteId],
+  );
 
   const vehicleActualsQuery = useGetVehicleActualsQuery({
-    variables: { limit: 200, offset: 0, where },
+    variables: { limit: PAGE_SIZE, offset: page * PAGE_SIZE, where },
+    skip: !siteId,
     fetchPolicy: "network-only",
     pollInterval: 30_000,
-  });
-  const vehicleClassesQuery = useGetVehicleClassesQuery({
-    variables: { limit: 100, offset: 0 },
-    fetchPolicy: "cache-and-network",
-  });
-  const configsQuery = useGetConfigsQuery({
-    variables: {
-      limit: 10,
-      offset: 0,
-      where: { config_key: { _in: ["TOLERANCE_WEIGHT", "TOLERANCE_DIM"] } },
-    },
-    fetchPolicy: "cache-and-network",
   });
   const [softDeleteVehicleActual, deleteState] =
     useSoftDeleteVehicleActualMutation();
@@ -214,59 +283,15 @@ export function useV3Jatanlin() {
   ].some((role) => role?.toLowerCase().includes("admin"));
 
   const rows = useMemo<V3JatanlinRow[]>(() => {
-    const classes = vehicleClassesQuery.data?.master_vehicle_class ?? [];
-    const tolerances = getOdolTolerances(configsQuery.data?.master_config);
-
     return (vehicleActualsQuery.data?.transact_vehicle_actual ?? []).map((row) => {
       const latestStatus = row.transact_vehicle_statuses?.[0];
       const latestStatusValue = latestStatus?.status?.toLowerCase() || "pending";
-      const verifiedResult =
-        latestStatusValue === "verified" ? latestStatus.result : null;
-      let violationType = verifiedResult || "Pending";
-
-      if (!verifiedResult) {
-        const axleCount =
-          row.transact_weighing?.total_axle || row.actual_total_axle || 0;
-        const actualWeight = Number(row.actual_weight || 0);
-        const actualLength = Number(
-          row.actual_length || row.transact_dimension?.length || 0,
-        );
-        const actualWidth = Number(
-          row.actual_width || row.transact_dimension?.width || 0,
-        );
-        const actualHeight = Number(
-          row.actual_height || row.transact_dimension?.height || 0,
-        );
-        const vehicleClass = classes.find(
-          (item) => item.total_axle === axleCount,
-        );
-
-        if (
-          vehicleClass &&
-          axleCount &&
-          actualWeight &&
-          actualLength &&
-          actualWidth &&
-          actualHeight
-        ) {
-          const actual: VehicleActual = {
-            total_weight: actualWeight / 1000,
-            length: actualLength,
-            width: actualWidth,
-            height: actualHeight,
-          };
-          const limit: VehicleClassLimit = {
-            ...vehicleClass,
-            class_2_weight: Number(vehicleClass.class_2_weight || 0) / 1000,
-            class_3_weight: Number(vehicleClass.class_3_weight || 0) / 1000,
-          };
-          violationType = checkOdolViolation(actual, limit, {
-            axleCount,
-            toleranceWeightPercent: tolerances.weightPercent,
-            toleranceDimPercent: tolerances.dimPercent,
-          });
-        }
-      }
+      const violationType =
+        latestStatusValue === "verified" &&
+        latestStatus?.result &&
+        VERIFIED_RESULTS.includes(latestStatus.result)
+          ? latestStatus.result
+          : "Pending";
 
       return {
         ...row,
@@ -274,34 +299,14 @@ export function useV3Jatanlin() {
         latestStatus: latestStatusValue,
       };
     });
-  }, [
-    configsQuery.data?.master_config,
-    vehicleActualsQuery.data?.transact_vehicle_actual,
-    vehicleClassesQuery.data?.master_vehicle_class,
-  ]);
+  }, [vehicleActualsQuery.data?.transact_vehicle_actual]);
 
-  const filteredRows = useMemo(() => {
-    if (!filters.violation) return rows;
-    return rows.filter((row) => row.violationType === filters.violation);
-  }, [filters.violation, rows]);
-
-  const totalCount = filteredRows.length;
+  const totalCount =
+    vehicleActualsQuery.data?.transact_vehicle_actual_aggregate.aggregate
+      ?.count ?? 0;
   const totalPages = Math.max(Math.ceil(totalCount / PAGE_SIZE), 1);
-  const pagedRows = filteredRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const startRow = totalCount === 0 ? 0 : page * PAGE_SIZE + 1;
   const endRow = Math.min((page + 1) * PAGE_SIZE, totalCount);
-
-  const counts = useMemo(() => {
-    return rows.reduce(
-      (acc, row) => {
-        if (row.violationType === "Normal") acc.normal++;
-        else if (row.violationType === "Pending") acc.pending++;
-        else acc.violations++;
-        return acc;
-      },
-      { total: rows.length, violations: 0, normal: 0, pending: 0 },
-    );
-  }, [rows]);
 
   const updateFilter = (field: keyof V3JatanlinFilters, value: string) => {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -345,7 +350,7 @@ export function useV3Jatanlin() {
     }
   };
 
-  const handleExport = (format: "csv" | "pdf") => {
+  const handleExport = async (format: "csv" | "pdf") => {
     const headers = [
       "No",
       "No. Plat",
@@ -356,8 +361,41 @@ export function useV3Jatanlin() {
       "Dimensi",
       "Pelanggaran",
       "Status",
+      "Kelengkapan",
+      "Asal Data",
+      "Source Tidak Masuk",
     ];
-    const exportRows = getExportRows(filteredRows);
+    const allRows: V3JatanlinRow[] = [];
+    let offset = 0;
+    let expectedCount = totalCount;
+    do {
+      const response = await apolloClient.query<GetVehicleActualsQuery>({
+        query: GetVehicleActualsDocument,
+        variables: { limit: EXPORT_BATCH_SIZE, offset, where },
+        fetchPolicy: "network-only",
+      });
+      const batch = response.data.transact_vehicle_actual.map((row) => {
+        const latestStatus = row.transact_vehicle_statuses?.[0];
+        const latestStatusValue = latestStatus?.status?.toLowerCase() || "pending";
+        return {
+          ...row,
+          latestStatus: latestStatusValue,
+          violationType:
+            latestStatusValue === "verified" &&
+            latestStatus?.result &&
+            VERIFIED_RESULTS.includes(latestStatus.result)
+              ? latestStatus.result
+              : "Pending",
+        };
+      });
+      allRows.push(...batch);
+      expectedCount =
+        response.data.transact_vehicle_actual_aggregate.aggregate?.count ?? 0;
+      offset += batch.length;
+      if (batch.length === 0) break;
+    } while (offset < expectedCount);
+
+    const exportRows = getExportRows(allRows);
 
     if (exportRows.length === 0) {
       window.alert("Tidak ada data Jatanlin untuk diekspor.");
@@ -384,25 +422,20 @@ export function useV3Jatanlin() {
 
   return {
     filters,
-    rows: pagedRows,
-    counts,
+    rows,
     page,
     pageSize: PAGE_SIZE,
     totalCount,
     totalPages,
     startRow,
     endRow,
-    isLoading:
-      vehicleActualsQuery.loading ||
-      vehicleClassesQuery.loading ||
-      configsQuery.loading,
+    isLoading: vehicleActualsQuery.loading,
     isDeleting: deleteState.loading,
     isAdmin,
     error:
       actionError ||
       vehicleActualsQuery.error?.message ||
-      vehicleClassesQuery.error?.message ||
-      configsQuery.error?.message ||
+      (!siteId ? "NEXT_PUBLIC_SITE_ID belum dikonfigurasi." : null) ||
       null,
     violationOptions,
     updateFilter,

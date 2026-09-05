@@ -2,7 +2,9 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -17,6 +19,22 @@ type Config struct {
 	MinIOBucket         string
 	MinIOUseSSL         bool
 	CORSOrigins         []string
+	ETLENAS             ETLENASConfig
+}
+
+type ETLENASConfig struct {
+	Enabled       bool
+	BaseURL       string
+	UserToken     string
+	PassToken     string
+	ClientSecret  string
+	ClientID      string
+	Interval      time.Duration
+	Timeout       time.Duration
+	ViolationCode string
+	ViolationName string
+	NRP           string
+	Satwil        string
 }
 
 func Load() Config {
@@ -32,7 +50,29 @@ func Load() Config {
 		MinIOBucket:         env("MINIO_BUCKET", "jatanlin-data-center-attachments"),
 		MinIOUseSSL:         env("MINIO_USE_SSL", "false") == "true",
 		CORSOrigins:         splitCSV(env("CORS_ORIGINS", "http://localhost:3001")),
+		ETLENAS: ETLENASConfig{
+			Enabled:       env("ETLENAS_ENABLED", "false") == "true",
+			BaseURL:       strings.TrimRight(env("ETLENAS_BASE_URL", "https://api-etle.polri.go.id"), "/"),
+			UserToken:     env("ETLENAS_USER_TOKEN", ""),
+			PassToken:     env("ETLENAS_PASS_TOKEN", ""),
+			ClientSecret:  env("ETLENAS_CLIENT_SECRET", ""),
+			ClientID:      env("ETLENAS_CLIENT_ID", "integrasi"),
+			Interval:      seconds("ETLENAS_INTERVAL_SEC", 30),
+			Timeout:       seconds("ETLENAS_HTTP_TIMEOUT_SEC", 20),
+			ViolationCode: env("ETLENAS_VIOLATION_CODE", "TM"),
+			ViolationName: env("ETLENAS_VIOLATION_NAME", "Melanggar Tata Cara Muatan"),
+			NRP:           env("ETLENAS_NRP", ""),
+			Satwil:        env("ETLENAS_SATWIL", "Korlantas"),
+		},
 	}
+}
+
+func seconds(key string, fallback int) time.Duration {
+	value, err := strconv.Atoi(env(key, strconv.Itoa(fallback)))
+	if err != nil || value <= 0 {
+		value = fallback
+	}
+	return time.Duration(value) * time.Second
 }
 
 func env(key, fallback string) string {

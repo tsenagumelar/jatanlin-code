@@ -9,8 +9,24 @@ func (s *Server) setupRoutes() {
 	s.registerUserRoutes()
 	s.registerVeamRoutes()
 	s.registerDataCenterSyncRoutes()
+	s.registerTransactionRoutes()
+	s.registerDashboardRoutes()
+}
 
-	// WIM Session management stays in Hasura GraphQL.
+func (s *Server) registerDashboardRoutes() {
+	dashboard := s.App.Group("/api").Group("/dashboard")
+	dashboard.Use(JWTMiddleware(s.AuthService))
+	dashboard.Get("/summary", s.DashboardHandler.Summary)
+}
+
+func (s *Server) registerTransactionRoutes() {
+	transactions := s.App.Group("/api").Group("/transactions")
+	transactions.Use(JWTMiddleware(s.AuthService))
+	transactions.Post("/sessions/start", s.TransactionHandler.Start)
+	transactions.Get("/sessions/active", s.TransactionHandler.Active)
+	transactions.Get("/sessions/recover", s.TransactionHandler.Active)
+	transactions.Post("/sessions/:id/finalize", s.TransactionHandler.Finalize)
+	transactions.Put("/vehicles/:id/verification", s.TransactionHandler.Verify)
 }
 
 func (s *Server) registerHealthRoutes() {
@@ -36,7 +52,9 @@ func (s *Server) registerAttachmentRoutes() {
 
 func (s *Server) registerUserRoutes() {
 	users := s.App.Group("/api").Group("/users")
-	s.useAuthIfEnabled(users)
+	// User mutations always require a verified actor so audit columns cannot be
+	// silently written as NULL when the wider development auth flag is disabled.
+	users.Use(JWTMiddleware(s.AuthService))
 	users.Post("", s.UserHandler.CreateUser)
 	users.Post("/", s.UserHandler.CreateUser)
 	users.Put("/:id", s.UserHandler.UpdateUser)

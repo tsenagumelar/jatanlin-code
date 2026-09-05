@@ -10,6 +10,7 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:28001";
 
 type RawRecord = Record<string, unknown> | null;
+type RawCollection = Array<Record<string, unknown>> | null;
 
 type Attachment = {
   id: string;
@@ -48,6 +49,10 @@ type TransactionDetail = {
     enforcement_finished_at: string | null;
     source_updated_at: string | null;
     synced_at: string | null;
+    completeness_status: string;
+    missing_sources: string[];
+    verification_status: string;
+    actual_data_origin: string;
   };
   site: {
     site_code: string;
@@ -61,6 +66,7 @@ type TransactionDetail = {
   };
   raw: {
     session: RawRecord;
+    session_sources: RawCollection;
     anpr: RawRecord;
     axle: RawRecord;
     cctv: RawRecord;
@@ -68,6 +74,7 @@ type TransactionDetail = {
     weighing: RawRecord;
     vehicle_actual: RawRecord;
     vehicle_status: RawRecord;
+    revisions: RawCollection;
   };
   attachments: Attachment[];
 };
@@ -139,6 +146,21 @@ function valueFrom(record: RawRecord, key: string) {
   return String(value);
 }
 
+function dimensionLength(detail: TransactionDetail) {
+  const measuredLength = detail.raw.dimension?.length;
+  if (measuredLength !== null && measuredLength !== undefined && measuredLength !== "") {
+    return String(measuredLength);
+  }
+
+  const actualLength = detail.raw.vehicle_actual?.actual_length;
+  if (actualLength !== null && actualLength !== undefined && actualLength !== "") {
+    return String(actualLength);
+  }
+
+  const axleLengthMM = Number(detail.raw.axle?.length_mm);
+  return Number.isFinite(axleLengthMM) ? String(axleLengthMM / 1000) : "-";
+}
+
 function statusLabel(status?: string | null) {
   if (status === "verified") return "Terverifikasi";
   if (status === "rejected") return "Ditolak";
@@ -152,6 +174,14 @@ function statusTone(status?: string | null) {
   if (status === "verified") return "bg-emerald-50 text-emerald-700";
   if (status === "rejected") return "bg-red-50 text-red-700";
   if (status === "draft") return "bg-sky-50 text-sky-700";
+  return "bg-amber-50 text-amber-700";
+}
+
+function sourceStatusTone(status: string) {
+  const value = status.toUpperCase();
+  if (value === "RECEIVED" || value === "MANUAL") return "bg-emerald-50 text-emerald-700";
+  if (value === "FAILED" || value === "TIMEOUT") return "bg-red-50 text-red-700";
+  if (value === "SKIPPED") return "bg-slate-100 text-slate-600";
   return "bg-amber-50 text-amber-700";
 }
 
@@ -385,7 +415,7 @@ export default function TransactionDetailPage() {
   }, [router, transactionID]);
 
   const violation = violationLabel(detail);
-  const latestStatus = String(valueFrom(detail?.raw.vehicle_status ?? null, "status")).toLowerCase();
+  const latestStatus = detail?.transaction.verification_status.toLowerCase() ?? "pending";
   const evidence = useMemo(
     () => mediaItems(detail?.attachments ?? []),
     [detail?.attachments],
@@ -513,6 +543,44 @@ export default function TransactionDetailPage() {
               ))}
             </div>
 
+            <SectionCard
+              title="Kelengkapan & Asal Data"
+              subtitle="Status final transaksi dan hasil independen dari setiap sumber."
+            >
+              <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <FieldGrid
+                  fields={[
+                    { label: "Kelengkapan", value: detail.transaction.completeness_status },
+                    { label: "Asal Nilai Aktual", value: detail.transaction.actual_data_origin },
+                  ]}
+                />
+                <div className="md:col-span-2">
+                  <p className="mb-1.5 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Sumber Tidak Tersedia</p>
+                  <div className="min-h-11 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-800">
+                    {detail.transaction.missing_sources.length > 0
+                      ? detail.transaction.missing_sources.join(", ")
+                      : "Tidak ada"}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {(detail.raw.session_sources ?? []).map((source) => {
+                  const sourceType = String(source.source_type ?? "UNKNOWN");
+                  const sourceStatus = String(source.source_status ?? "WAITING");
+                  return (
+                    <div key={sourceType} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-sm font-extrabold text-slate-900">{sourceType}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">Mode {String(source.source_mode ?? "-")}</p>
+                      <span className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${sourceStatusTone(sourceStatus)}`}>
+                        {sourceStatus}
+                      </span>
+                      {source.error_message ? <p className="mt-2 text-xs font-semibold text-red-600">{String(source.error_message)}</p> : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
               <SectionCard
                 title="Pratinjau Bukti"
@@ -586,10 +654,11 @@ export default function TransactionDetailPage() {
               </div>
             </div>
 
-            <SectionCard
-              title="Lampiran"
-              subtitle="File disalin dari MinIO situs ke MinIO data-center."
-            >
+            <div className="hidden">
+              <SectionCard
+                title="Lampiran"
+                subtitle="File disalin dari MinIO situs ke MinIO data-center."
+              >
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[960px] text-sm">
                   <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
@@ -650,7 +719,8 @@ export default function TransactionDetailPage() {
                   </tbody>
                 </table>
               </div>
-            </SectionCard>
+              </SectionCard>
+            </div>
 
             <SectionCard
               title="Data Sumber"
@@ -687,7 +757,7 @@ export default function TransactionDetailPage() {
                 <SourceBlock
                   title="Dimensi"
                   fields={[
-                    { label: "Panjang", value: valueFrom(detail.raw.dimension, "length") },
+                    { label: "Panjang", value: dimensionLength(detail) },
                     { label: "Lebar", value: valueFrom(detail.raw.dimension, "width") },
                     { label: "Tinggi", value: valueFrom(detail.raw.dimension, "height") },
                     { label: "Waktu Dibuat", value: formatDateTime(valueFrom(detail.raw.dimension, "created_date")) },
@@ -696,7 +766,15 @@ export default function TransactionDetailPage() {
               </div>
             </SectionCard>
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="hidden grid-cols-1 gap-4 xl:grid-cols-2">
+              <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-extrabold text-slate-900">
+                  Riwayat Koreksi ({detail.raw.revisions?.length ?? 0})
+                </summary>
+                <pre className="max-h-72 overflow-auto border-t border-slate-100 bg-slate-950 p-4 text-xs font-semibold leading-5 text-slate-100">
+                  {JSON.stringify(detail.raw.revisions ?? [], null, 2)}
+                </pre>
+              </details>
               <RawSection title="Data Mentah Kendaraan Aktual" record={detail.raw.vehicle_actual} />
               <RawSection title="Data Mentah Status Kendaraan" record={detail.raw.vehicle_status} />
               <RawSection title="Data Mentah Tangkapan ANPR" record={detail.raw.anpr} />

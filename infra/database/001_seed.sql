@@ -49,8 +49,7 @@ INSERT INTO public.master_site (
 VALUES
   (:'site_id', :'site_code', :'site_name', :'site_location', :'site_region', :'site_address', :'site_city', :'site_province', :'site_timezone', :'site_contact_name', :'site_contact_phone', 'offline', 'Primary local revamp site', true, false)
 ON CONFLICT (code) DO UPDATE
-SET id = EXCLUDED.id,
-    site_name = EXCLUDED.site_name,
+SET site_name = EXCLUDED.site_name,
     site_location = EXCLUDED.site_location,
     site_region = EXCLUDED.site_region,
     site_address = EXCLUDED.site_address,
@@ -122,7 +121,7 @@ VALUES
   ('MCF-SITE-CODE', 'SITE', 'DEFAULT_SITE_CODE', :'site_code', 'Default local site code', 10, true, false),
   ('MCF-SITE-NAME', 'SITE', 'DEFAULT_SITE_NAME', :'site_name', 'Default local site name', 20, true, false),
   ('MCF-DEFAULT-LANE', 'OPERATION', 'DEFAULT_LANE', 'LANE-01', 'Default operational lane', 30, true, false),
-  ('MCF-SESSION-WINDOW', 'OPERATION', 'SESSION_WINDOW_SECONDS', '600', 'Default WIM session matching window', 40, true, false),
+  ('MCF-SESSION-WINDOW', 'OPERATION', 'SESSION_WINDOW_SECONDS', '120', 'Default WIM session matching window', 40, true, false),
   ('MCF-DEVICE-TIMEOUT', 'DEVICE', 'DEVICE_CHECK_TIMEOUT_MS', '3000', 'Default device healthcheck timeout', 50, true, false),
   ('MCF-ANPR-BUCKET', 'STORAGE', 'ANPR_BUCKET', 'anpr', 'Default ANPR object storage bucket', 60, true, false),
   ('MCF-AXLE-BUCKET', 'STORAGE', 'AXLE_BUCKET', 'axle', 'Default AXLE object storage bucket', 70, true, false),
@@ -152,6 +151,8 @@ VALUES
   ('SITE', 'SITE_ID', :'site_id', 'string', 'Site ID', 'Unique UUID for this operating site', false, true, 1, true, false),
   ('SITE', 'SITE_CODE', :'site_code', 'string', 'Site Code', 'Site code used by local and central systems', false, true, 2, true, false),
   ('SITE', 'SITE_NAME', :'site_name', 'string', 'Site Name', 'Human readable site name', false, true, 3, true, false),
+  ('SITE', 'SITE_LATITUDE', :'site_latitude', 'number', 'Site Latitude', 'Fallback latitude when mobile enforcement GPS is unavailable', false, true, 4, true, false),
+  ('SITE', 'SITE_LONGITUDE', :'site_longitude', 'number', 'Site Longitude', 'Fallback longitude when mobile enforcement GPS is unavailable', false, true, 5, true, false),
   ('SERVICE', 'NATS_URL', 'nats://nats:4222', 'url', 'NATS URL', 'Docker NATS endpoint for queue/cache integration', false, true, 10, true, false),
   ('ANPR_FTP', 'ANPR_FTP_HOST', 'ftp-local:21', 'string', 'ANPR FTP Host', 'Docker FTP endpoint for ANPR watcher', false, true, 20, true, false),
   ('ANPR_FTP', 'ANPR_FTP_USER', 'ftpuser', 'string', 'ANPR FTP User', 'Local FTP username for ANPR watcher', false, true, 30, true, false),
@@ -181,6 +182,7 @@ VALUES
   ('WEIGHING', 'WIM_STREAM_URL', '/api/wim-live', 'url', 'WIM Live Stream URL', 'Same-origin SSE proxy endpoint for real-time WIM connection and weighing status', false, true, 270, true, false),
   ('CCTV', 'CCTV_TRIGGER_URL', 'http://cctv-streamer:8090/record', 'url', 'CCTV Trigger URL', 'Endpoint called by backend when evidence recording is needed', false, true, 280, true, false),
   ('CCTV', 'CCTV_TRIGGER_SECONDS', '30', 'number', 'CCTV Trigger Seconds', 'Recording duration in seconds', false, true, 290, true, false),
+  ('OPERATION', 'PROCESSING_WAIT_SECONDS', '120', 'number', 'Waktu Tunggu Kelengkapan (detik)', 'Batas waktu halaman processing menunggu data perangkat lengkap sebelum transaksi difinalisasi otomatis', false, true, 295, true, false),
   ('VEAM', 'VEAM_PUBLIC_KEY_B64', 'nO0iENG73vxSfIx8p6uj5qa2S1SkXwk9rHEt5TyA+XA=', 'password', 'VEAM Public Key', 'Public key used to validate VEAM2 license signatures', true, true, 300, true, false),
   ('VEAM', 'VEAM_LICENSE_PATH', './data/license.veam', 'path', 'VEAM License Path', 'Local path where active license is stored', false, true, 310, true, false),
   ('VEAM', 'VEAM_HARDWARE_ID', '', 'string', 'VEAM Hardware ID', 'Optional hardware binding value for license validation', false, true, 320, true, false),
@@ -323,6 +325,20 @@ SET password_hash = EXCLUDED.password_hash,
     is_active = true,
     is_deleted = false,
     updated_date = now();
+
+-- Initial users are system bootstrap data. Make their audit lineage explicit:
+-- the admin owns its bootstrap row and creates the initial operator row.
+UPDATE public.master_user
+SET created_by = id
+WHERE username = :'admin_username'
+  AND created_by IS NULL;
+
+UPDATE public.master_user operator_user
+SET created_by = admin_user.id
+FROM public.master_user admin_user
+WHERE operator_user.username = 'operator'
+  AND admin_user.username = :'admin_username'
+  AND operator_user.created_by IS NULL;
 
 DELETE FROM public.master_user
 WHERE username IN ('admin@mampang.local', 'super', 'superadmin', 'supervisor', 'operatorsystem');

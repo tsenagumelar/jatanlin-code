@@ -13,4 +13,4 @@ if ! command -v "$NODE_BIN" >/dev/null 2>&1; then
   fi
 fi
 
-"$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" apply "$ROOT_DIR/site.json"
+"$NODE_BIN" "$ROOT_DIR/scripts/site-config.js" apply "$ROOT_DIR/site.json" "${SITE:-${SITE_SELECTOR:-}}"

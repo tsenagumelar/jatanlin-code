@@ -9,12 +9,14 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 	"wim-service/internal/dimension"
 	"wim-service/internal/ingest"
 	"wim-service/internal/session"
+	"wim-service/internal/source"
 
 	"github.com/google/uuid"
 	"github.com/jlaffaye/ftp"
@@ -150,8 +152,13 @@ func (p *FileProcessor) HandleNewFile(ctx context.Context, c *ftp.ServerConn, na
 		log.Println("[ANPR] No active IN_PROGRESS session found")
 		return true // Skip file but don't error
 	}
-	if session.IsDummy {
-		log.Printf("[ANPR] Active session %s is in dummy mode, skipping FTP ingest", session.Code)
+	mode, err := p.SessionService.GetSourceMode(ctx, session.ID, "ANPR")
+	if err != nil {
+		log.Printf("[ANPR] Source mode unavailable for session %s: %v", session.Code, err)
+		return false
+	}
+	if mode != source.ModeReal {
+		log.Printf("[ANPR] Source mode is %s for session %s, skipping FTP ingest", mode, session.Code)
 		return true
 	}
 	log.Printf("[ANPR] Active session found: %s", session.Code)
@@ -178,7 +185,11 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 		log.Println("[ANPR_DUMMY] No active IN_PROGRESS session found")
 		return nil
 	}
-	if !session.IsDummy {
+	mode, err := p.SessionService.GetSourceMode(ctx, session.ID, "ANPR")
+	if err != nil {
+		return fmt.Errorf("ANPR source mode unavailable: %w", err)
+	}
+	if mode != source.ModeDummy {
 		return nil
 	}
 
@@ -193,8 +204,20 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 	cameraID := fmt.Sprintf("DUMMY-CAM-ANPR-%d", time.Now().Unix()%100)
 	confidence := fmt.Sprintf("%.1f", 80+float64(time.Now().UnixNano()%190)/10.0)
 	fullObject := ""
+	plateObject := ""
 
-	if sample != nil {
+	if sampleFull, samplePlate, ok := dummyANPRAssetPaths(session.ID); ok {
+		fullObject = fmt.Sprintf("demo/%s/%s", session.ID, filepath.Base(sampleFull))
+		plateObject = fmt.Sprintf("demo/%s/%s", session.ID, filepath.Base(samplePlate))
+		if err := p.uploadLocalDummyImage(ctx, sampleFull, fullObject); err != nil {
+			return fmt.Errorf("upload dummy ANPR full image: %w", err)
+		}
+		if err := p.uploadLocalDummyImage(ctx, samplePlate, plateObject); err != nil {
+			return fmt.Errorf("upload dummy ANPR plate image: %w", err)
+		}
+	}
+
+	if fullObject == "" && sample != nil {
 		if sample.MinioFullObject.Valid {
 			fullObject = strings.TrimSpace(sample.MinioFullObject.String)
 		}
@@ -209,17 +232,54 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 		ID:         externalID,
 	}
 
-	if err := p.enqueueANPRInsert(meta, &session.ID, "", "", fullObject, ""); err != nil {
+	if err := p.enqueueANPRInsert(meta, &session.ID, "", "", fullObject, plateObject); err != nil {
 		return fmt.Errorf("enqueue dummy ANPR failed: %w", err)
 	}
 
 	if p.DimensionHandler != nil {
-		if _, err := p.DimensionHandler.ProcessANPRImageWithSessionMode("", meta.Plate, meta.ID, &session.ID, session.IsDummy); err != nil {
-			log.Printf("[ANPR_DUMMY] Dummy dimension failed for session=%s external_id=%s: %v", session.ID, meta.ID, err)
+		dimensionMode, modeErr := p.SessionService.GetSourceMode(ctx, session.ID, "DIMENSION")
+		if modeErr != nil {
+			log.Printf("[ANPR_DUMMY] Dimension source mode unavailable for session=%s: %v", session.ID, modeErr)
+		} else if dimensionMode != source.ModeDisabled {
+			if _, err := p.DimensionHandler.ProcessANPRImageWithSessionMode("", meta.Plate, meta.ID, &session.ID, dimensionMode == source.ModeDummy); err != nil {
+				log.Printf("[ANPR_DUMMY] Dummy dimension failed for session=%s external_id=%s: %v", session.ID, meta.ID, err)
+			}
 		}
 	}
 
 	log.Printf("[ANPR_DUMMY] Enqueued dummy ANPR for session=%s external_id=%s plate=%s", session.ID, externalID, meta.Plate)
+	return nil
+}
+
+func dummyANPRAssetPaths(sessionID uuid.UUID) (string, string, bool) {
+	index := 1 + int(sessionID[15])%2
+	dir := strings.TrimSpace(os.Getenv("DEMO_SAMPLE_DIR"))
+	if dir == "" {
+		dir = "../../sample-demo"
+	}
+	full := filepath.Join(dir, fmt.Sprintf("anpr-%d.xml.jpg", index))
+	plate := filepath.Join(dir, fmt.Sprintf("anpr-%d.xml.plate.jpg", index))
+	if _, err := os.Stat(full); err != nil {
+		return "", "", false
+	}
+	if _, err := os.Stat(plate); err != nil {
+		return "", "", false
+	}
+	return full, plate, true
+}
+
+func (p *FileProcessor) uploadLocalDummyImage(ctx context.Context, sourcePath, objectName string) error {
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		return err
+	}
+	_, err = p.Minio.FPutObject(ctx, p.Bucket, objectName, sourcePath, minio.PutObjectOptions{
+		ContentType: "image/jpeg",
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("[ANPR_DUMMY] Uploaded sample %s (%d bytes) to %s/%s", filepath.Base(sourcePath), info.Size(), p.Bucket, objectName)
 	return nil
 }
 
@@ -388,10 +448,15 @@ func (p *FileProcessor) processBatchInSession(ctx context.Context, c *ftp.Server
 		}
 		log.Printf("[ANPR] Enqueued insert: plate=%s id=%s session=%s", plateNo, file.metadata.ID, session.ID)
 
-		// For session-driven flow, dimension mode follows session.is_dummy.
-		if p.DimensionHandler != nil && (file.fullImg != "" || session.IsDummy) {
-			if err := p.processDimensionsFromFTP(ctx, c, file.metadata, &session.ID, file.fullImg, fullImgUploaded, fullObj, session.IsDummy); err != nil {
-				_ = err
+		// Dimension has its own source mode and may differ from ANPR.
+		if p.DimensionHandler != nil {
+			dimensionMode, modeErr := p.SessionService.GetSourceMode(ctx, session.ID, "DIMENSION")
+			if modeErr != nil {
+				log.Printf("[ANPR] Dimension source mode unavailable for session=%s: %v", session.ID, modeErr)
+			} else if dimensionMode != source.ModeDisabled && (file.fullImg != "" || dimensionMode == source.ModeDummy) {
+				if err := p.processDimensionsFromFTP(ctx, c, file.metadata, &session.ID, file.fullImg, fullImgUploaded, fullObj, dimensionMode == source.ModeDummy); err != nil {
+					_ = err
+				}
 			}
 		}
 
