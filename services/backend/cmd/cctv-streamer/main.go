@@ -819,20 +819,39 @@ func (s *cctvService) processDummySession(ctx context.Context, sessionService *s
 	if mode != source.ModeDummy {
 		return nil
 	}
+	exists, err := s.sessionRecordExists(ctx, session.ID)
+	if err != nil {
+		return fmt.Errorf("check dummy CCTV session row: %w", err)
+	}
+	if exists {
+		return nil
+	}
 
 	filename := fmt.Sprintf("dummy-cctv-%s.mp4", session.ID.String())
 	filepath := fmt.Sprintf("dummy-cctv/%s.mp4", session.ID.String())
-
-	sampleFilename, sampleFilepath, err := s.getRandomDummyCCTVSample(ctx, session.SiteID)
-	if err != nil {
-		return fmt.Errorf("pick random CCTV sample failed: %w", err)
+	assetUsed := false
+	if samplePath, ok := dummyCCTVAssetPath(session.ID); ok {
+		objectName, uploadedPath, uploadErr := s.uploadRecording(ctx, samplePath)
+		if uploadErr != nil {
+			return fmt.Errorf("upload dummy CCTV sample: %w", uploadErr)
+		}
+		filename = path.Base(objectName)
+		filepath = uploadedPath
+		assetUsed = true
 	}
-	if strings.TrimSpace(sampleFilepath) != "" {
-		filepath = strings.TrimSpace(sampleFilepath)
-		if strings.TrimSpace(sampleFilename) != "" {
-			filename = strings.TrimSpace(sampleFilename)
-		} else {
-			filename = path.Base(filepath)
+
+	if !assetUsed {
+		sampleFilename, sampleFilepath, err := s.getRandomDummyCCTVSample(ctx, session.SiteID)
+		if err != nil {
+			return fmt.Errorf("pick random CCTV sample failed: %w", err)
+		}
+		if strings.TrimSpace(sampleFilepath) != "" {
+			filepath = strings.TrimSpace(sampleFilepath)
+			if strings.TrimSpace(sampleFilename) != "" {
+				filename = strings.TrimSpace(sampleFilename)
+			} else {
+				filename = path.Base(filepath)
+			}
 		}
 	}
 
@@ -842,6 +861,19 @@ func (s *cctvService) processDummySession(ctx context.Context, sessionService *s
 
 	log.Printf("[CCTV_DUMMY] Ensured dummy CCTV for session=%s filename=%s", session.ID, filename)
 	return nil
+}
+
+func dummyCCTVAssetPath(sessionID uuid.UUID) (string, bool) {
+	index := 1 + int(sessionID[15])%2
+	dir := strings.TrimSpace(os.Getenv("DEMO_SAMPLE_DIR"))
+	if dir == "" {
+		dir = "../../sample-demo"
+	}
+	samplePath := filepath.Join(dir, fmt.Sprintf("cctv-%d.mp4", index))
+	if _, err := os.Stat(samplePath); err != nil {
+		return "", false
+	}
+	return samplePath, true
 }
 
 func (s *cctvService) getRandomDummyCCTVSample(ctx context.Context, siteID uuid.UUID) (string, string, error) {

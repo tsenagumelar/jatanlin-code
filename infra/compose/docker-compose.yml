@@ -121,6 +121,7 @@ services:
       CCTV_RECORD_SECONDS: ${CCTV_RECORD_SECONDS:-30}
       CCTV_SESSION_RECORD_SECONDS: ${CCTV_SESSION_RECORD_SECONDS:-30}
       CCTV_DUMMY_ENABLED: ${CCTV_DUMMY_ENABLED:-true}
+      DEMO_SAMPLE_DIR: /app/sample-demo
       CCTV_HTTP_PORT: ${CCTV_HTTP_PORT:-8090}
       VEAM_LICENSE_PATH: ${VEAM_LICENSE_PATH:-./data/license.veam}
       VEAM_PUBLIC_KEY_B64: ${VEAM_PUBLIC_KEY_B64:-2CKPRGxWNdr2ZT1Q1vOwp2cZqh4MxYmFsOlFtx83eW4=}
@@ -131,6 +132,7 @@ services:
       - "${API_PORT:-4000}:${API_PORT:-4000}"
     volumes:
       - backend-data:/app/data
+      - ../../sample-demo:/app/sample-demo:ro
       - ${VEAM_USB_HOST_MOUNT:-/run/desktop/mnt/host}:${VEAM_USB_CONTAINER_MOUNT:-/host/windows}:ro
       - /Volumes:/host/Volumes:ro
     depends_on: &backend_depends_on

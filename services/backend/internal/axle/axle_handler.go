@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 	"wim-service/internal/ingest"
@@ -215,8 +217,14 @@ func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
 	category := fmt.Sprintf("CAT-%d", 1+time.Now().Unix()%5)
 	bodyType := fmt.Sprintf("BODY-%d", 1+time.Now().Unix()%5)
 	imgObj := ""
+	if samplePath, ok := dummyAxleAssetPath(session.ID); ok {
+		imgObj = fmt.Sprintf("demo/%s/%s", session.ID, filepath.Base(samplePath))
+		if err := p.uploadLocalDummyImage(ctx, samplePath, imgObj); err != nil {
+			return fmt.Errorf("upload dummy AXLE image: %w", err)
+		}
+	}
 
-	if sample != nil {
+	if imgObj == "" && sample != nil {
 		if sample.MinioImageObj.Valid {
 			imgObj = strings.TrimSpace(sample.MinioImageObj.String)
 		}
@@ -239,6 +247,34 @@ func (p *AxleProcessor) ProcessDummySession(ctx context.Context) error {
 	}
 
 	log.Printf("[AXLE_DUMMY] Enqueued dummy AXLE for session=%s external_id=%s", session.ID, externalID)
+	return nil
+}
+
+func dummyAxleAssetPath(sessionID uuid.UUID) (string, bool) {
+	index := 1 + int(sessionID[15])%2
+	dir := strings.TrimSpace(os.Getenv("DEMO_SAMPLE_DIR"))
+	if dir == "" {
+		dir = "../../sample-demo"
+	}
+	imagePath := filepath.Join(dir, fmt.Sprintf("axle-%d.xml.jpg", index))
+	if _, err := os.Stat(imagePath); err != nil {
+		return "", false
+	}
+	return imagePath, true
+}
+
+func (p *AxleProcessor) uploadLocalDummyImage(ctx context.Context, sourcePath, objectName string) error {
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		return err
+	}
+	_, err = p.Minio.FPutObject(ctx, p.Bucket, objectName, sourcePath, minio.PutObjectOptions{
+		ContentType: "image/jpeg",
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("[AXLE_DUMMY] Uploaded sample %s (%d bytes) to %s/%s", filepath.Base(sourcePath), info.Size(), p.Bucket, objectName)
 	return nil
 }
 

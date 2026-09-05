@@ -3,11 +3,11 @@
   "sites": [
     {
       "id": "628f033e-49b2-4ba0-b1e8-12af4b3895ee",
-      "code": "MST-25-0001",
-      "name": "Mampang Revamp Local Test",
-      "location": "Central Office",
+      "code": "MST-26-0001",
+      "name": "Jatanlin 1 - JTL0126",
+      "location": "Mobile Site Jatanlin 1",
       "region": "Default",
-      "address": "Jl. Mampang Prapatan Raya, Jakarta Selatan",
+      "address": "Jakarta",
       "city": "Jakarta Selatan",
       "province": "DKI Jakarta",
       "timezone": "Asia/Jakarta",
@@ -18,19 +18,107 @@
         "phone": ""
       },
       "wb": {
-        "siteCode": "MST-25-0001",
+        "siteCode": "MST-26-0001",
         "siteId": "628f033e-49b2-4ba0-b1e8-12af4b3895ee",
         "locationCode": "GATE-A1"
+      }
+    },
+    {
+      "id": "1f02ee86-aa5d-411a-9d9e-8aba47eca12d",
+      "code": "MST-26-0002",
+      "name": "Jatanlin 2 - JTL0226",
+      "location": "Mobile Site Jatanlin 2",
+      "region": "Default",
+      "address": "Jakarta",
+      "city": "Jakarta Selatan",
+      "province": "DKI Jakarta",
+      "timezone": "Asia/Jakarta",
+      "latitude": -6.241586,
+      "longitude": 106.825031,
+      "contact": {
+        "name": "Site Administrator",
+        "phone": ""
+      },
+      "wb": {
+        "siteCode": "MST-26-0002",
+        "siteId": "1f02ee86-aa5d-411a-9d9e-8aba47eca12d",
+        "locationCode": "GATE-A2"
+      }
+    },
+    {
+      "id": "b5e92d21-2a3f-43de-a219-8d722d652f79",
+      "code": "MST-26-0003",
+      "name": "Jatanlin 3 - JTL0326",
+      "location": "Mobile Site Jatanlin 3",
+      "region": "Default",
+      "address": "Jakarta",
+      "city": "Jakarta Selatan",
+      "province": "DKI Jakarta",
+      "timezone": "Asia/Jakarta",
+      "latitude": -6.241586,
+      "longitude": 106.825031,
+      "contact": {
+        "name": "Site Administrator",
+        "phone": ""
+      },
+      "wb": {
+        "siteCode": "MST-26-0003",
+        "siteId": "b5e92d21-2a3f-43de-a219-8d722d652f79",
+        "locationCode": "GATE-A3"
+      }
+    },
+    {
+      "id": "2fa4d44f-33d1-4bba-a22f-7c07693e6efc",
+      "code": "MST-26-0004",
+      "name": "Jatanlin 4 - JTL0426",
+      "location": "Mobile Site Jatanlin 4",
+      "region": "Default",
+      "address": "Jakarta",
+      "city": "Jakarta Selatan",
+      "province": "DKI Jakarta",
+      "timezone": "Asia/Jakarta",
+      "latitude": -6.241586,
+      "longitude": 106.825031,
+      "contact": {
+        "name": "Site Administrator",
+        "phone": ""
+      },
+      "wb": {
+        "siteCode": "MST-26-0004",
+        "siteId": "2fa4d44f-33d1-4bba-a22f-7c07693e6efc",
+        "locationCode": "GATE-A4"
+      }
+    },
+    {
+      "id": "d24ee52c-d558-4273-929d-d26bf648bb05",
+      "code": "MST-26-0005",
+      "name": "Jatanlin 5 - JTL0526",
+      "location": "Mobile Site Jatanlin 5",
+      "region": "Default",
+      "address": "Jakarta",
+      "city": "Jakarta Selatan",
+      "province": "DKI Jakarta",
+      "timezone": "Asia/Jakarta",
+      "latitude": -6.241586,
+      "longitude": 106.825031,
+      "contact": {
+        "name": "Site Administrator",
+        "phone": ""
+      },
+      "wb": {
+        "siteCode": "MST-26-0005",
+        "siteId": "d24ee52c-d558-4273-929d-d26bf648bb05",
+        "locationCode": "GATE-A5"
       }
     }
   ],
   "admin": {
     "username": "admin",
     "password": "admin123",
-    "fullName": "Administrator",
+    "fullName": "User Administrator",
     "badgeNo": "ADM-001",
     "phone": "",
-    "email": "admin@local.test"
+    "email": "admin@jatanlin.co.id"
   },
   "license": {
     "issuedBy": "Activa Digital",

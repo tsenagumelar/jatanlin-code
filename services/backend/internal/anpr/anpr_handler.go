@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -203,8 +204,20 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 	cameraID := fmt.Sprintf("DUMMY-CAM-ANPR-%d", time.Now().Unix()%100)
 	confidence := fmt.Sprintf("%.1f", 80+float64(time.Now().UnixNano()%190)/10.0)
 	fullObject := ""
+	plateObject := ""
 
-	if sample != nil {
+	if sampleFull, samplePlate, ok := dummyANPRAssetPaths(session.ID); ok {
+		fullObject = fmt.Sprintf("demo/%s/%s", session.ID, filepath.Base(sampleFull))
+		plateObject = fmt.Sprintf("demo/%s/%s", session.ID, filepath.Base(samplePlate))
+		if err := p.uploadLocalDummyImage(ctx, sampleFull, fullObject); err != nil {
+			return fmt.Errorf("upload dummy ANPR full image: %w", err)
+		}
+		if err := p.uploadLocalDummyImage(ctx, samplePlate, plateObject); err != nil {
+			return fmt.Errorf("upload dummy ANPR plate image: %w", err)
+		}
+	}
+
+	if fullObject == "" && sample != nil {
 		if sample.MinioFullObject.Valid {
 			fullObject = strings.TrimSpace(sample.MinioFullObject.String)
 		}
@@ -219,7 +232,7 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 		ID:         externalID,
 	}
 
-	if err := p.enqueueANPRInsert(meta, &session.ID, "", "", fullObject, ""); err != nil {
+	if err := p.enqueueANPRInsert(meta, &session.ID, "", "", fullObject, plateObject); err != nil {
 		return fmt.Errorf("enqueue dummy ANPR failed: %w", err)
 	}
 
@@ -235,6 +248,38 @@ func (p *FileProcessor) ProcessDummySession(ctx context.Context) error {
 	}
 
 	log.Printf("[ANPR_DUMMY] Enqueued dummy ANPR for session=%s external_id=%s plate=%s", session.ID, externalID, meta.Plate)
+	return nil
+}
+
+func dummyANPRAssetPaths(sessionID uuid.UUID) (string, string, bool) {
+	index := 1 + int(sessionID[15])%2
+	dir := strings.TrimSpace(os.Getenv("DEMO_SAMPLE_DIR"))
+	if dir == "" {
+		dir = "../../sample-demo"
+	}
+	full := filepath.Join(dir, fmt.Sprintf("anpr-%d.xml.jpg", index))
+	plate := filepath.Join(dir, fmt.Sprintf("anpr-%d.xml.plate.jpg", index))
+	if _, err := os.Stat(full); err != nil {
+		return "", "", false
+	}
+	if _, err := os.Stat(plate); err != nil {
+		return "", "", false
+	}
+	return full, plate, true
+}
+
+func (p *FileProcessor) uploadLocalDummyImage(ctx context.Context, sourcePath, objectName string) error {
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		return err
+	}
+	_, err = p.Minio.FPutObject(ctx, p.Bucket, objectName, sourcePath, minio.PutObjectOptions{
+		ContentType: "image/jpeg",
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("[ANPR_DUMMY] Uploaded sample %s (%d bytes) to %s/%s", filepath.Base(sourcePath), info.Size(), p.Bucket, objectName)
 	return nil
 }
 

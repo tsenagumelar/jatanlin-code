@@ -298,25 +298,38 @@ func (a *syncAgent) sendHeartbeat(ctx context.Context) error {
 	}
 
 	var site struct {
+		SiteLocation       sql.NullString
 		SiteAddress        sql.NullString
 		City               sql.NullString
 		Province           sql.NullString
+		Latitude           sql.NullFloat64
+		Longitude          sql.NullFloat64
 		ActiveOperatorName sql.NullString
 	}
 	err := a.db.QueryRowContext(ctx, `
 		SELECT
+			COALESCE(site_location, ''),
 			COALESCE(site_address, ''),
 			COALESCE(site_city, ''),
 			COALESCE(site_province, ''),
+			default_latitude,
+			default_longitude,
 			COALESCE(active_operator_name, '')
 		FROM public.master_site
 		WHERE id = $1
 		LIMIT 1
-	`, a.siteID).Scan(&site.SiteAddress, &site.City, &site.Province, &site.ActiveOperatorName)
+	`, a.siteID).Scan(&site.SiteLocation, &site.SiteAddress, &site.City, &site.Province, &site.Latitude, &site.Longitude, &site.ActiveOperatorName)
 	if err == nil {
+		payload["site_location"] = site.SiteLocation.String
 		payload["site_address"] = site.SiteAddress.String
 		payload["city"] = site.City.String
 		payload["province"] = site.Province.String
+		if site.Latitude.Valid {
+			payload["latitude"] = site.Latitude.Float64
+		}
+		if site.Longitude.Valid {
+			payload["longitude"] = site.Longitude.Float64
+		}
 		payload["active_operator_name"] = site.ActiveOperatorName.String
 	}
 
