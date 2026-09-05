@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:28001";
+  process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.jatanlinkorlantas.id";
 
 type TransactionItem = {
   id: string;
