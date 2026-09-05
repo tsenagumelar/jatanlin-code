@@ -2,11 +2,11 @@
 <result>
 	<location value="Test location"/>
 	<cameraid value="1254542"/>
-	<ID value="1772629690595"/>
+	<ID value="1788605416000"/>
 	<image_hash value="8698e15ed12a3a357bf802ba143bda1ae946a42e"/>
 	<capture>
-		<frametime value="2026.06.10 15:08:55.312"/>
-		<frametimems value="1781078935312"/>
+		<frametime value="2026.09.05 17:50:16.000"/>
+		<frametimems value="1788605416000"/>
 		<frameindex value="207110"/>
 	</capture>
 	<anpr>
@@ -71,7 +71,7 @@
 		<direction value="1"/>
 		<category value="0"/>
 		<vclass value="0"/>
-		<timems value="1781078935312"/>
+		<timems value="1788605416000"/>
 		<data value="cm9pPTAuMTY0NSwwLjA4MDEsMC45MDc5LDAuMDgwMSwwLjkwNzksMC41NTI3LDAuMTY0NSwwLjU1Mjc7DQp0cmlnZ2VyX3NlbnNvcj0xDQp0cmlnZ2VyX2xpbmVfaWQ9MA0KdHJpZ2dlcl9uYW1lPVRyaWdnZXINCmRpcmVjdGlvbl9pbl9sYW5lPWZvcndhcmQNCnRyaWdnZXJfZGlyZWN0aW9uPTENCnRyaWdnZXJfdGltZXN0YW1wPTE3ODEwNzg5MzUzMTINCnRyaWdnZXJfZGVsYXk9OTA5DQp0cmlnZ2VyX29kdmluZGV4PTE3MTgNCmNhdGVnb3J5PXRydWNrDQpjYXRlZ29yeV9jb25maWRlbmNlPTYzDQo="/>
 		<zone_name value="Trigger"/>
 	</trigger>

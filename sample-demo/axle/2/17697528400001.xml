@@ -2,15 +2,15 @@
 <result>
 	<location value="Test location"/>
 	<cameraid value="1217326"/>
-	<ID value="17697528400001"/>
+	<ID value="1788605559001"/>
 	<image_hash value="ef29a91ba71160e6a92d3a9c0598a0f3ddc19f95"/>
 	<capture>
-		<frametime value="2026.12.31 23:52:03.493"/>
-		<frametimems value="1798761123493"/>
+		<frametime value="2026.09.05 17:52:39.001"/>
+		<frametimems value="1788605559001"/>
 		<frameindex value="74928"/>
 	</capture>
 	<anpr>
-		<text value="1II1111"/>
+		<text value="B9950TEW"/>
 		<type value="0"/>
 		<country value="n.a."/>
 		<state value="n.a."/>
@@ -54,7 +54,7 @@
 		<direction value="0"/>
 		<category value="0"/>
 		<vclass value="0"/>
-		<timems value="1769753876526"/>
+		<timems value="1788605559001"/>
 		<data value="bi5hLg0="/>
 		<zone_name value="n.a."/>
 	</trigger>
