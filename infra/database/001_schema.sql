@@ -1394,6 +1394,8 @@ VALUES
 	('WEIGHING', 'WEIGHING_TRIGGER_DUMMY', 'false', 'boolean', 'Weighing Trigger Dummy', 'Use dummy weighing trigger mode.', false, 990),
 	('WEIGHING', 'WIM_STREAM_URL', '/api/wim-live', 'url', 'WIM Live Stream URL', 'Same-origin SSE proxy endpoint for real-time WIM connection and weighing status.', false, 1000),
 
+	('OPERATION', 'PROCESSING_WAIT_SECONDS', '120', 'number', 'Waktu Tunggu Kelengkapan (detik)', 'Batas waktu halaman processing menunggu data perangkat lengkap sebelum transaksi difinalisasi otomatis.', false, 1020),
+
 	('VEAM', 'VEAM_PUBLIC_KEY_B64', 'nO0iENG73vxSfIx8p6uj5qa2S1SkXwk9rHEt5TyA+XA=', 'password', 'VEAM Public Key', 'Public key used to validate VEAM2 license signatures.', true, 910),
 	('VEAM', 'VEAM_LICENSE_PATH', './data/license.veam', 'path', 'VEAM License Path', 'Local path where active license is stored.', false, 920),
 	('VEAM', 'VEAM_HARDWARE_ID', '', 'string', 'VEAM Hardware ID', 'Optional hardware binding value for license validation.', false, 930),

@@ -410,12 +410,17 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
     });
   };
 
-  const uploadSourceImage = async (file: File): Promise<UploadedImageMeta> => {
-    if (!file.type.startsWith("image/")) {
-      throw new Error("Pilih file gambar");
+  const uploadSourceImage = async (
+    file: File,
+    type: "anpr" | "axle" | "cctv",
+  ): Promise<UploadedImageMeta> => {
+    const expectedType = type === "cctv" ? "video/" : "image/";
+    if (!file.type.startsWith(expectedType)) {
+      throw new Error(type === "cctv" ? "Pilih file video" : "Pilih file gambar");
     }
-    if (file.size > 5 * 1024 * 1024) {
-      throw new Error("Ukuran file harus kurang dari 5MB");
+    const maxSizeMB = type === "cctv" ? 50 : 5;
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      throw new Error(`Ukuran file harus kurang dari ${maxSizeMB}MB`);
     }
     const formData = new FormData();
     formData.append("image", file);
@@ -445,7 +450,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       setAttachmentError(null);
       setUploadingSourceImage(type);
       try {
-        const uploaded = await uploadSourceImage(file);
+        const uploaded = await uploadSourceImage(file, type);
         if (type === "anpr") {
           setSourceAnprImagePath(uploaded.filePath);
           const fallbackBucket = uploaded.filePath.includes("/")
@@ -577,6 +582,11 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
             location_address: locationAddress || null,
             location_lat: locationLat,
             location_lng: locationLng,
+            source_anpr_bucket: sourceAnprBucket,
+            source_anpr_object: sourceAnprObjectName,
+            source_axle_bucket: sourceAxleBucket,
+            source_axle_object: sourceAxleObjectName,
+            source_cctv_path: sourceCctvPath,
           }),
         },
       );
@@ -723,6 +733,9 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       !(vehicle.transact_cctv?.filepath || sourceCctvPath),
   };
 
+  const sourceCanBeEdited =
+    vehicle.verification_status?.toUpperCase() !== "VERIFIED" &&
+    existingStatus?.status !== "verified";
   const sourceTabs = (
     [
       { key: "anpr", label: "ANPR" },
@@ -731,9 +744,9 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
       { key: "dimension", label: "DIMENSI" },
       { key: "cctv", label: "CCTV" },
     ] as const
-  ).filter((item) => sourceSectionMissing[item.key]);
+  ).filter((item) => sourceCanBeEdited || sourceSectionMissing[item.key]);
 
-  const hasIncompleteSourceData = sourceTabs.length > 0;
+  const hasIncompleteSourceData = Object.values(sourceSectionMissing).some(Boolean);
   const canPrintViolation = isPrintableViolation(result);
 
   return (
@@ -1451,11 +1464,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         type="file"
                         accept="image/*"
                         onChange={handleSourceImageUpload("anpr")}
-                        disabled={
-                          !!vehicle.transact_anpr_capture
-                            ?.minio_full_image_object ||
-                          uploadingSourceImage !== null
-                        }
+                        disabled={!sourceCanBeEdited || uploadingSourceImage !== null}
                         className="mt-2 block w-full text-xs text-neutral-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700 disabled:opacity-60"
                       />
                     </Field>
@@ -1482,10 +1491,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         type="file"
                         accept="image/*"
                         onChange={handleSourceImageUpload("axle")}
-                        disabled={
-                          !!vehicle.transact_axle_capture?.minio_image_object ||
-                          uploadingSourceImage !== null
-                        }
+                        disabled={!sourceCanBeEdited || uploadingSourceImage !== null}
                         className="mt-2 block w-full text-xs text-neutral-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700 disabled:opacity-60"
                       />
                     </Field>
@@ -1555,10 +1561,7 @@ export const JatanlinVerifyModule: React.FC<JatanlinVerifyModuleProps> = ({
                         type="file"
                         accept="video/*"
                         onChange={handleSourceImageUpload("cctv")}
-                        disabled={
-                          !!vehicle.transact_cctv?.filepath ||
-                          uploadingSourceImage !== null
-                        }
+                        disabled={!sourceCanBeEdited || uploadingSourceImage !== null}
                         className="mt-2 block w-full text-xs text-neutral-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700 disabled:opacity-60"
                       />
                     </Field>

@@ -182,6 +182,7 @@ VALUES
   ('WEIGHING', 'WIM_STREAM_URL', '/api/wim-live', 'url', 'WIM Live Stream URL', 'Same-origin SSE proxy endpoint for real-time WIM connection and weighing status', false, true, 270, true, false),
   ('CCTV', 'CCTV_TRIGGER_URL', 'http://cctv-streamer:8090/record', 'url', 'CCTV Trigger URL', 'Endpoint called by backend when evidence recording is needed', false, true, 280, true, false),
   ('CCTV', 'CCTV_TRIGGER_SECONDS', '30', 'number', 'CCTV Trigger Seconds', 'Recording duration in seconds', false, true, 290, true, false),
+  ('OPERATION', 'PROCESSING_WAIT_SECONDS', '120', 'number', 'Waktu Tunggu Kelengkapan (detik)', 'Batas waktu halaman processing menunggu data perangkat lengkap sebelum transaksi difinalisasi otomatis', false, true, 295, true, false),
   ('VEAM', 'VEAM_PUBLIC_KEY_B64', 'nO0iENG73vxSfIx8p6uj5qa2S1SkXwk9rHEt5TyA+XA=', 'password', 'VEAM Public Key', 'Public key used to validate VEAM2 license signatures', true, true, 300, true, false),
   ('VEAM', 'VEAM_LICENSE_PATH', './data/license.veam', 'path', 'VEAM License Path', 'Local path where active license is stored', false, true, 310, true, false),
   ('VEAM', 'VEAM_HARDWARE_ID', '', 'string', 'VEAM Hardware ID', 'Optional hardware binding value for license validation', false, true, 320, true, false),

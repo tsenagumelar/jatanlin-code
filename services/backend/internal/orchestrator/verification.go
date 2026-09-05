@@ -11,19 +11,24 @@ import (
 )
 
 type VerificationRequest struct {
-	Action          string   `json:"action"`
-	Reason          string   `json:"reason"`
-	Result          *string  `json:"result"`
-	Attachments     []string `json:"attachments"`
-	ActualPlateNo   *string  `json:"actual_plat_no"`
-	ActualLength    *float64 `json:"actual_length"`
-	ActualWidth     *float64 `json:"actual_width"`
-	ActualHeight    *float64 `json:"actual_height"`
-	ActualWeight    *float64 `json:"actual_weight"`
-	ActualTotalAxle *int     `json:"actual_total_axle"`
-	LocationAddress *string  `json:"location_address"`
-	Latitude        *float64 `json:"location_lat"`
-	Longitude       *float64 `json:"location_lng"`
+	Action           string   `json:"action"`
+	Reason           string   `json:"reason"`
+	Result           *string  `json:"result"`
+	Attachments      []string `json:"attachments"`
+	ActualPlateNo    *string  `json:"actual_plat_no"`
+	ActualLength     *float64 `json:"actual_length"`
+	ActualWidth      *float64 `json:"actual_width"`
+	ActualHeight     *float64 `json:"actual_height"`
+	ActualWeight     *float64 `json:"actual_weight"`
+	ActualTotalAxle  *int     `json:"actual_total_axle"`
+	LocationAddress  *string  `json:"location_address"`
+	Latitude         *float64 `json:"location_lat"`
+	Longitude        *float64 `json:"location_lng"`
+	SourceANPRBucket string   `json:"source_anpr_bucket"`
+	SourceANPRObject string   `json:"source_anpr_object"`
+	SourceAxleBucket string   `json:"source_axle_bucket"`
+	SourceAxleObject string   `json:"source_axle_object"`
+	SourceCCTVPath   string   `json:"source_cctv_path"`
 }
 
 type VerificationResult struct {
@@ -87,6 +92,11 @@ func (s *Service) Verify(ctx context.Context, actorID, vehicleID string, req Ver
 	if oldVerificationStatus != verificationStatus {
 		changedFields = append(changedFields, "verification_status")
 	}
+	if action == "verify" {
+		if err := materializeMissingSources(ctx, tx, s.siteID, vehicle, actor, req); err != nil {
+			return nil, err
+		}
+	}
 
 	var afterJSON []byte
 	var dataOrigin string
@@ -142,6 +152,121 @@ func (s *Service) Verify(ctx context.Context, actorID, vehicleID string, req Ver
 		return nil, err
 	}
 	return &VerificationResult{vehicle.String(), verificationStatus, dataOrigin, revisionNo, changedFields}, nil
+}
+
+func materializeMissingSources(ctx context.Context, tx *sql.Tx, siteID, vehicleID, actorID uuid.UUID, req VerificationRequest) error {
+	var sessionID sql.NullString
+	var anprID, axleID, weighingID, dimensionID, cctvID sql.NullString
+	if err := tx.QueryRowContext(ctx, `SELECT session_id::text,anpr_id::text,axle_id::text,transact_weighing_id::text,transact_dimension_id::text,transact_cctv_id::text
+		FROM public.transact_vehicle_actual WHERE id=$1 AND site_id=$2 FOR UPDATE`, vehicleID, siteID).
+		Scan(&sessionID, &anprID, &axleID, &weighingID, &dimensionID, &cctvID); err != nil {
+		return err
+	}
+	if !sessionID.Valid {
+		return fmt.Errorf("transaction session is required to create manual sources")
+	}
+
+	if !anprID.Valid {
+		if err := tx.QueryRowContext(ctx, `INSERT INTO public.transact_anpr_capture
+			(site_id,session_id,plate_no,captured_at,minio_bucket,minio_full_image_object,is_active,is_deleted,created_by,created_date,updated_by,updated_date)
+			VALUES ($1,$2::uuid,$3,now(),NULLIF($4,''),NULLIF($5,''),true,false,$6,now(),$6,now()) RETURNING id::text`,
+			siteID, sessionID.String, req.ActualPlateNo, strings.TrimSpace(req.SourceANPRBucket), strings.TrimSpace(req.SourceANPRObject), actorID).Scan(&anprID); err != nil {
+			return fmt.Errorf("create manual ANPR source: %w", err)
+		}
+	}
+	if anprID.Valid && strings.TrimSpace(req.SourceANPRObject) != "" {
+		if _, err := tx.ExecContext(ctx, `UPDATE public.transact_anpr_capture SET minio_bucket=NULLIF($2,''),
+			minio_full_image_object=$3,updated_by=$4,updated_date=now() WHERE id=$1::uuid`,
+			anprID.String, strings.TrimSpace(req.SourceANPRBucket), strings.TrimSpace(req.SourceANPRObject), actorID); err != nil {
+			return err
+		}
+	}
+	if !axleID.Valid {
+		lengthMM := 0
+		if req.ActualLength != nil {
+			lengthMM = int(*req.ActualLength * 1000)
+		}
+		if err := tx.QueryRowContext(ctx, `INSERT INTO public.transact_axle_capture
+			(site_id,session_id,plate_no,captured_at,length_mm,total_axles,minio_bucket,minio_image_object,is_active,is_deleted,created_by,created_date,updated_by,updated_date)
+			VALUES ($1,$2::uuid,$3,now(),NULLIF($4,0),$5,NULLIF($6,''),NULLIF($7,''),true,false,$8,now(),$8,now()) RETURNING id::text`,
+			siteID, sessionID.String, req.ActualPlateNo, lengthMM, req.ActualTotalAxle, strings.TrimSpace(req.SourceAxleBucket), strings.TrimSpace(req.SourceAxleObject), actorID).Scan(&axleID); err != nil {
+			return fmt.Errorf("create manual AXLE source: %w", err)
+		}
+	}
+	if axleID.Valid && strings.TrimSpace(req.SourceAxleObject) != "" {
+		if _, err := tx.ExecContext(ctx, `UPDATE public.transact_axle_capture SET minio_bucket=NULLIF($2,''),
+			minio_image_object=$3,updated_by=$4,updated_date=now() WHERE id=$1::uuid`,
+			axleID.String, strings.TrimSpace(req.SourceAxleBucket), strings.TrimSpace(req.SourceAxleObject), actorID); err != nil {
+			return err
+		}
+	}
+	if !weighingID.Valid {
+		if err := tx.QueryRowContext(ctx, `INSERT INTO public.transact_weighing
+			(site_id,session_id,total_axle,total_weight,is_active,is_deleted,created_by,created_date,updated_by,updated_date)
+			VALUES ($1,$2::uuid,$3,$4,true,false,$5,now(),$5,now()) RETURNING id::text`,
+			siteID, sessionID.String, req.ActualTotalAxle, req.ActualWeight, actorID).Scan(&weighingID); err != nil {
+			return fmt.Errorf("create manual WIM source: %w", err)
+		}
+	}
+	if !dimensionID.Valid {
+		if err := tx.QueryRowContext(ctx, `INSERT INTO public.transact_dimension
+			(site_id,session_id,anpr_id,length,width,height,is_active,is_deleted,created_by,created_date,updated_by,updated_date)
+			VALUES ($1,$2::uuid,$3::uuid,$4,$5,$6,true,false,$7,now(),$7,now()) RETURNING id::text`,
+			siteID, sessionID.String, anprID.String, req.ActualLength, req.ActualWidth, req.ActualHeight, actorID).Scan(&dimensionID); err != nil {
+			return fmt.Errorf("create manual dimension source: %w", err)
+		}
+	}
+	cctvPath := strings.TrimSpace(req.SourceCCTVPath)
+	if !cctvID.Valid && cctvPath != "" {
+		filename := cctvPath
+		if slash := strings.LastIndex(filename, "/"); slash >= 0 {
+			filename = filename[slash+1:]
+		}
+		if err := tx.QueryRowContext(ctx, `INSERT INTO public.transact_cctv
+			(site_id,session_id,filename,filepath,is_active,is_deleted,created_by,created_date,updated_by,updated_date)
+			VALUES ($1,$2::uuid,$3,$4,true,false,$5,now(),$5,now()) RETURNING id::text`,
+			siteID, sessionID.String, filename, cctvPath, actorID).Scan(&cctvID); err != nil {
+			return fmt.Errorf("create manual CCTV source: %w", err)
+		}
+	} else if cctvID.Valid && cctvPath != "" {
+		if _, err := tx.ExecContext(ctx, `UPDATE public.transact_cctv SET filepath=$2,
+			filename=$3,updated_by=$4,updated_date=now() WHERE id=$1::uuid`,
+			cctvID.String, cctvPath, cctvPath[strings.LastIndex(cctvPath, "/")+1:], actorID); err != nil {
+			return err
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE public.transact_vehicle_actual SET
+		anpr_id=COALESCE(anpr_id,$3::uuid),axle_id=COALESCE(axle_id,$4::uuid),
+		transact_weighing_id=COALESCE(transact_weighing_id,$5::uuid),
+		transact_dimension_id=COALESCE(transact_dimension_id,$6::uuid),
+		transact_cctv_id=COALESCE(transact_cctv_id,NULLIF($7,'')::uuid)
+		WHERE id=$1 AND site_id=$2`, vehicleID, siteID, anprID.String, axleID.String, weighingID.String, dimensionID.String, cctvID.String); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE public.transact_vehicle_actual SET
+		missing_sources=ARRAY_REMOVE(ARRAY[
+			CASE WHEN anpr_id IS NULL THEN 'ANPR' END,CASE WHEN axle_id IS NULL THEN 'AXLE' END,
+			CASE WHEN transact_weighing_id IS NULL THEN 'WIM' END,CASE WHEN transact_cctv_id IS NULL THEN 'CCTV' END,
+			CASE WHEN transact_dimension_id IS NULL THEN 'DIMENSION' END]::text[],NULL),
+		completeness_status=CASE WHEN anpr_id IS NOT NULL AND axle_id IS NOT NULL AND transact_weighing_id IS NOT NULL
+			AND transact_cctv_id IS NOT NULL AND transact_dimension_id IS NOT NULL THEN 'COMPLETE' ELSE 'PARTIAL' END
+		WHERE id=$1 AND site_id=$2`, vehicleID, siteID); err != nil {
+		return err
+	}
+	sources := map[string]string{"ANPR": anprID.String, "AXLE": axleID.String, "WIM": weighingID.String, "DIMENSION": dimensionID.String}
+	if cctvID.Valid {
+		sources["CCTV"] = cctvID.String
+	}
+	for sourceType, sourceID := range sources {
+		if _, err := tx.ExecContext(ctx, `UPDATE public.transact_session_source SET source_status='RECEIVED',
+			source_record_id=$4::uuid,received_at=now(),error_code=NULL,error_message=NULL,
+			metadata=metadata||'{"completed_during_verification":true}'::jsonb,updated_by=$5,updated_date=now()
+			WHERE site_id=$1 AND session_id=$2::uuid AND source_type=$3`, siteID, sessionID.String, sourceType, sourceID, actorID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func loadActualForVerification(ctx context.Context, tx *sql.Tx, siteID, vehicleID uuid.UUID) (actualVerificationValues, []byte, string, error) {

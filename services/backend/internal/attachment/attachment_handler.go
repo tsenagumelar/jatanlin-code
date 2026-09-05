@@ -43,7 +43,7 @@ type UploadResponse struct {
 	Message    string `json:"message,omitempty"`
 }
 
-// UploadImage handles image upload to MinIO
+// UploadImage handles image and video upload to MinIO.
 func (h *AttachmentHandler) UploadImage(c *fiber.Ctx) error {
 	log.Println("[ATTACHMENT] Upload request received")
 
@@ -59,21 +59,29 @@ func (h *AttachmentHandler) UploadImage(c *fiber.Ctx) error {
 
 	log.Printf("[ATTACHMENT] File received: %s, Size: %d bytes", file.Filename, file.Size)
 
-	// Validate file type (only images) - case insensitive
 	ext := strings.ToLower(filepath.Ext(file.Filename))
-	allowedExts := map[string]bool{
-		".jpg":  true,
-		".jpeg": true,
-		".png":  true,
-		".gif":  true,
-		".webp": true,
+	contentTypes := map[string]string{
+		".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+		".gif": "image/gif", ".webp": "image/webp",
+		".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
+		".m4v": "video/x-m4v", ".ogg": "video/ogg",
 	}
-
-	if !allowedExts[ext] {
+	contentType, allowed := contentTypes[ext]
+	if !allowed {
 		log.Printf("[ATTACHMENT] Invalid file type: %s", ext)
 		return c.Status(fiber.StatusBadRequest).JSON(UploadResponse{
 			Success: false,
-			Message: fmt.Sprintf("Invalid file type '%s'. Only image files are allowed (jpg, jpeg, png, gif, webp)", ext),
+			Message: fmt.Sprintf("Invalid file type '%s'. Allowed: jpg, jpeg, png, gif, webp, mp4, webm, mov, m4v, ogg", ext),
+		})
+	}
+	maxSize := int64(5 * 1024 * 1024)
+	if strings.HasPrefix(contentType, "video/") {
+		maxSize = 50 * 1024 * 1024
+	}
+	if file.Size > maxSize {
+		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(UploadResponse{
+			Success: false,
+			Message: fmt.Sprintf("File is too large. Maximum size is %d MB", maxSize/(1024*1024)),
 		})
 	}
 
@@ -92,19 +100,6 @@ func (h *AttachmentHandler) UploadImage(c *fiber.Ctx) error {
 	// Format: uuid-originalname.ext
 	uniqueID := uuid.New().String()
 	objectName := fmt.Sprintf("%s-%s", uniqueID, file.Filename)
-
-	// Determine content type based on extension
-	contentType := "application/octet-stream"
-	switch ext {
-	case ".jpg", ".jpeg":
-		contentType = "image/jpeg"
-	case ".png":
-		contentType = "image/png"
-	case ".gif":
-		contentType = "image/gif"
-	case ".webp":
-		contentType = "image/webp"
-	}
 
 	// Upload to MinIO
 	ctx := context.Background()

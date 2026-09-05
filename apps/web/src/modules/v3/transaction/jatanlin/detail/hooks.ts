@@ -46,6 +46,11 @@ function formatWeight(value?: string | number | null) {
   return `${formatNumber(Number(value) / 1000)} ton`;
 }
 
+function formatMeters(value?: string | number | null, fractionDigits = 1) {
+  const formatted = formatNumber(value, fractionDigits);
+  return formatted === "-" ? "-" : `${formatted} m`;
+}
+
 function formatDimensions(record?: V3JatanlinDetailRecord | null) {
   const length = record?.actual_length;
   const width = record?.actual_width;
@@ -163,14 +168,14 @@ function getSummaryFields(record?: V3JatanlinDetailRecord | null): V3DetailField
 function getSourceFields(record?: V3JatanlinDetailRecord | null) {
   return {
     anpr: [
-      { label: "Nomor Plat", value: record?.transact_anpr_capture?.plate_no || "-" },
+      { label: "Nomor Plat", value: record?.transact_anpr_capture?.plate_no || record?.actual_plat_no || "-" },
       { label: "Confidence", value: formatNumber(record?.transact_anpr_capture?.confidence, 2) },
       { label: "Camera ID", value: record?.transact_anpr_capture?.camera_id || "-" },
       { label: "Waktu Tangkapan", value: formatDateTime(record?.transact_anpr_capture?.captured_at) },
     ],
     axle: [
-      { label: "Nomor Plat", value: record?.transact_axle_capture?.plate_no || "-" },
-      { label: "Total Sumbu", value: String(record?.transact_axle_capture?.total_axles || "-") },
+      { label: "Nomor Plat", value: record?.transact_axle_capture?.plate_no || record?.actual_plat_no || "-" },
+      { label: "Total Sumbu", value: String(record?.transact_axle_capture?.total_axles || record?.actual_total_axle || "-") },
       { label: "Total Roda", value: String(record?.transact_axle_capture?.total_wheels || "-") },
       { label: "Tipe Kendaraan", value: record?.transact_axle_capture?.vehicle_body_type || "-" },
       {
@@ -181,15 +186,15 @@ function getSourceFields(record?: V3JatanlinDetailRecord | null) {
       },
     ],
     wim: [
-      { label: "Total Berat", value: formatWeight(record?.transact_weighing?.total_weight) },
-      { label: "Total Sumbu", value: String(record?.transact_weighing?.total_axle || "-") },
-      { label: "Aktif", value: record?.transact_weighing?.is_active ? "Ya" : "Tidak" },
+      { label: "Total Berat", value: formatWeight(record?.transact_weighing?.total_weight ?? record?.actual_weight) },
+      { label: "Total Sumbu", value: String(record?.transact_weighing?.total_axle || record?.actual_total_axle || "-") },
+      { label: "Aktif", value: record?.transact_weighing ? (record.transact_weighing.is_active ? "Ya" : "Tidak") : "-" },
       { label: "Waktu Dibuat", value: formatDateTime(record?.transact_weighing?.created_date) },
     ],
     dimension: [
-      { label: "Panjang", value: `${formatNumber(record?.transact_dimension?.length, 1)} m` },
-      { label: "Lebar", value: `${formatNumber(record?.transact_dimension?.width, 1)} m` },
-      { label: "Tinggi", value: `${formatNumber(record?.transact_dimension?.height, 1)} m` },
+      { label: "Panjang", value: formatMeters(record?.transact_dimension?.length ?? record?.actual_length) },
+      { label: "Lebar", value: formatMeters(record?.transact_dimension?.width ?? record?.actual_width) },
+      { label: "Tinggi", value: formatMeters(record?.transact_dimension?.height ?? record?.actual_height) },
       { label: "Waktu Dibuat", value: formatDateTime(record?.transact_dimension?.created_date) },
     ],
   };

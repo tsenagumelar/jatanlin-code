@@ -41,6 +41,7 @@ const PROCESSING_QUERY = gql`
             "WEIGHING_TRIGGER_URL"
             "SITE_LATITUDE"
             "SITE_LONGITUDE"
+            "PROCESSING_WAIT_SECONDS"
           ]
         }
       }
@@ -291,7 +292,7 @@ const DEFAULT_DEVICE_CONFIG: Record<string, string> = {
   WIM_IP: "10.0.43.10:65002",
 };
 
-const PROCESSING_WAIT_SECONDS = 130;
+const DEFAULT_PROCESSING_WAIT_SECONDS = 120;
 
 type ProcessingSessionQueryData = {
   anpr?: Array<Record<string, unknown>>;
@@ -390,6 +391,11 @@ function configMap(rows: ProcessingQueryData["system_runtime_config"] = []) {
     },
     { ...DEFAULT_DEVICE_CONFIG },
   );
+}
+
+function positiveIntegerConfig(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
 function withDefaultPort(value?: string | null, defaultPort = "80") {
@@ -526,7 +532,10 @@ type OrchestratorSession = {
   started_at: string;
 };
 
-async function orchestratorRequest<T>(path: string, init?: RequestInit): Promise<T> {
+async function orchestratorRequest<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
   const response = await fetch(`${apiUrl}${path}`, {
     ...init,
@@ -538,7 +547,9 @@ async function orchestratorRequest<T>(path: string, init?: RequestInit): Promise
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload?.success) {
-    throw new Error(payload?.message || "Transaction orchestrator request failed");
+    throw new Error(
+      payload?.message || "Transaction orchestrator request failed",
+    );
   }
   return payload.data as T;
 }
@@ -634,7 +645,7 @@ export function useV3Processing() {
   const [isStarted, setIsStarted] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
   const [timeoutRemaining, setTimeoutRemaining] = useState(
-    PROCESSING_WAIT_SECONDS,
+    DEFAULT_PROCESSING_WAIT_SECONDS,
   );
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoSources, setDemoSources] = useState({
@@ -667,6 +678,10 @@ export function useV3Processing() {
   const configs = useMemo(
     () => configMap(data?.system_runtime_config),
     [data?.system_runtime_config],
+  );
+  const processingWaitSeconds = positiveIntegerConfig(
+    configs.PROCESSING_WAIT_SECONDS,
+    DEFAULT_PROCESSING_WAIT_SECONDS,
   );
 
   useEffect(() => {
@@ -761,6 +776,13 @@ export function useV3Processing() {
     (isFinalized ||
       !!vehicleActualId ||
       processingContext.sessionStatus === "COMPLETED");
+
+  useEffect(() => {
+    if (!isProcessingStarted) {
+      setTimeoutRemaining(processingWaitSeconds);
+    }
+  }, [isProcessingStarted, processingWaitSeconds]);
+
   const shouldListenSession = isProcessingStarted && !!sessionId;
   const { data: sessionPollData } = useQuery<ProcessingSessionQueryData>(
     PROCESSING_SESSION_QUERY,
@@ -1151,10 +1173,10 @@ export function useV3Processing() {
   const devices: V3DeviceConnection[] = rawDevices.map((device) =>
     demoSources[deviceSource[device.key]]
       ? {
-        ...device,
-        status: "online",
-        lastSeen: device.lastSeen === "-" ? "Demo online" : device.lastSeen,
-      }
+          ...device,
+          status: "online",
+          lastSeen: device.lastSeen === "-" ? "Demo online" : device.lastSeen,
+        }
       : device,
   );
 
@@ -1255,7 +1277,8 @@ export function useV3Processing() {
     (device) => device.status === "online",
   );
   const startProcessing = async () => {
-    if (isProcessingStarted || isRequestingLocation || isStartingSession) return;
+    if (isProcessingStarted || isRequestingLocation || isStartingSession)
+      return;
     if (!isDemoMode && !allConnectionsOnline) {
       setActionError(
         "Semua perangkat harus terkoneksi sebelum memulai dalam mode real.",
@@ -1288,8 +1311,7 @@ export function useV3Processing() {
               AXLE: isDemoMode && demoSources.AXLE ? "DUMMY" : "REAL",
               WIM: isDemoMode && demoSources.WIM ? "DUMMY" : "REAL",
               CCTV: isDemoMode && demoSources.CCTV ? "DUMMY" : "REAL",
-              DIMENSION:
-                isDemoMode && demoSources.DIMENSION ? "DUMMY" : "REAL",
+              DIMENSION: isDemoMode && demoSources.DIMENSION ? "DUMMY" : "REAL",
             },
           }),
         },
@@ -1297,7 +1319,7 @@ export function useV3Processing() {
 
       setIsStarted(true);
       setIsFinalized(false);
-      setTimeoutRemaining(PROCESSING_WAIT_SECONDS);
+      setTimeoutRemaining(processingWaitSeconds);
       setSessionId(activeSession.id);
       setVehicleActualId(null);
       setSessionStatus("IN_PROGRESS");
@@ -1325,7 +1347,12 @@ export function useV3Processing() {
     }
   };
   const finalizeProcessing = useCallback(async () => {
-    if (!sessionId || isFinalized || vehicleActualId || finalizingSessionRef.current)
+    if (
+      !sessionId ||
+      isFinalized ||
+      vehicleActualId ||
+      finalizingSessionRef.current
+    )
       return;
     finalizingSessionRef.current = true;
     setIsFinalizingSession(true);
@@ -1346,7 +1373,9 @@ export function useV3Processing() {
       setIsFinalized(true);
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : "Failed to finalize processing session",
+        err instanceof Error
+          ? err.message
+          : "Failed to finalize processing session",
       );
     } finally {
       finalizingSessionRef.current = false;
@@ -1374,7 +1403,7 @@ export function useV3Processing() {
       const elapsedSeconds = Number.isFinite(startedAtMs)
         ? Math.floor((Date.now() - startedAtMs) / 1000)
         : 0;
-      const remaining = Math.max(0, PROCESSING_WAIT_SECONDS - elapsedSeconds);
+      const remaining = Math.max(0, processingWaitSeconds - elapsedSeconds);
       setTimeoutRemaining(remaining);
 
       if (remaining === 0) {
@@ -1396,6 +1425,7 @@ export function useV3Processing() {
     finalizeProcessing,
     isFinalized,
     isProcessingStarted,
+    processingWaitSeconds,
     sessionId,
     sessionStartTime,
     vehicleActualId,
@@ -1431,7 +1461,7 @@ export function useV3Processing() {
     resetProcessing();
     setIsStarted(false);
     setIsFinalized(false);
-    setTimeoutRemaining(PROCESSING_WAIT_SECONDS);
+    setTimeoutRemaining(processingWaitSeconds);
     setLastManualCheck(null);
     setProcessingLocation(null);
   };
@@ -1474,9 +1504,9 @@ export function useV3Processing() {
     toggleSourceDemoMode: (source: keyof typeof demoSources) => {
       if (!isDemoMode) return;
       setDemoSources((current) => ({
-          ...current,
-          [source]: !current[source],
-        }));
+        ...current,
+        [source]: !current[source],
+      }));
     },
     checkConnection,
     anprImage: getImageFromMinio(liveAnpr),
