@@ -326,6 +326,10 @@ Definition of done:
 - [x] Queue consumer mempunyai log startup failure, backoff, dan batas retry/terminal handling.
 - [x] Simpan `device_id`, source mode, error, dan waktu penerimaan.
 - [x] Pastikan kegagalan satu source tidak menghentikan source lain.
+- [ ] Terapkan batas inklusif `session.started_at <= FrameTime <= session.started_at + SESSION_WINDOW_SECONDS` pada ingest FTP ANPR dan AXLE.
+- [ ] Putuskan aturan ANPR: data terbaru, confidence tertinggi, atau confidence tertinggi dengan timestamp terbaru sebagai tie-breaker.
+- [ ] Pertahankan aturan AXLE memilih satu data dengan `FrameTime` paling baru di dalam window.
+- [ ] Tandai selesai atau pindahkan seluruh kandidat FTP dalam window agar kandidat yang tidak terpilih tidak diproses ulang pada polling berikutnya.
 
 Catatan implementasi Phase 4:
 

@@ -64,6 +64,7 @@ services:
       SITE_NAME: ${SITE_NAME:-Mampang Revamp Local}
       SITE_LOCATION: ${SITE_LOCATION:-Central Office}
       SITE_REGION: ${SITE_REGION:-Default}
+      SESSION_WINDOW_SECONDS: ${SESSION_WINDOW_SECONDS:-120}
       NATS_URL: nats://nats:4222
       ANPR_FTP_HOST: ${DOCKER_ANPR_FTP_HOST:-ftp-local:21}
       ANPR_FTP_USER: ${FTP_USER:-ftpuser}

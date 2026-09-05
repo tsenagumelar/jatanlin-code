@@ -224,7 +224,7 @@ func Load() (*Config, error) {
 		CameraRefDistance:    getEnvFloat("CAMERA_REF_DISTANCE", 25.0),
 
 		// WIM Session Configuration
-		SessionWindowSeconds: getEnvInt("SESSION_WINDOW_SECONDS", 60),
+		SessionWindowSeconds: getEnvInt("SESSION_WINDOW_SECONDS", 120),
 
 		// NATS
 		NATSURL: getEnv("NATS_URL", "nats://localhost:14222"),

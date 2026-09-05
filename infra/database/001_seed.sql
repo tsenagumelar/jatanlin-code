@@ -121,7 +121,7 @@ VALUES
   ('MCF-SITE-CODE', 'SITE', 'DEFAULT_SITE_CODE', :'site_code', 'Default local site code', 10, true, false),
   ('MCF-SITE-NAME', 'SITE', 'DEFAULT_SITE_NAME', :'site_name', 'Default local site name', 20, true, false),
   ('MCF-DEFAULT-LANE', 'OPERATION', 'DEFAULT_LANE', 'LANE-01', 'Default operational lane', 30, true, false),
-  ('MCF-SESSION-WINDOW', 'OPERATION', 'SESSION_WINDOW_SECONDS', '600', 'Default WIM session matching window', 40, true, false),
+  ('MCF-SESSION-WINDOW', 'OPERATION', 'SESSION_WINDOW_SECONDS', '120', 'Default WIM session matching window', 40, true, false),
   ('MCF-DEVICE-TIMEOUT', 'DEVICE', 'DEVICE_CHECK_TIMEOUT_MS', '3000', 'Default device healthcheck timeout', 50, true, false),
   ('MCF-ANPR-BUCKET', 'STORAGE', 'ANPR_BUCKET', 'anpr', 'Default ANPR object storage bucket', 60, true, false),
   ('MCF-AXLE-BUCKET', 'STORAGE', 'AXLE_BUCKET', 'axle', 'Default AXLE object storage bucket', 70, true, false),

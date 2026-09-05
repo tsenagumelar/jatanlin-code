@@ -14,7 +14,7 @@ VALUES
   ('DIMENSION','DIMENSION_INSTALL_TOLERANCE_TILT_PCT','2','number','Toleransi Sudut Kamera (%)','Penurunan akurasi yang diizinkan akibat perubahan sudut kamera.',false,true,878,true,false),
   ('DIMENSION','DIMENSION_INSTALL_TOLERANCE_HEIGHT_PCT','10','number','Toleransi Tinggi Kamera (%)','Penurunan akurasi yang diizinkan akibat perubahan tinggi pemasangan kamera.',false,true,879,true,false),
   ('CALIBRATION','CAMERA_REF_DISTANCE','25','number','Jarak Referensi Kamera (m)','Jarak kamera ke titik referensi pada saat kalibrasi.',false,true,941,true,false),
-  ('OPERATION','SESSION_WINDOW_SECONDS','60','number','Jendela Sesi (detik)','Batas waktu penggabungan data dari perangkat ke transaksi yang sama.',false,true,1010,true,false),
+  ('OPERATION','SESSION_WINDOW_SECONDS','120','number','Jendela Sesi (detik)','Batas waktu penggabungan data dari perangkat ke transaksi yang sama.',false,true,1010,true,false),
   ('OPERATION','PROCESSING_WAIT_SECONDS','120','number','Waktu Tunggu Kelengkapan (detik)','Batas waktu halaman processing menunggu data perangkat lengkap sebelum transaksi difinalisasi otomatis.',false,true,1020,true,false)
 ON CONFLICT (config_group, config_key) DO UPDATE SET
   label=EXCLUDED.label,
