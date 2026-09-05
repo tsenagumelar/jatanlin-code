@@ -117,17 +117,20 @@ type attachmentCompleteRecord struct {
 }
 
 type syncAgent struct {
-	db              *sql.DB
-	httpClient      *http.Client
-	siteID          string
-	siteCode        string
-	siteName        string
-	siteRegion      string
-	cfg             syncConfig
-	state           cursorState
-	sourceMinIO     map[string]*minio.Client
-	dataCenterMinIO *minio.Client
+	db               *sql.DB
+	httpClient       *http.Client
+	siteID           string
+	siteCode         string
+	siteName         string
+	siteRegion       string
+	cfg              syncConfig
+	state            cursorState
+	sourceMinIO      map[string]*minio.Client
+	attachmentBucket string
+	dataCenterMinIO  *minio.Client
 }
+
+const attachmentCursorKey = "attachment:minio:v2"
 
 func main() {
 	log.Println("========================================")
@@ -268,16 +271,16 @@ func (a *syncAgent) runOnce(ctx context.Context) {
 	}
 
 	if a.cfg.AttachmentSyncEnabled {
-		a.markAttempt("attachment:minio")
+		a.markAttempt(attachmentCursorKey)
 		for {
 			hasMore, err := a.syncAttachmentBatch(ctx)
 			if err != nil {
 				log.Printf("[SYNC] Attachment sync failed: %v", err)
-				a.markFailure("attachment:minio", err)
+				a.markFailure(attachmentCursorKey, err)
 				break
 			}
 			if !hasMore {
-				a.markSuccess("attachment:minio")
+				a.markSuccess(attachmentCursorKey)
 				break
 			}
 		}
@@ -565,6 +568,7 @@ func (a *syncAgent) fetchGlobalRowsWindow(ctx context.Context, table mirrorTable
 
 func (a *syncAgent) configureMinIO(cfg *config.Config) error {
 	a.sourceMinIO = map[string]*minio.Client{}
+	a.attachmentBucket = strings.TrimSpace(cfg.AttachmentMinIOBucket)
 
 	sources := []minioSourceConfig{
 		{
@@ -626,7 +630,7 @@ func newMinIOClient(endpoint, accessKey, secretKey string, useSSL bool) (*minio.
 }
 
 func (a *syncAgent) syncAttachmentBatch(ctx context.Context) (bool, error) {
-	cursorValue := a.cursor("attachment:minio")
+	cursorValue := a.cursor(attachmentCursorKey)
 	candidates, maxCursor, advanceCursor, err := a.fetchAttachmentCandidates(ctx, cursorValue)
 	if err != nil {
 		return false, err
@@ -673,14 +677,14 @@ func (a *syncAgent) syncAttachmentBatch(ctx context.Context) (bool, error) {
 
 	advanceCursor = canAdvanceAttachmentCursor(advanceCursor, skipped)
 	if advanceCursor {
-		a.state.Tables["attachment:minio"] = maxCursor
+		a.state.Tables[attachmentCursorKey] = maxCursor
 		if err := a.saveCursorState(); err != nil {
 			return false, err
 		}
 	}
 
 	if advanceCursor {
-		log.Printf("[SYNC] attachments synced %d object(s), skipped %d object(s), cursor=%s", len(records), skipped, a.state.Tables["attachment:minio"])
+		log.Printf("[SYNC] attachments synced %d object(s), skipped %d object(s), cursor=%s", len(records), skipped, a.state.Tables[attachmentCursorKey])
 	} else {
 		log.Printf("[SYNC] attachments replayed %d object(s), skipped %d object(s), cursor=%s", len(records), skipped, cursorValue)
 	}
@@ -779,6 +783,37 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 			WHERE t.site_id = $1
 			  AND t.is_deleted IS NOT TRUE
 			  AND NULLIF(btrim(attachment.object_key), '') IS NOT NULL
+
+			UNION ALL
+
+			SELECT
+				'transact_cctv'::text AS source_table,
+				t.id::text AS source_id,
+				'cctv_video'::text AS attachment_type,
+				$6::text AS source_bucket,
+				substring(t.filepath FROM length($6::text) + 2) AS source_object_key,
+				CASE lower(right(t.filepath, 4))
+					WHEN '.mkv' THEN 'video/x-matroska'
+					WHEN 'webm' THEN 'video/webm'
+					WHEN '.mov' THEN 'video/quicktime'
+					ELSE 'video/mp4'
+				END AS mime_type,
+				t.created_date AS source_created_at,
+				t.updated_date AS source_updated_at,
+				COALESCE(t.updated_date, t.created_date, now()) AS cursor_at,
+				concat_ws(':', 'transact_cctv', t.id::text, 'cctv_video') AS cursor_id,
+				jsonb_build_object(
+					'source_table', 'transact_cctv',
+					'source_id', t.id,
+					'source_object_key', substring(t.filepath FROM length($6::text) + 2),
+					'filename', t.filename,
+					'session_id', t.session_id
+				) AS raw_payload
+			FROM public.transact_cctv t
+			WHERE t.site_id = $1
+			  AND t.is_deleted IS NOT TRUE
+			  AND NULLIF(btrim(t.filepath), '') IS NOT NULL
+			  AND t.filepath LIKE $6::text || '/%'
 		)
 		SELECT
 			source_table,
@@ -799,7 +834,7 @@ func (a *syncAgent) fetchAttachmentCandidatesWindow(ctx context.Context, lowerCu
 		LIMIT $4
 	`
 
-	rows, err := a.db.QueryContext(ctx, query, a.siteID, parsed.Time, parsed.ID, a.cfg.BatchSize, upperCursor)
+	rows, err := a.db.QueryContext(ctx, query, a.siteID, parsed.Time, parsed.ID, a.cfg.BatchSize, upperCursor, a.attachmentBucket)
 	if err != nil {
 		return nil, "", err
 	}

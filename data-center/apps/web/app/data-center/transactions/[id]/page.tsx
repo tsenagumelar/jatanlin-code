@@ -146,6 +146,21 @@ function valueFrom(record: RawRecord, key: string) {
   return String(value);
 }
 
+function dimensionLength(detail: TransactionDetail) {
+  const measuredLength = detail.raw.dimension?.length;
+  if (measuredLength !== null && measuredLength !== undefined && measuredLength !== "") {
+    return String(measuredLength);
+  }
+
+  const actualLength = detail.raw.vehicle_actual?.actual_length;
+  if (actualLength !== null && actualLength !== undefined && actualLength !== "") {
+    return String(actualLength);
+  }
+
+  const axleLengthMM = Number(detail.raw.axle?.length_mm);
+  return Number.isFinite(axleLengthMM) ? String(axleLengthMM / 1000) : "-";
+}
+
 function statusLabel(status?: string | null) {
   if (status === "verified") return "Terverifikasi";
   if (status === "rejected") return "Ditolak";
@@ -639,10 +654,11 @@ export default function TransactionDetailPage() {
               </div>
             </div>
 
-            <SectionCard
-              title="Lampiran"
-              subtitle="File disalin dari MinIO situs ke MinIO data-center."
-            >
+            <div className="hidden">
+              <SectionCard
+                title="Lampiran"
+                subtitle="File disalin dari MinIO situs ke MinIO data-center."
+              >
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[960px] text-sm">
                   <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
@@ -703,7 +719,8 @@ export default function TransactionDetailPage() {
                   </tbody>
                 </table>
               </div>
-            </SectionCard>
+              </SectionCard>
+            </div>
 
             <SectionCard
               title="Data Sumber"
@@ -740,7 +757,7 @@ export default function TransactionDetailPage() {
                 <SourceBlock
                   title="Dimensi"
                   fields={[
-                    { label: "Panjang", value: valueFrom(detail.raw.dimension, "length") },
+                    { label: "Panjang", value: dimensionLength(detail) },
                     { label: "Lebar", value: valueFrom(detail.raw.dimension, "width") },
                     { label: "Tinggi", value: valueFrom(detail.raw.dimension, "height") },
                     { label: "Waktu Dibuat", value: formatDateTime(valueFrom(detail.raw.dimension, "created_date")) },
