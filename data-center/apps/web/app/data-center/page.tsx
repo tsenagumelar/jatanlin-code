@@ -976,11 +976,6 @@ export default function DataCenterPage() {
                               <p className="text-lg font-black text-slate-800">
                                 {unit.code}
                               </p>
-                              {unit.status === "online" ? (
-                                <span className="rounded bg-blue-100 px-2 py-1 text-xs font-black text-blue-700">
-                                  SINI
-                                </span>
-                              ) : null}
                             </div>
                             <p className="ml-5 mt-1 text-sm font-semibold uppercase text-slate-400">
                               {unit.province}

@@ -17,10 +17,13 @@ GO_CACHE_DIR ?= $(CURDIR)/$(BACKEND_DIR)/.gocache
 
 .DEFAULT_GOAL := help
 
-.PHONY: help env-init env-force docker-up docker-bootstrap docker-build docker-down docker-ps docker-logs infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint backend-web dev dev-local
+.PHONY: help full-deployment env-init env-force docker-up docker-bootstrap docker-build docker-deploy-apps docker-down docker-ps docker-logs infra-up infra-up-local infra-bootstrap infra-bootstrap-local infra-migrate infra-seed infra-down infra-clean infra-ps infra-logs api backend-api web-install web web-build web-lint backend-web dev dev-local
 
 help:
 	@printf '%s\n' 'Jatanlin Data Center'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Full deployment:'
+	@printf '%s\n' '  make full-deployment  Initialize env, infra, database, backend, and web'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Environment:'
 	@printf '%s\n' '  make env-init         Create missing .env files from .env.example'
@@ -77,6 +80,18 @@ env-force:
 		printf 'write %s\n' "$$target"; \
 	done
 
+full-deployment:
+	@printf '%s\n' '[1/4] Menyalin environment data center dari .env.example'
+	@$(MAKE) env-force
+	@printf '%s\n' '[2/4] Menjalankan infrastructure'
+	@$(MAKE) infra-up-local
+	@printf '%s\n' '[3/4] Menjalankan migration dan seed'
+	@$(MAKE) infra-migrate infra-seed
+	@printf '%s\n' '[4/4] Membangun dan menjalankan backend serta web'
+	@$(MAKE) docker-deploy-apps
+	@$(MAKE) docker-ps
+	@printf '%s\n' 'Full deployment data center selesai.'
+
 docker-up:
 	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d --build
 
@@ -85,6 +100,9 @@ docker-bootstrap: docker-up infra-migrate infra-seed
 
 docker-build:
 	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) build
+
+docker-deploy-apps:
+	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) up -d --build --force-recreate backend web
 
 docker-down:
 	$(COMPOSE) -p $(PROJECT_NAME) --env-file $(ENV_FILE) -f $(COMPOSE_FILE) down

@@ -7,6 +7,7 @@ COMPOSE := docker compose --env-file $(ENV_FILE)
 COMPOSE_FILE := infra/compose/docker-compose.yml
 RUN_ENV := set -a; [ ! -f $(ENV_FILE) ] || . ./$(ENV_FILE); set +a;
 ENV_EXAMPLE_FILES := .env.example apps/web/.env.example services/backend/.env.example services/wb-agent/.env.example data-center/.env.example data-center/apps/web/.env.example
+SITE_ENV_EXAMPLE_FILES := .env.example apps/web/.env.example services/backend/.env.example services/wb-agent/.env.example
 INFRA_SERVICES := postgres hasura minio minio-init nats redis ftp-local edge-proxy
 DOCKER_APP_SERVICES := backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent
 
@@ -25,10 +26,14 @@ VEAM_API_URL ?= http://localhost:4000
 FTP_TARGET ?= anpr
 FTP_LIST_SERVICE = $(FTP_TARGET)-watcher
 
-.PHONY: help site-apply env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-redeploy-services docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check veam-usb-drive veam-usb-mount veam-usb-redeploy veam-usb-scan ftp-list services dev dev-full
+.PHONY: help full-deployment data-center-full-deployment site-apply env-init env-force docker-up docker-bootstrap docker-bootstrap-dev docker-config docker-build docker-deploy-apps docker-redeploy-services docker-down docker-ps docker-logs docker-restart infra-up infra-bootstrap infra-bootstrap-dev infra-migrate infra-seed infra-seed-transactions infra-seed-with-transactions infra-transactions-clear infra-down infra-restart infra-ps infra-logs infra-pull infra-clean proxy-up proxy-down proxy-restart proxy-logs proxy-test dns-hosts-print web-install web web-dev web-build web-lint backend-api anpr-watcher axle-watcher cctv-streamer sync-agent wb-agent veam-license-generate veam-license-check veam-usb-drive veam-usb-mount veam-usb-redeploy veam-usb-scan ftp-list services dev dev-full
 
 help:
 	@printf '%s\n' 'Jatanlin Revamp'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Full deployment:'
+	@printf '%s\n' '  make full-deployment SITE=1       Deploy one site completely using sites[0] from site.json'
+	@printf '%s\n' '  make data-center-full-deployment  Deploy the data center completely'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Environment targets:'
 	@printf '%s\n' '  make site-apply SITE=1 Apply selected site.json entry into runtime environment files'
@@ -101,6 +106,35 @@ help:
 site-apply:
 	./scripts/site-apply.sh
 
+full-deployment:
+	@if [ -z "$(SITE)" ]; then \
+		printf '%s\n' 'SITE wajib diisi, contoh: make full-deployment SITE=1' >&2; \
+		exit 2; \
+	fi
+	@printf '%s\n' '[1/6] Menyalin environment site dari .env.example'
+	@for example in $(SITE_ENV_EXAMPLE_FILES); do \
+		target=$$(dirname "$$example")/.env; \
+		if [ "$$example" = ".env.example" ]; then target=.env; fi; \
+		cp "$$example" "$$target"; \
+		printf 'write %s\n' "$$target"; \
+	done
+	@printf '%s\n' '[2/6] Menerapkan konfigurasi site'
+	@$(MAKE) site-apply SITE="$(SITE)"
+	@printf '%s\n' '[3/6] Menjalankan infrastructure'
+	@$(MAKE) infra-up SITE="$(SITE)"
+	@printf '%s\n' '[4/6] Menjalankan migration dan seed'
+	@$(MAKE) infra-migrate infra-seed SITE="$(SITE)"
+	@$(MAKE) docker-config SITE="$(SITE)"
+	@printf '%s\n' '[5/6] Membangun dan menjalankan services serta web'
+	@$(MAKE) docker-deploy-apps SITE="$(SITE)"
+	@printf '%s\n' '[6/6] Membuat dan memasang license site'
+	@$(MAKE) veam-license-generate SITE="$(SITE)"
+	@$(MAKE) docker-ps
+	@printf '%s\n' 'Full deployment site selesai.'
+
+data-center-full-deployment:
+	@$(MAKE) -C data-center full-deployment
+
 env-init:
 	@for example in $(ENV_EXAMPLE_FILES); do \
 		target=$$(dirname "$$example")/.env; \
@@ -137,6 +171,9 @@ docker-config: site-apply
 
 docker-build: site-apply
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) build
+
+docker-deploy-apps: site-apply
+	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d --build --force-recreate $(DOCKER_APP_SERVICES) web
 
 docker-redeploy-services:
 	$(COMPOSE) -p $(PROJECT_NAME) -f $(COMPOSE_FILE) up -d --build --force-recreate --no-deps $(DOCKER_APP_SERVICES)

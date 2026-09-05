@@ -100,6 +100,11 @@ SET config_value = :'public_key',
 WHERE config_key = 'VEAM_PUBLIC_KEY_B64';
 SQL
   printf '%s\n' "runtime_config=updated VEAM_PUBLIC_KEY_B64"
+  if docker compose --env-file "$ROOT_DIR/.env" -p "$PROJECT_NAME" -f "$COMPOSE_FILE" ps --status running backend-api | grep -q backend-api; then
+    docker compose --env-file "$ROOT_DIR/.env" -p "$PROJECT_NAME" -f "$COMPOSE_FILE" cp \
+      "$OUT" backend-api:/app/data/license.veam
+    printf '%s\n' "container_license=updated /app/data/license.veam"
+  fi
   docker compose --env-file "$ROOT_DIR/.env" -p "$PROJECT_NAME" -f "$COMPOSE_FILE" restart backend-api
   printf '%s\n' "backend_api=restarted"
 else

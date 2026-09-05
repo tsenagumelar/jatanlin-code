@@ -75,9 +75,12 @@ export default function UnitMap({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-        iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+        iconRetinaUrl:
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+        iconUrl:
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+        shadowUrl:
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
       });
 
       if (leafletMap.current) {
@@ -92,7 +95,8 @@ export default function UnitMap({
       });
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
       }).addTo(map);
 
@@ -123,20 +127,21 @@ export default function UnitMap({
             iconAnchor: [size / 2, size / 2],
           });
 
-          const officerHtml = site.officer ? `
+          const officerHtml = site.officer
+            ? `
             <div style="margin-top:8px;padding-top:6px;border-top:1px solid #e5e7eb;font-size:11px">
               <div style="color:#6b7280;margin-bottom:2px">Petugas</div>
               <div style="font-weight:700;color:#111">${site.officer.rank} ${site.officer.name}</div>
               <div style="color:#6b7280">${site.officer.badge}${site.officer.phone ? " · " + site.officer.phone : ""}</div>
             </div>
-          ` : "";
+          `
+            : "";
 
-          const marker = L.marker([site.lat, site.lng], { icon })
-            .addTo(map)
+          const marker = L.marker([site.lat, site.lng], { icon }).addTo(map)
             .bindPopup(`
               <div style="font-family:system-ui,sans-serif;min-width:190px">
                 <div style="font-weight:700;font-size:14px;color:#111;margin-bottom:2px">
-                  ${site.isCurrent ? "[SINI] " : ""}${site.name}
+                  ${site.name}
                 </div>
                 <div style="font-size:12px;color:#6b7280;margin-bottom:8px">${site.region} · <strong>${site.code}</strong></div>
                 <div style="display:flex;gap:12px;font-size:12px">
@@ -176,9 +181,7 @@ export default function UnitMap({
             iconAnchor: [5, 5],
           });
 
-          L.marker([pt.lat, pt.lng], { icon })
-            .addTo(map)
-            .bindPopup(`
+          L.marker([pt.lat, pt.lng], { icon }).addTo(map).bindPopup(`
               <div style="font-family:system-ui,sans-serif;min-width:160px">
                 <div style="font-weight:700;font-size:13px;margin-bottom:4px">${pt.plateNo}</div>
                 <div style="font-size:12px;color:#6b7280;margin-bottom:6px">${pt.siteName} · ${pt.date}</div>
@@ -195,7 +198,7 @@ export default function UnitMap({
 
         if (enforcementPoints.length > 0) {
           const allMarkers = L.featureGroup(
-            enforcementPoints.map((p) => L.marker([p.lat, p.lng]))
+            enforcementPoints.map((p) => L.marker([p.lat, p.lng])),
           );
           map.fitBounds(allMarkers.getBounds().pad(0.3));
         } else {
@@ -210,7 +213,7 @@ export default function UnitMap({
         leafletMap.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sites, mode, enforcementPoints, selectedSite]);
 
   return (
